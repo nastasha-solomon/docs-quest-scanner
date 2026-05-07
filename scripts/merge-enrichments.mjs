@@ -6,7 +6,30 @@ const queuePath = path.join(root, 'data', 'queue.json');
 const enrichPath = path.join(root, 'data', 'enrichments.json');
 
 const queue = JSON.parse(fs.readFileSync(queuePath, 'utf8'));
-const enrichments = JSON.parse(fs.readFileSync(enrichPath, 'utf8'));
+const rawEnrichments = JSON.parse(fs.readFileSync(enrichPath, 'utf8'));
+
+// Accept both flat and nested-under-"assessment" shapes. Agents drift between
+// the two and silent field drops show up as "undefined" pills in the UI.
+const enrichments = {};
+let normalizedNested = 0;
+const featureFields = new Set(['suggestedTitle']);
+const assessmentFields = new Set([
+  'needsDocs', 'confidence', 'premiseAccuracy', 'summary', 'reasoning',
+  'existingDocs', 'docsGap', 'effortTag', 'featureStatus', 'featureFlags',
+  'featureFlag', 'productIssue', 'screenshots'
+]);
+for (const [id, raw] of Object.entries(rawEnrichments)) {
+  const flat = { ...raw };
+  if (raw.assessment && typeof raw.assessment === 'object') {
+    normalizedNested++;
+    for (const [k, v] of Object.entries(raw.assessment)) {
+      if (assessmentFields.has(k) && flat[k] === undefined) flat[k] = v;
+    }
+    delete flat.assessment;
+  }
+  enrichments[id] = flat;
+}
+if (normalizedNested) console.log(`Normalized ${normalizedNested} nested enrichments.`);
 
 let applied = 0;
 let missing = [];
@@ -30,7 +53,9 @@ for (const item of queue.items) {
   else delete item.assessment.effortTag;
   if (e.featureStatus) item.assessment.featureStatus = e.featureStatus;
   else delete item.assessment.featureStatus;
-  if (e.featureFlags && e.featureFlags.length) item.assessment.featureFlags = e.featureFlags;
+  // Accept singular featureFlag string or plural featureFlags array.
+  const flags = e.featureFlags || (e.featureFlag ? [e.featureFlag] : null);
+  if (flags && flags.length) item.assessment.featureFlags = flags;
   else delete item.assessment.featureFlags;
 
   if (e.suggestedTitle) item.suggestedTitle = e.suggestedTitle;
