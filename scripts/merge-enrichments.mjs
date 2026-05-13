@@ -42,17 +42,19 @@ for (const item of queue.items) {
   }
 
   item.assessment = item.assessment || {};
-  item.assessment.needsDocs = e.needsDocs;
-  item.assessment.confidence = e.confidence;
-  item.assessment.premiseAccuracy = e.premiseAccuracy;
-  item.assessment.summary = e.summary;
-  item.assessment.reasoning = e.reasoning;
-  item.assessment.existingDocs = e.existingDocs || [];
-  item.assessment.docsGap = e.docsGap || [];
+  // Only overwrite a field when the enrichment explicitly provides it.
+  // Title-only or partial enrichments must not wipe existing values with undefined.
+  if (e.needsDocs !== undefined) item.assessment.needsDocs = e.needsDocs;
+  if (e.confidence !== undefined) item.assessment.confidence = e.confidence;
+  if (e.premiseAccuracy !== undefined) item.assessment.premiseAccuracy = e.premiseAccuracy;
+  if (e.summary !== undefined) item.assessment.summary = e.summary;
+  if (e.reasoning !== undefined) item.assessment.reasoning = e.reasoning;
+  if (e.existingDocs !== undefined) item.assessment.existingDocs = e.existingDocs || [];
+  if (e.docsGap !== undefined) item.assessment.docsGap = e.docsGap || [];
   if (e.effortTag) item.assessment.effortTag = e.effortTag;
-  else delete item.assessment.effortTag;
+  else if (e.effortTag === null) delete item.assessment.effortTag;
   if (e.featureStatus) item.assessment.featureStatus = e.featureStatus;
-  else delete item.assessment.featureStatus;
+  else if (e.featureStatus === null) delete item.assessment.featureStatus;
   // Accept singular featureFlag string or plural featureFlags array.
   const flags = e.featureFlags || (e.featureFlag ? [e.featureFlag] : null);
   if (flags && flags.length) item.assessment.featureFlags = flags;
