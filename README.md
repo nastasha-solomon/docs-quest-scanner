@@ -7,9 +7,10 @@ Built for use with [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 ## What it does
 
 1. **Scans** merged PRs from a configured repo, filtered by team labels and release note labels
-2. **Enriches** each PR with AI-powered analysis: summary, docs gap detection, effort estimate, existing page comparison
-3. **Presents** a review UI where you triage items: accept (create issue) or skip
-4. **Creates** GitHub issues with structured bodies, adds them to meta tracking issues, and sets GitHub Project board fields automatically
+2. **Checks** whether each PR is already tracked by an existing docs issue (via GitHub cross-reference events — no extra API calls)
+3. **Enriches** each PR with AI-powered analysis: summary, docs gap detection, effort estimate, existing page comparison
+4. **Presents** a review UI where you triage items: accept (create issue) or skip — already-tracked PRs are clearly flagged
+5. **Creates** GitHub issues with structured bodies, optionally adds them to a meta tracking issue, and sets GitHub Project board fields automatically
 
 ## Quick start
 
@@ -61,6 +62,7 @@ Edit `data/config.json` after setup. Key settings:
 | `categories` | Team labels to monitor, grouped by doc area | See below |
 | `releaseNoteLabels` | PR labels that qualify for triage | `["release_note:feature", ...]` |
 | `issueLabels` | Labels added to created issues | `["Team:Docs"]` |
+| `metaIssue` | Meta tracking issue integration | See below |
 | `project` | GitHub Project board integration | See below |
 
 ### Categories
@@ -84,6 +86,26 @@ Each category groups one or more team labels under a doc area name:
 ```
 
 The optional `metaIssueHeading` is used when the meta tracking issue uses a different heading than the category name.
+
+### Meta issue integration
+
+When you accept a quest, the tool can automatically add a link to the created issue inside a release checklist issue in your target repo. Configure this with the `metaIssue` key:
+
+```json
+{
+  "metaIssue": {
+    "enabled": true,
+    "titlePattern": "My Project {version} release checklist"
+  }
+}
+```
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `enabled` | Whether to look for and update a meta issue | `true` |
+| `titlePattern` | Title search pattern. Use `{version}` as a placeholder for the major.minor version (e.g., `"9.5"`). | `"Kibana {version}"` |
+
+Omit `metaIssue` entirely to use the defaults. Set `enabled: false` to disable the feature completely. You can also configure this in the Settings dialog of the review UI without editing JSON.
 
 ### GitHub Project integration
 
@@ -136,12 +158,14 @@ The skill will:
 yarn scan          # Scan only (no AI enrichment)
 yarn dev           # Start the review UI
 yarn start         # Start the UI (no file watching)
+yarn deploy        # Sync repo changes to the skill install (~/.claude/skills/docs-quest-scanner)
 ```
 
 ## How the review UI works
 
 - **Queue tab**: Cards for each PR needing triage, with AI summary, availability info, and a suggested issue
-- **Accept quest**: Creates the issue, adds it to the meta tracking issue, sets project fields
+- **Already tracked badge**: If the scan detected an existing docs issue that references a PR (via GitHub cross-reference events), the card shows a green "Already tracked" badge and links to the issue — so you can skip without wasting time re-reading the PR
+- **Accept quest**: Creates the issue, optionally adds it to the meta tracking issue, sets project fields
 - **Skip**: Marks the item as not needing docs (with reason)
 - **Mark scan complete**: Advances the scan timestamp so the next run only picks up new PRs
 
