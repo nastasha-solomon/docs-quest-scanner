@@ -28,13 +28,15 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
   // Collect all known PR numbers from history (created or dismissed)
   const knownPRs = new Set(history.entries.flatMap((e) => e.prNumbers));
 
-  // Preserve user edits from existing queue items
+  // Preserve user edits and enrichment data from existing queue items.
+  // The assessment (docsGap, summaries, etc.) is expensive to re-generate —
+  // restoring it lets the SKILL.md enrichment guard skip already-enriched items.
   const existingEdits = new Map<string, QueueItem['userEdits']>();
+  const existingAssessments = new Map<string, QueueItem['assessment']>();
   for (const item of existingQueue.items) {
-    if (item.userEdits) {
-      const key = item.prs.map((p) => p.number).sort().join(',');
-      existingEdits.set(key, item.userEdits);
-    }
+    const key = item.prs.map((p) => p.number).sort().join(',');
+    if (item.userEdits) existingEdits.set(key, item.userEdits);
+    if (item.assessment?.docsGap?.length) existingAssessments.set(key, item.assessment);
   }
 
   // Fetch PRs per category
@@ -92,10 +94,14 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
     for (const group of groups) {
       const item = buildQueueItem(group, category.name, config);
 
-      // Restore user edits if this group was seen before
+      // Restore user edits and prior enrichment if this group was seen before
       const key = group.map((p) => p.number).sort().join(',');
-      if (existingEdits.has(key)) {
-        item.userEdits = existingEdits.get(key);
+      if (existingEdits.has(key)) item.userEdits = existingEdits.get(key);
+      if (existingAssessments.has(key)) {
+        // Restore the full enriched assessment — this prevents Claude from re-enriching
+        // items that were already analyzed in a prior run (the SKILL.md guard checks
+        // for a populated docsGap to decide whether enrichment is needed).
+        item.assessment = existingAssessments.get(key)!;
       }
 
       allItems.push(item);
