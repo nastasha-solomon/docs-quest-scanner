@@ -54,7 +54,9 @@ The scanner automatically:
 
 ### Step 2: Enrich with deep AI assessment
 
-After the scan, read `data/queue.json` and for each item, perform deep enrichment. **Use parallel Agent calls** to process items in batches of 6-8 for efficiency. Each batch agent should:
+After the scan, read `data/queue.json` and identify which items still need enrichment. **Skip items that already have a populated `docsGap` array** (i.e., `assessment.docsGap` exists and is non-empty) — those were enriched in a prior run and should not be overwritten unless the user explicitly asks to re-enrich (e.g., "re-enrich item X" or "re-analyze all"). Only enrich items where `docsGap` is missing or empty.
+
+For the items that do need enrichment, **use parallel Agent calls** to process them in batches of 6-8 for efficiency. Each batch agent should:
 
 #### 2a. Understand the change and verify the premise
 
