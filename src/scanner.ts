@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { loadConfig, loadHistory, loadLastRun, loadQueue, saveQueue } from './config.js';
-import { searchMergedPRs, getPRFiles } from './github.js';
+import { searchMergedPRs, getPRFiles, findCrossReferencedIssues } from './github.js';
 import type { Config, PullRequest, QueueItem, Queue, Assessment } from './types.js';
 
 /** Default lookback if no last run exists: 14 days */
@@ -105,6 +105,47 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
   // Deduplicate items across categories: if the same PR(s) appear in multiple
   // categories, keep only the first occurrence and note the others in alsoAppliesTo
   const deduped = deduplicateAcrossCategories(allItems);
+
+  // Check whether each new item is already tracked by an existing docs issue.
+  // Reads cross-reference events from each PR's own timeline — GitHub records these
+  // automatically when a docs-content issue mentions the PR. One REST call per PR,
+  // no search API rate limit consumed.
+  if (deduped.length > 0) {
+    console.log(`  Checking for existing docs issues via cross-references...`);
+    const targetRepos = [
+      `${config.targetRepo.owner}/${config.targetRepo.repo}`,
+      `${config.targetRepo.owner}/docs-content-internal`,
+    ];
+    await Promise.all(
+      deduped.map(async (item) => {
+        try {
+          const allTracked = new Map<number, import('./types.js').TrackedIssue>();
+          await Promise.all(
+            item.prs.map(async (pr) => {
+              const refs = await findCrossReferencedIssues(
+                config.sourceRepo.owner,
+                config.sourceRepo.repo,
+                pr.number,
+                targetRepos
+              );
+              for (const ref of refs) {
+                if (!allTracked.has(ref.number)) allTracked.set(ref.number, ref);
+              }
+            })
+          );
+          if (allTracked.size > 0) {
+            item.assessment.trackedIn = [...allTracked.values()];
+          }
+        } catch {
+          // Non-critical
+        }
+      })
+    );
+    const trackedCount = deduped.filter((i) => i.assessment.trackedIn?.length).length;
+    if (trackedCount > 0) {
+      console.log(`  Found ${trackedCount} item${trackedCount !== 1 ? 's' : ''} already tracked in docs issues.`);
+    }
+  }
 
   const queue: Queue = {
     scannedAt: new Date().toISOString(),

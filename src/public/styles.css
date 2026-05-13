@@ -1629,6 +1629,42 @@ dialog::backdrop {
   margin-bottom: 16px;
 }
 
+/* ── Tracked issues ──────────────────────────────────── */
+
+.tracked-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #d4f5e2;
+  color: #166b34;
+  white-space: nowrap;
+}
+
+.tracked-issues-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tracked-issue-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #0969da;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.tracked-issue-link:hover {
+  text-decoration: underline;
+}
+
+.tracked-issue-link .octicon {
+  flex-shrink: 0;
+  color: #57ab5a;
+}
+
 /* ── Responsive ───────────────────────────────────────── */
 
 @media (max-width: 768px) {

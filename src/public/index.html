@@ -144,6 +144,18 @@
             <input class="form-control input-sm width-full" id="cfg-issue-labels" placeholder="Team:Experience" />
           </div>
           <div class="form-group mb-3">
+            <label class="form-group-header">Meta issue</label>
+            <div class="d-flex flex-items-center mb-2">
+              <input type="checkbox" id="cfg-meta-issue-enabled" class="mr-2" />
+              <label for="cfg-meta-issue-enabled" class="text-small">Link created issues to a release checklist meta issue</label>
+            </div>
+            <div id="cfg-meta-issue-options">
+              <input class="form-control input-sm width-full" id="cfg-meta-issue-pattern"
+                placeholder="Kibana {version}" />
+              <p class="note mt-1">Title pattern used to find the meta issue. Use <code>{version}</code> as a placeholder (e.g., "9.5"). Leave blank to use the default: <code>Kibana {version}</code>.</p>
+            </div>
+          </div>
+          <div class="form-group mb-3">
             <label class="form-group-header">Categories</label>
             <div id="cfg-categories"></div>
             <button type="button" class="btn btn-sm mt-2" id="btn-add-category">+ Add category</button>

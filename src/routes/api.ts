@@ -186,10 +186,12 @@ apiRouter.post('/create-issue', async (req, res) => {
       );
     }
 
-    // Try to add to the meta issue for this item's version
-    if (item.version && item.version !== 'unknown') {
+    // Try to add to the meta issue for this item's version.
+    // Skipped entirely if metaIssue.enabled is explicitly false.
+    const metaConfig = config.metaIssue;
+    if (metaConfig?.enabled !== false && item.version && item.version !== 'unknown') {
       try {
-        const meta = await findMetaIssue(owner, repo, item.version);
+        const meta = await findMetaIssue(owner, repo, item.version, metaConfig?.titlePattern);
         if (meta) {
           const cat = config.categories.find((c) => c.name === item.category);
           const heading = cat?.metaIssueHeading ?? item.category;
@@ -202,7 +204,7 @@ apiRouter.post('/create-issue', async (req, res) => {
             await addToMetaIssue(owner, repo, meta.number, alsoHeading, issue.url);
           }
         } else {
-          console.warn(`No meta issue found for version ${item.version}`);
+          console.warn(`No meta issue found for version ${item.version} (pattern: "${metaConfig?.titlePattern ?? 'Kibana {version}'}")`);
         }
       } catch (err) {
         console.warn(`Failed to update meta issue for ${item.version}:`, err);

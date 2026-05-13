@@ -1,5 +1,5 @@
 import { Octokit } from '@octokit/rest';
-import type { Config, PullRequest } from './types.js';
+import type { Config, PullRequest, TrackedIssue } from './types.js';
 
 let octokit: Octokit | null = null;
 
@@ -165,13 +165,17 @@ export async function createIssue(
 }
 
 /**
- * Auto-detect the meta issue for a given Kibana version.
- * Searches for issues with title matching "Kibana X.Y Analytics and Platform checklist".
+ * Auto-detect the meta issue for a given version in the target repo.
+ *
+ * @param titlePattern - Title search pattern with `{version}` placeholder.
+ *   Defaults to `"Kibana {version}"`. The placeholder is replaced with
+ *   the major.minor extracted from `versionLabel` (e.g., "v9.5.0" → "9.5").
  */
 export async function findMetaIssue(
   owner: string,
   repo: string,
-  versionLabel: string
+  versionLabel: string,
+  titlePattern?: string
 ): Promise<{ number: number; title: string; body: string } | null> {
   const ok = getOctokit();
 
@@ -180,7 +184,10 @@ export async function findMetaIssue(
   if (!versionMatch) return null;
   const version = versionMatch[1];
 
-  const query = `repo:${owner}/${repo} is:issue is:open "Kibana ${version}" in:title`;
+  const pattern = titlePattern ?? 'Kibana {version}';
+  const searchTitle = pattern.replace('{version}', version);
+
+  const query = `repo:${owner}/${repo} is:issue is:open "${searchTitle}" in:title`;
   const { data } = await ok.search.issuesAndPullRequests({
     q: query,
     per_page: 5,
@@ -248,7 +255,7 @@ export async function addToMetaIssue(
 
     // Find end of existing list items in the section
     const lines = updatedSection.trimEnd().split('\n');
-    const lastListIdx = lines.findLastIndex((l) => l.trim().startsWith('- '));
+    const lastListIdx = lines.reduceRight((found, l, i) => found === -1 && l.trim().startsWith('- ') ? i : found, -1);
 
     if (lastListIdx >= 0) {
       // Insert after last list item
@@ -274,6 +281,59 @@ export async function addToMetaIssue(
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Fetch cross-reference events from a PR's timeline and return any issues
+ * that reference it from one of the target repos (e.g., elastic/docs-content).
+ *
+ * GitHub automatically records a `cross-referenced` event on a PR whenever
+ * another issue or PR mentions it — so this is more accurate than a text search
+ * and doesn't touch the search API rate limit.
+ */
+export async function findCrossReferencedIssues(
+  sourceOwner: string,
+  sourceRepo: string,
+  prNumber: number,
+  targetRepos: string[]   // e.g. ["elastic/docs-content", "elastic/docs-content-internal"]
+): Promise<TrackedIssue[]> {
+  const ok = getOctokit();
+  const found = new Map<number, TrackedIssue>();
+  const targetSet = new Set(targetRepos.map((r) => r.toLowerCase()));
+
+  try {
+    const { data: events } = await ok.issues.listEventsForTimeline({
+      owner: sourceOwner,
+      repo: sourceRepo,
+      issue_number: prNumber,
+      per_page: 100,
+    });
+
+    for (const event of events) {
+      if (event.event !== 'cross-referenced') continue;
+
+      const src = (event as any).source;
+      const issue = src?.issue;
+      if (!issue) continue;
+
+      const repoFullName: string = issue.repository?.full_name ?? '';
+      if (!targetSet.has(repoFullName.toLowerCase())) continue;
+
+      if (issue.pull_request) continue;
+
+      if (!found.has(issue.number)) {
+        found.set(issue.number, {
+          number: issue.number,
+          url: issue.html_url,
+          title: issue.title,
+        });
+      }
+    }
+  } catch {
+    // Non-critical
+  }
+
+  return [...found.values()];
 }
 
 // ── GitHub Projects v2 integration ──────────────────────

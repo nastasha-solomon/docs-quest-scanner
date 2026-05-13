@@ -10,6 +10,13 @@ export interface PullRequest {
   changedFiles?: string[];
 }
 
+/** An existing docs issue that already tracks this PR */
+export interface TrackedIssue {
+  number: number;
+  url: string;
+  title: string;
+}
+
 /** A specific gap found between current docs and the PR change */
 export interface DocsGapEntry {
   /** URL of the doc page analyzed */
@@ -60,6 +67,8 @@ export interface Assessment {
   premiseAccuracy?: 'accurate' | 'partially-accurate' | 'stale' | 'unsupported';
   /** Screenshot/GIF URLs extracted from PR bodies */
   screenshots?: string[];
+  /** Existing docs issues found in the target repo that already track this PR */
+  trackedIn?: TrackedIssue[];
 }
 
 /** A single item in the triage queue — one or more related PRs */
@@ -165,6 +174,28 @@ export interface Config {
    */
   maxMergeAgeMonths?: number;
   issueLabels: string[];
+  /**
+   * Meta issue configuration. A meta issue is a checklist issue in the target
+   * repo that tracks all docs issues for a given release. When enabled, newly
+   * created issues are automatically linked into the matching section.
+   *
+   * Omit this field entirely to use the defaults (enabled, "Kibana {version}").
+   * Set `enabled: false` to disable meta issue linking entirely.
+   */
+  metaIssue?: {
+    /** Whether to link created issues to a meta issue. Defaults to true. */
+    enabled?: boolean;
+    /**
+     * Title search pattern used to find the meta issue in the target repo.
+     * Use `{version}` as a placeholder for the major.minor version (e.g., "9.5").
+     * Default: "Kibana {version}"
+     *
+     * Examples:
+     *   "My Project {version} release checklist"
+     *   "Docs tracker — {version}"
+     */
+    titlePattern?: string;
+  };
   /**
    * GitHub Projects v2 integration. When set, newly created issues
    * are added to the project and fields are auto-filled.

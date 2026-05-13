@@ -49,7 +49,7 @@ export function saveConfig(config: Config): void {
 }
 
 export function loadQueue(): Queue {
-  return readJson<Queue>(paths.queue) ?? { scannedAt: '', version: '', items: [] };
+  return readJson<Queue>(paths.queue) ?? { scannedAt: '', items: [] };
 }
 
 export function saveQueue(queue: Queue): void {

@@ -389,6 +389,7 @@ function renderCard(item) {
           <span class="docs-badge ${badge}">${badgeLabel}<span class="docs-badge-conf">${confStr}</span></span>
           ${avail ? `<span class="avail-badge">${esc(avail)}</span>` : ''}
           ${effortBadge(item.assessment.effortTag)}
+          ${item.assessment.trackedIn?.length ? `<span class="tracked-badge">Already tracked</span>` : ''}
         </div>
       </div>
       <div class="triage-card-body">
@@ -427,6 +428,20 @@ function renderCardBody(item) {
           </div>
         </td>
       </tr>
+      ${item.assessment.trackedIn?.length ? `
+      <tr>
+        <td class="card-info-label">Tracked in</td>
+        <td>
+          <div class="tracked-issues-list">
+            ${item.assessment.trackedIn.map(t => `
+              <a class="tracked-issue-link" href="${esc(t.url)}" target="_blank" rel="noopener">
+                <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z"/><path fill="currentColor" d="M8 0a8 8 0 1 1 0 16A8 8 0 0 1 8 0ZM1.5 8a6.5 6.5 0 1 0 13 0 6.5 6.5 0 0 0 13 0Z"/></svg>
+                #${t.number} ${esc(t.title)}
+              </a>
+            `).join('')}
+          </div>
+        </td>
+      </tr>` : ''}
       <tr>
         <td class="card-info-label">Availability</td>
         <td>
@@ -618,6 +633,9 @@ function bindEvents() {
   });
   document.getElementById('settings-form').addEventListener('submit', saveSettings);
   document.getElementById('btn-add-category').addEventListener('click', addCategoryRow);
+  document.getElementById('cfg-meta-issue-enabled').addEventListener('change', (e) => {
+    document.getElementById('cfg-meta-issue-options').style.display = e.target.checked ? '' : 'none';
+  });
 
   // History filter
   document.getElementById('history-filter').addEventListener('change', renderHistory);
@@ -812,6 +830,11 @@ function openSettings() {
   document.getElementById('cfg-release-note-labels').value = (config.releaseNoteLabels ?? []).join(', ');
   document.getElementById('cfg-issue-labels').value = config.issueLabels.join(', ');
 
+  const metaEnabled = config.metaIssue?.enabled !== false;
+  document.getElementById('cfg-meta-issue-enabled').checked = metaEnabled;
+  document.getElementById('cfg-meta-issue-pattern').value = config.metaIssue?.titlePattern ?? '';
+  document.getElementById('cfg-meta-issue-options').style.display = metaEnabled ? '' : 'none';
+
   const catContainer = document.getElementById('cfg-categories');
   catContainer.innerHTML = '';
   for (const cat of config.categories) {
@@ -867,6 +890,10 @@ async function saveSettings(e) {
     issueLabels: document.getElementById('cfg-issue-labels').value
       .split(',').map((l) => l.trim()).filter(Boolean),
     categories,
+    metaIssue: {
+      enabled: document.getElementById('cfg-meta-issue-enabled').checked,
+      titlePattern: document.getElementById('cfg-meta-issue-pattern').value.trim() || undefined,
+    },
   };
 
   try {
