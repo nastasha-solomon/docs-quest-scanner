@@ -33,10 +33,15 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
   // restoring it lets the SKILL.md enrichment guard skip already-enriched items.
   const existingEdits = new Map<string, QueueItem['userEdits']>();
   const existingAssessments = new Map<string, QueueItem['assessment']>();
+  const existingTitles = new Map<string, string>();
   for (const item of existingQueue.items) {
     const key = item.prs.map((p) => p.number).sort().join(',');
     if (item.userEdits) existingEdits.set(key, item.userEdits);
     if (item.assessment?.docsGap?.length) existingAssessments.set(key, item.assessment);
+    // Preserve the AI-generated title — the scanner seeds suggestedTitle from the
+    // PR title on every buildQueueItem() call, which would overwrite a better title
+    // written by the enrichment agent on a prior run.
+    if (item.suggestedTitle) existingTitles.set(key, item.suggestedTitle);
   }
 
   // Fetch PRs per category
@@ -102,6 +107,11 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
         // items that were already analyzed in a prior run (the SKILL.md guard checks
         // for a populated docsGap to decide whether enrichment is needed).
         item.assessment = existingAssessments.get(key)!;
+      }
+      if (existingTitles.has(key)) {
+        // Restore the AI-generated title so the scanner's PR-title fallback doesn't
+        // overwrite a user-perspective title written by the enrichment agent.
+        item.suggestedTitle = existingTitles.get(key)!;
       }
 
       allItems.push(item);
