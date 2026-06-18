@@ -152,7 +152,7 @@ Each entry:
    - Not present → the plugin is enabled → `serverlessApplies: "yes"`.
 4. If enabled in base and `group: platform`, also scan the project overlays (`config/serverless.es.yml`, `serverless.oblt.yml`, `serverless.security.yml`) for `<configKey>.enabled: false`. Disabled in all three → `"no"`. Disabled in some → keep `"yes"` and name the exception in the note. Disabled in none → `"yes"` (all project types).
 5. For solution plugins (`group` ≠ `platform`), the feature ships only to that solution's serverless project type — `"yes"`, scoped to that project type in the note.
-6. Use `"unknown"` only when no owning plugin/manifest can be resolved (for example a change entirely in shared `packages/` with no `configPath`) **and** the surface isn't an obvious platform UI. For {{kib}} you can almost always resolve a plugin — prefer that over guessing.
+6. Avoid `"unknown"` — it's the weakest outcome and forces manual follow-up. For {{kib}} you can almost always resolve an owning plugin from the changed paths, so do that and apply steps 1–5. If a change is genuinely unresolvable (for example entirely in shared `packages/` with no `configPath`) but is still a {{kib}} runtime feature, default to `"yes"` (the common case) rather than `"unknown"`. Reserve `"unknown"` for the rare change where neither `"yes"` nor `"no"` can be defended without guessing — and say why in `reasoning`.
 
 For non-{{kib}} repos (for example {{es}}), there is no `serverless.yml` plugin gate: default to `"yes"` (serverless runs the same engine) and set `"no"` only when the PR, issue, or the setting's reference says it's stack-only (for example node- or cluster-level settings that serverless manages for you).
 
