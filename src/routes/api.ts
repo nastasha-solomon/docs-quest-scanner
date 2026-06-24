@@ -170,6 +170,13 @@ apiRouter.post('/create-issue', async (req, res) => {
         serverlessPubDate = d.toISOString().split('T')[0];
       }
 
+      // Feature: a matching PR label (featureLabelMap, in declaration order)
+      // wins over the category default, so multi-team categories route correctly.
+      const prLabels = item.prs.flatMap((pr) => pr.labels ?? []);
+      const labelFeature = Object.entries(p.featureLabelMap ?? {}).find(
+        ([label]) => prLabels.includes(label)
+      )?.[1];
+
       projectFields = await setProjectFields(
         p.org,
         p.number,
@@ -181,7 +188,7 @@ apiRouter.post('/create-issue', async (req, res) => {
           size: p.sizeMap?.[item.assessment.effortTag ?? ''] ?? undefined,
           priority: p.defaultPriority ?? undefined,
           area: p.defaultArea ?? undefined,
-          feature: p.featureMap?.[item.category] ?? undefined,
+          feature: labelFeature ?? p.featureMap?.[item.category] ?? undefined,
           serverlessPubDate,
         }
       );

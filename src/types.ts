@@ -221,5 +221,12 @@ export interface Config {
     sizeMap?: Record<string, string>;
     /** Category name → Feature field value mapping */
     featureMap?: Record<string, string>;
+    /**
+     * PR-label → Feature field value mapping. Takes precedence over
+     * featureMap when any of an item's PR labels matches — lets a single
+     * category that spans teams (e.g. "Dashboards and Visualizations")
+     * route by team label. Entry order sets priority (first match wins).
+     */
+    featureLabelMap?: Record<string, string>;
   };
 }

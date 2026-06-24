@@ -56,7 +56,11 @@
       "ES|QL in Kibana": "Kib: ES|QL",
       "Kibana navigation and UI": "Kib: Navigation",
       "Kibana security": "Kib: General",
-      "Kibana management": "Kib: General"
+      "Kibana management": "Kib: Other"
+    },
+    "featureLabelMap": {
+      "Team:Visualizations": "Kib: Visualizations",
+      "Team:Presentation": "Kib: Dashboards"
     }
   }
 }
