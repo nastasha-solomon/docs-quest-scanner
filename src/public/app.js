@@ -661,6 +661,11 @@ function bindEvents() {
   document.getElementById('cfg-meta-issue-enabled').addEventListener('change', (e) => {
     document.getElementById('cfg-meta-issue-options').style.display = e.target.checked ? '' : 'none';
   });
+  // Multi-repo editor: delegated add/remove, and keep the meta-name datalist fresh.
+  document.getElementById('cfg-multirepo').addEventListener('click', onMultiRepoEditorClick);
+  document.getElementById('cfg-multirepo').addEventListener('input', (e) => {
+    if (e.target.dataset.mr === 'meta-name') refreshMetaNameDatalist();
+  });
 
   // History filter
   document.getElementById('history-filter').addEventListener('change', renderHistory);
@@ -863,7 +868,10 @@ function openSettings() {
   document.getElementById('cfg-multirepo').style.display = isMultiRepo ? '' : 'none';
 
   if (isMultiRepo) {
+    renderMultiRepoEditor(config);
     document.getElementById('cfg-raw-json').value = JSON.stringify(config, null, 2);
+    const adv = document.getElementById('cfg-raw-advanced');
+    if (adv) adv.open = false;
     document.getElementById('settings-dialog').showModal();
     return;
   }
@@ -924,16 +932,211 @@ function addCategoryRow() {
   document.getElementById('cfg-categories').appendChild(createCategoryRow());
 }
 
+// ── Multi-repo structured settings editor ───────────────
+
+function metaIssueNames() {
+  return [...document.querySelectorAll('#cfg-mr-metaissues [data-mr="meta-name"]')]
+    .map((i) => i.value.trim())
+    .filter(Boolean);
+}
+
+function refreshMetaNameDatalist() {
+  const dl = document.getElementById('cfg-mr-metanames');
+  if (dl) dl.innerHTML = metaIssueNames().map((n) => `<option value="${esc(n)}"></option>`).join('');
+}
+
+function mrMetaRow(name = '', pattern = '') {
+  const row = document.createElement('div');
+  row.className = 'mr-meta-row';
+  row.innerHTML = `
+    <input class="form-control input-sm" data-mr="meta-name" placeholder="name (e.g. kibana)" value="${esc(name)}" />
+    <input class="form-control input-sm" data-mr="meta-pattern" placeholder="Kibana {version}" value="${esc(pattern)}" />
+    <button type="button" class="btn-octicon" data-action="remove-metaissue" aria-label="Remove">✕</button>
+  `;
+  return row;
+}
+
+function mrCatRow(cat = {}) {
+  const row = document.createElement('div');
+  row.className = 'mr-cat';
+  row.dataset.catName = cat.name ?? '';
+  row.innerHTML = `
+    <input class="form-control input-sm" data-mr="cat-name" placeholder="Category" value="${esc(cat.name ?? '')}" />
+    <input class="form-control input-sm" data-mr="cat-labels" placeholder="labels, comma-separated" value="${esc((cat.labels ?? []).join(', '))}" />
+    <input class="form-control input-sm" data-mr="cat-feature" placeholder="Feature (e.g. Kib: Discover)" value="${esc(cat.feature ?? '')}" />
+    <input class="form-control input-sm" list="cfg-mr-metanames" data-mr="cat-meta" placeholder="meta (inherit)" value="${esc(typeof cat.metaIssue === 'string' ? cat.metaIssue : '')}" />
+    <button type="button" class="btn-octicon" data-action="remove-category" aria-label="Remove">✕</button>
+  `;
+  return row;
+}
+
+function mrRepoCard(repo = {}) {
+  const card = document.createElement('div');
+  card.className = 'mr-repo';
+  card.dataset.repoId = repo.id ?? '';
+  const src = repo.source ? `${repo.source.owner}/${repo.source.repo}` : '';
+  const tgt = repo.target ? `${repo.target.owner}/${repo.target.repo}` : '';
+  const p = repo.project ?? {};
+  card.innerHTML = `
+    <div class="mr-repo-head">
+      <input class="form-control input-sm" data-mr="repo-label" placeholder="Label (e.g. Kibana)" value="${esc(repo.label ?? '')}" />
+      <button type="button" class="btn btn-sm" data-action="remove-repo">Remove</button>
+    </div>
+    <div class="mr-grid2">
+      <label class="mr-field">Source repo<input class="form-control input-sm" data-mr="repo-source" placeholder="elastic/kibana" value="${esc(src)}" /></label>
+      <label class="mr-field">Target repo<input class="form-control input-sm" data-mr="repo-target" placeholder="elastic/docs-content" value="${esc(tgt)}" /></label>
+    </div>
+    <div class="mr-grid2">
+      <label class="mr-field">Default meta issue<input class="form-control input-sm" list="cfg-mr-metanames" data-mr="repo-meta" placeholder="(none)" value="${esc(repo.metaIssue ?? '')}" /></label>
+      <label class="mr-field">Project number<input class="form-control input-sm" data-mr="repo-proj-number" placeholder="1034" value="${esc(p.number ?? '')}" /></label>
+    </div>
+    <div class="mr-grid2">
+      <label class="mr-field">Project org<input class="form-control input-sm" data-mr="repo-proj-org" placeholder="elastic" value="${esc(p.org ?? '')}" /></label>
+      <label class="mr-field">Default area<input class="form-control input-sm" data-mr="repo-proj-area" placeholder="Kibana core" value="${esc(p.defaultArea ?? '')}" /></label>
+    </div>
+    <div class="mr-cats-label">Categories</div>
+    <div class="mr-cats"></div>
+    <button type="button" class="btn btn-sm mt-1" data-action="add-category">+ Add category</button>
+  `;
+  const catsEl = card.querySelector('.mr-cats');
+  for (const c of repo.categories ?? []) catsEl.appendChild(mrCatRow(c));
+  return card;
+}
+
+function renderMultiRepoEditor(config) {
+  const metaWrap = document.getElementById('cfg-mr-metaissues');
+  metaWrap.innerHTML = '';
+  const entries = Object.entries(config.metaIssues ?? {});
+  if (entries.length === 0) metaWrap.appendChild(mrMetaRow());
+  else for (const [n, pat] of entries) metaWrap.appendChild(mrMetaRow(n, pat));
+
+  document.getElementById('cfg-mr-release').value = (config.releaseNoteLabels ?? []).join(', ');
+  document.getElementById('cfg-mr-version').value = config.versionLabelPattern ?? '';
+  document.getElementById('cfg-mr-issuelabels').value = (config.issueLabels ?? []).join(', ');
+
+  const reposWrap = document.getElementById('cfg-mr-repos');
+  reposWrap.innerHTML = '';
+  for (const r of config.repos ?? []) reposWrap.appendChild(mrRepoCard(r));
+
+  refreshMetaNameDatalist();
+}
+
+/** Build a config object from the structured editor, preserving advanced fields
+ *  (sizeMap, contentTypeMap, featureByLabel, per-category target/project, …) by
+ *  merging onto the loaded config matched by repo id / category name. */
+function serializeMultiRepoEditor() {
+  const base = JSON.parse(JSON.stringify(state.config ?? {}));
+  const parseRepo = (v) => {
+    const [owner, repo] = (v || '').split('/');
+    return { owner: (owner || '').trim(), repo: (repo || '').trim() };
+  };
+  const csv = (v) => (v || '').split(',').map((s) => s.trim()).filter(Boolean);
+
+  const metaIssues = {};
+  for (const row of document.querySelectorAll('#cfg-mr-metaissues .mr-meta-row')) {
+    const name = row.querySelector('[data-mr="meta-name"]').value.trim();
+    if (name) metaIssues[name] = row.querySelector('[data-mr="meta-pattern"]').value.trim();
+  }
+
+  const repos = [];
+  for (const card of document.querySelectorAll('#cfg-mr-repos .mr-repo')) {
+    const orig = (base.repos ?? []).find((r) => r.id === card.dataset.repoId) ?? {};
+    const source = parseRepo(card.querySelector('[data-mr="repo-source"]').value);
+    const target = parseRepo(card.querySelector('[data-mr="repo-target"]').value);
+    if (!source.owner || !source.repo) throw new Error('each repo needs a source like "owner/repo"');
+    if (!target.owner || !target.repo) throw new Error('each repo needs a target like "owner/repo"');
+
+    const label = card.querySelector('[data-mr="repo-label"]').value.trim();
+    const metaName = card.querySelector('[data-mr="repo-meta"]').value.trim();
+    const projNumber = card.querySelector('[data-mr="repo-proj-number"]').value.trim();
+    const projOrg = card.querySelector('[data-mr="repo-proj-org"]').value.trim();
+    const projArea = card.querySelector('[data-mr="repo-proj-area"]').value.trim();
+
+    let project;
+    if (projNumber || projOrg || orig.project) {
+      project = { ...(orig.project ?? {}) };
+      if (projOrg) project.org = projOrg;
+      if (projNumber) project.number = Number(projNumber);
+      if (projArea) project.defaultArea = projArea;
+    }
+
+    const cats = [];
+    for (const cr of card.querySelectorAll('.mr-cat')) {
+      const name = cr.querySelector('[data-mr="cat-name"]').value.trim();
+      if (!name) continue;
+      const origCat = (orig.categories ?? []).find((c) => c.name === cr.dataset.catName) ?? {};
+      const cat = { ...origCat, name, labels: csv(cr.querySelector('[data-mr="cat-labels"]').value) };
+      const feature = cr.querySelector('[data-mr="cat-feature"]').value.trim();
+      if (feature) cat.feature = feature; else delete cat.feature;
+      const metaRef = cr.querySelector('[data-mr="cat-meta"]').value.trim();
+      if (metaRef) cat.metaIssue = metaRef;
+      else if (origCat.metaIssue !== null) delete cat.metaIssue; // keep an explicit opt-out (null)
+      cats.push(cat);
+    }
+
+    const repo = { ...orig, id: orig.id || `${source.owner}/${source.repo}`, source, target, categories: cats };
+    if (label) repo.label = label; else delete repo.label;
+    if (metaName) repo.metaIssue = metaName; else delete repo.metaIssue;
+    if (project) repo.project = project;
+    repos.push(repo);
+  }
+  if (repos.length === 0) throw new Error('add at least one repository');
+
+  const out = { ...base };
+  out.title = document.getElementById('cfg-title').value.trim() || base.title;
+  out.metaIssues = metaIssues;
+  out.releaseNoteLabels = csv(document.getElementById('cfg-mr-release').value);
+  const ver = document.getElementById('cfg-mr-version').value.trim();
+  if (ver) out.versionLabelPattern = ver; else delete out.versionLabelPattern;
+  out.issueLabels = csv(document.getElementById('cfg-mr-issuelabels').value);
+  out.repos = repos;
+  // Drop legacy flat fields so they don't linger alongside repos[].
+  delete out.sourceRepo;
+  delete out.targetRepo;
+  delete out.categories;
+  return out;
+}
+
+function onMultiRepoEditorClick(e) {
+  const btn = e.target.closest('[data-action]');
+  if (!btn || !document.getElementById('cfg-multirepo').contains(btn)) return;
+  switch (btn.dataset.action) {
+    case 'add-metaissue':
+      document.getElementById('cfg-mr-metaissues').appendChild(mrMetaRow());
+      break;
+    case 'remove-metaissue':
+      btn.closest('.mr-meta-row').remove();
+      refreshMetaNameDatalist();
+      break;
+    case 'add-repo':
+      document.getElementById('cfg-mr-repos').appendChild(mrRepoCard({}));
+      break;
+    case 'remove-repo':
+      btn.closest('.mr-repo').remove();
+      break;
+    case 'add-category':
+      btn.closest('.mr-repo').querySelector('.mr-cats').appendChild(mrCatRow());
+      break;
+    case 'remove-category':
+      btn.closest('.mr-cat').remove();
+      break;
+  }
+}
+
 async function saveSettings(e) {
   e.preventDefault();
 
-  // Multi-repo configs are edited as raw JSON.
+  // Multi-repo configs: serialize from the structured editor, unless the
+  // advanced raw-JSON panel is open (then that wins).
   if (Array.isArray(state.config?.repos) && state.config.repos.length > 0) {
+    const rawOpen = document.getElementById('cfg-raw-advanced')?.open;
     let parsed;
     try {
-      parsed = JSON.parse(document.getElementById('cfg-raw-json').value);
+      parsed = rawOpen
+        ? JSON.parse(document.getElementById('cfg-raw-json').value)
+        : serializeMultiRepoEditor();
     } catch (err) {
-      showToast(`Invalid JSON: ${err.message}`, 'error');
+      showToast(`${rawOpen ? 'Invalid JSON' : 'Config error'}: ${err.message}`, 'error');
       return;
     }
     try {

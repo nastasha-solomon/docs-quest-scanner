@@ -181,7 +181,7 @@ Per-group fields:
 | `crossRefRepos` | Repos checked for existing docs issues | `[target, "<target>-internal"]` |
 | `productIssuePattern` | Regex to extract the product issue URL from PR bodies | source repo's issues URL |
 
-The legacy flat config (top-level `sourceRepo`/`targetRepo`/`categories`) still works unchanged — it's treated as a single repo group internally. Multi-repo configs are edited as JSON in the Settings dialog.
+The legacy flat config (top-level `sourceRepo`/`targetRepo`/`categories`) still works unchanged — it's treated as a single repo group internally. The Settings dialog edits `repos[]` configs with a structured form (meta-issue patterns, per-repo fields, and category rows), with a raw-JSON panel as an advanced fallback for fields the form doesn't expose (`sizeMap`, `featureByLabel`, per-category `target`/`project`).
 
 ### GitHub Project integration
 

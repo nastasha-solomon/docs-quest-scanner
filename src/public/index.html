@@ -162,10 +162,39 @@
             <button type="button" class="btn btn-sm mt-2" id="btn-add-category">+ Add category</button>
           </div>
           </div><!-- /cfg-legacy -->
-          <div id="cfg-multirepo" class="form-group mb-3" style="display:none">
-            <label class="form-group-header" for="cfg-raw-json">Multi-repo configuration (JSON)</label>
-            <p class="note mt-1 mb-2">This config uses <code>repos[]</code>. Edit the full configuration as JSON below. Routing (target repo, project, meta issue) is resolved per repo group at scan and issue-creation time.</p>
-            <textarea class="form-control input-sm width-full" id="cfg-raw-json" rows="18" spellcheck="false" style="font-family:monospace; white-space:pre;"></textarea>
+          <div id="cfg-multirepo" style="display:none">
+            <!-- Meta issue patterns -->
+            <div class="form-group mb-3">
+              <label class="form-group-header">Meta issue patterns</label>
+              <p class="note mt-1 mb-2">Named release-checklist patterns. Use <code>{version}</code> for the major.minor version. Repos and categories reference these by name.</p>
+              <div id="cfg-mr-metaissues"></div>
+              <button type="button" class="btn btn-sm mt-1" data-action="add-metaissue">+ Add pattern</button>
+            </div>
+            <!-- Global scan defaults -->
+            <div class="form-group mb-3">
+              <label class="form-group-header" for="cfg-mr-release">Release note labels (comma-separated)</label>
+              <input class="form-control input-sm width-full" id="cfg-mr-release" placeholder="release_note:breaking, release_note:feature, ..." />
+            </div>
+            <div class="form-group mb-3">
+              <label class="form-group-header" for="cfg-mr-version">Version label pattern (regex)</label>
+              <input class="form-control input-sm width-full" id="cfg-mr-version" placeholder="^v\d+\.\d+\.\d+$" />
+            </div>
+            <div class="form-group mb-3">
+              <label class="form-group-header" for="cfg-mr-issuelabels">Issue labels (comma-separated)</label>
+              <input class="form-control input-sm width-full" id="cfg-mr-issuelabels" placeholder="Team:Docs" />
+            </div>
+            <!-- Repo groups -->
+            <div class="form-group mb-3">
+              <label class="form-group-header">Repositories</label>
+              <div id="cfg-mr-repos"></div>
+              <button type="button" class="btn btn-sm mt-2" data-action="add-repo">+ Add repository</button>
+            </div>
+            <datalist id="cfg-mr-metanames"></datalist>
+            <details class="mb-2" id="cfg-raw-advanced">
+              <summary class="text-small">Advanced — edit raw JSON</summary>
+              <p class="note mt-1 mb-2">While this panel is open, the JSON here is saved instead of the form above (covers fields the form doesn't expose, e.g. <code>sizeMap</code>, <code>featureByLabel</code>).</p>
+              <textarea class="form-control input-sm width-full" id="cfg-raw-json" rows="16" spellcheck="false" style="font-family:monospace; white-space:pre;"></textarea>
+            </details>
           </div>
           <div class="d-flex flex-justify-end">
             <button type="button" class="btn mr-2" id="btn-cancel-settings">Cancel</button>
