@@ -63,16 +63,24 @@ const DEFAULT_RELEASE_NOTE_LABELS = [
   'release_note:enhancement',
 ];
 
-/** Fill per-group defaults derived from the group's source/target. */
-function fillRepoDefaults(g: RepoGroup): RepoGroup {
+/** Top-level scan defaults a group falls back to when it doesn't set its own. */
+interface ScanFallback {
+  versionLabelPattern?: string;
+  releaseNoteLabels?: string[];
+  issueLabels?: string[];
+  maxMergeAgeMonths?: number;
+}
+
+/** Fill per-group defaults: group value → top-level fallback → built-in default. */
+function fillRepoDefaults(g: RepoGroup, fb: ScanFallback = {}): RepoGroup {
   const target = `${g.target.owner}/${g.target.repo}`;
   return {
     ...g,
     id: g.id || `${g.source.owner}/${g.source.repo}`,
-    versionLabelPattern: g.versionLabelPattern ?? DEFAULT_VERSION_PATTERN,
-    releaseNoteLabels: g.releaseNoteLabels ?? DEFAULT_RELEASE_NOTE_LABELS,
-    issueLabels: g.issueLabels ?? [],
-    maxMergeAgeMonths: g.maxMergeAgeMonths ?? 6,
+    versionLabelPattern: g.versionLabelPattern ?? fb.versionLabelPattern ?? DEFAULT_VERSION_PATTERN,
+    releaseNoteLabels: g.releaseNoteLabels ?? fb.releaseNoteLabels ?? DEFAULT_RELEASE_NOTE_LABELS,
+    issueLabels: g.issueLabels ?? fb.issueLabels ?? [],
+    maxMergeAgeMonths: g.maxMergeAgeMonths ?? fb.maxMergeAgeMonths ?? 6,
     crossRefRepos:
       g.crossRefRepos ??
       (g.target.repo.endsWith('-internal')
@@ -118,9 +126,16 @@ export function normalizeConfig(raw: Config): NormalizedConfig {
     metaIssues.default = raw.metaIssue.titlePattern ?? 'Kibana {version}';
   }
 
+  const fb: ScanFallback = {
+    versionLabelPattern: raw.versionLabelPattern,
+    releaseNoteLabels: raw.releaseNoteLabels,
+    issueLabels: raw.issueLabels,
+    maxMergeAgeMonths: raw.maxMergeAgeMonths,
+  };
+
   let groups: RepoGroup[];
   if (raw.repos?.length) {
-    groups = raw.repos.map((g) => foldLegacyFeatures(fillRepoDefaults(g)));
+    groups = raw.repos.map((g) => foldLegacyFeatures(fillRepoDefaults(g, fb)));
   } else {
     if (!raw.sourceRepo || !raw.targetRepo || !raw.categories) {
       throw new Error(
@@ -168,10 +183,15 @@ export interface ResolvedRouting {
  * create-issue and the UI agree.
  */
 export function resolveRouting(group: RepoGroup, category?: Category): ResolvedRouting {
+  // A category overrides only the project number; org/defaults/maps are inherited.
+  const project =
+    category?.projectNumber != null && group.project
+      ? { ...group.project, number: category.projectNumber }
+      : group.project;
   return {
     target: category?.target ?? group.target,
-    project: category?.project ?? group.project,
-    issueLabels: group.issueLabels ?? [],
+    project,
+    issueLabels: category?.issueLabels ?? group.issueLabels ?? [],
   };
 }
 

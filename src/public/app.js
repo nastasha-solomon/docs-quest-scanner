@@ -961,22 +961,29 @@ function mrCatRow(cat = {}) {
   row.className = 'mr-cat';
   row.dataset.catName = cat.name ?? '';
   row.innerHTML = `
-    <input class="form-control input-sm" data-mr="cat-name" placeholder="Category" value="${esc(cat.name ?? '')}" />
-    <input class="form-control input-sm" data-mr="cat-labels" placeholder="labels, comma-separated" value="${esc((cat.labels ?? []).join(', '))}" />
-    <input class="form-control input-sm" data-mr="cat-feature" placeholder="Feature (e.g. Kib: Discover)" value="${esc(cat.feature ?? '')}" />
-    <input class="form-control input-sm" list="cfg-mr-metanames" data-mr="cat-meta" placeholder="meta (inherit)" value="${esc(typeof cat.metaIssue === 'string' ? cat.metaIssue : '')}" />
+    <input class="form-control input-sm" data-mr="cat-name" placeholder="Name" value="${esc(cat.name ?? '')}" />
+    <input class="form-control input-sm" data-mr="cat-labels" placeholder="labels, comma-sep" value="${esc((cat.labels ?? []).join(', '))}" />
+    <input class="form-control input-sm" data-mr="cat-feature" placeholder="Feature" value="${esc(cat.feature ?? '')}" />
+    <input class="form-control input-sm" list="cfg-mr-metanames" data-mr="cat-meta" placeholder="(inherit)" value="${esc(typeof cat.metaIssue === 'string' ? cat.metaIssue : '')}" />
+    <input class="form-control input-sm" data-mr="cat-issuelabels" placeholder="(inherit)" value="${esc((cat.issueLabels ?? []).join(', '))}" />
+    <input class="form-control input-sm" data-mr="cat-projnum" placeholder="(inherit)" value="${esc(cat.projectNumber ?? '')}" />
     <button type="button" class="btn-octicon" data-action="remove-category" aria-label="Remove">✕</button>
   `;
   return row;
 }
 
-function mrRepoCard(repo = {}) {
+function mrRepoCard(repo = {}, cfg = {}) {
   const card = document.createElement('div');
   card.className = 'mr-repo';
   card.dataset.repoId = repo.id ?? '';
   const src = repo.source ? `${repo.source.owner}/${repo.source.repo}` : '';
   const tgt = repo.target ? `${repo.target.owner}/${repo.target.repo}` : '';
   const p = repo.project ?? {};
+  // Pre-fill scan settings with the repo's value, falling back to the top-level
+  // (so an existing global default surfaces per-repo and is migrated on save).
+  const release = (repo.releaseNoteLabels ?? cfg.releaseNoteLabels ?? []).join(', ');
+  const version = repo.versionLabelPattern ?? cfg.versionLabelPattern ?? '';
+  const issueLabels = (repo.issueLabels ?? cfg.issueLabels ?? []).join(', ');
   card.innerHTML = `
     <div class="mr-repo-head">
       <input class="form-control input-sm" data-mr="repo-label" placeholder="Label (e.g. Kibana)" value="${esc(repo.label ?? '')}" />
@@ -988,13 +995,18 @@ function mrRepoCard(repo = {}) {
     </div>
     <div class="mr-grid2">
       <label class="mr-field">Default meta issue<input class="form-control input-sm" list="cfg-mr-metanames" data-mr="repo-meta" placeholder="(none)" value="${esc(repo.metaIssue ?? '')}" /></label>
-      <label class="mr-field">Project number<input class="form-control input-sm" data-mr="repo-proj-number" placeholder="1034" value="${esc(p.number ?? '')}" /></label>
+      <label class="mr-field">Version label pattern (regex)<input class="form-control input-sm" data-mr="repo-version" placeholder="^v\\d+\\.\\d+\\.\\d+$" value="${esc(version)}" /></label>
     </div>
-    <div class="mr-grid2">
-      <label class="mr-field">Project org<input class="form-control input-sm" data-mr="repo-proj-org" placeholder="elastic" value="${esc(p.org ?? '')}" /></label>
-      <label class="mr-field">Default area<input class="form-control input-sm" data-mr="repo-proj-area" placeholder="Kibana core" value="${esc(p.defaultArea ?? '')}" /></label>
+    <label class="mr-field">Release note labels (comma-separated)<input class="form-control input-sm" data-mr="repo-release" placeholder="release_note:feature, ..." value="${esc(release)}" /></label>
+    <div class="mr-grid2 mt-2">
+      <label class="mr-field">Default project number<input class="form-control input-sm" data-mr="repo-proj-number" placeholder="1034" value="${esc(p.number ?? '')}" /></label>
+      <label class="mr-field">Board Area field<input class="form-control input-sm" data-mr="repo-proj-area" placeholder="Kibana core" value="${esc(p.defaultArea ?? '')}" /></label>
     </div>
+    <label class="mr-field mt-2">Default issue labels (comma-separated)<input class="form-control input-sm" data-mr="repo-issuelabels" placeholder="Team:Docs" value="${esc(issueLabels)}" /></label>
     <div class="mr-cats-label">Categories</div>
+    <div class="mr-cat mr-cat-head">
+      <span>Name</span><span>Labels</span><span>Feature</span><span>Meta issue</span><span>Issue labels</span><span>Project #</span><span></span>
+    </div>
     <div class="mr-cats"></div>
     <button type="button" class="btn btn-sm mt-1" data-action="add-category">+ Add category</button>
   `;
@@ -1010,20 +1022,16 @@ function renderMultiRepoEditor(config) {
   if (entries.length === 0) metaWrap.appendChild(mrMetaRow());
   else for (const [n, pat] of entries) metaWrap.appendChild(mrMetaRow(n, pat));
 
-  document.getElementById('cfg-mr-release').value = (config.releaseNoteLabels ?? []).join(', ');
-  document.getElementById('cfg-mr-version').value = config.versionLabelPattern ?? '';
-  document.getElementById('cfg-mr-issuelabels').value = (config.issueLabels ?? []).join(', ');
-
   const reposWrap = document.getElementById('cfg-mr-repos');
   reposWrap.innerHTML = '';
-  for (const r of config.repos ?? []) reposWrap.appendChild(mrRepoCard(r));
+  for (const r of config.repos ?? []) reposWrap.appendChild(mrRepoCard(r, config));
 
   refreshMetaNameDatalist();
 }
 
 /** Build a config object from the structured editor, preserving advanced fields
- *  (sizeMap, contentTypeMap, featureByLabel, per-category target/project, …) by
- *  merging onto the loaded config matched by repo id / category name. */
+ *  (sizeMap, contentTypeMap, featureByLabel, per-category target, …) by merging
+ *  onto the loaded config matched by repo id / category name. */
 function serializeMultiRepoEditor() {
   const base = JSON.parse(JSON.stringify(state.config ?? {}));
   const parseRepo = (v) => {
@@ -1031,6 +1039,7 @@ function serializeMultiRepoEditor() {
     return { owner: (owner || '').trim(), repo: (repo || '').trim() };
   };
   const csv = (v) => (v || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const val = (el, sel) => el.querySelector(sel).value.trim();
 
   const metaIssues = {};
   for (const row of document.querySelectorAll('#cfg-mr-metaissues .mr-meta-row')) {
@@ -1041,43 +1050,53 @@ function serializeMultiRepoEditor() {
   const repos = [];
   for (const card of document.querySelectorAll('#cfg-mr-repos .mr-repo')) {
     const orig = (base.repos ?? []).find((r) => r.id === card.dataset.repoId) ?? {};
-    const source = parseRepo(card.querySelector('[data-mr="repo-source"]').value);
-    const target = parseRepo(card.querySelector('[data-mr="repo-target"]').value);
+    const source = parseRepo(val(card, '[data-mr="repo-source"]'));
+    const target = parseRepo(val(card, '[data-mr="repo-target"]'));
     if (!source.owner || !source.repo) throw new Error('each repo needs a source like "owner/repo"');
     if (!target.owner || !target.repo) throw new Error('each repo needs a target like "owner/repo"');
 
-    const label = card.querySelector('[data-mr="repo-label"]').value.trim();
-    const metaName = card.querySelector('[data-mr="repo-meta"]').value.trim();
-    const projNumber = card.querySelector('[data-mr="repo-proj-number"]').value.trim();
-    const projOrg = card.querySelector('[data-mr="repo-proj-org"]').value.trim();
-    const projArea = card.querySelector('[data-mr="repo-proj-area"]').value.trim();
+    const label = val(card, '[data-mr="repo-label"]');
+    const metaName = val(card, '[data-mr="repo-meta"]');
+    const version = val(card, '[data-mr="repo-version"]');
+    const release = csv(val(card, '[data-mr="repo-release"]'));
+    const issueLabels = csv(val(card, '[data-mr="repo-issuelabels"]'));
+    const projNumber = val(card, '[data-mr="repo-proj-number"]');
+    const projArea = val(card, '[data-mr="repo-proj-area"]');
 
+    // Project: number from the field (or original); org defaults to the source
+    // owner; field maps (sizeMap, contentTypeMap, …) are preserved from the original.
+    const number = projNumber ? Number(projNumber) : orig.project?.number;
     let project;
-    if (projNumber || projOrg || orig.project) {
-      project = { ...(orig.project ?? {}) };
-      if (projOrg) project.org = projOrg;
-      if (projNumber) project.number = Number(projNumber);
-      if (projArea) project.defaultArea = projArea;
+    if (number != null && !Number.isNaN(number)) {
+      project = { ...(orig.project ?? {}), org: orig.project?.org ?? source.owner, number };
+      if (projArea) project.defaultArea = projArea; else delete project.defaultArea;
     }
 
     const cats = [];
-    for (const cr of card.querySelectorAll('.mr-cat')) {
-      const name = cr.querySelector('[data-mr="cat-name"]').value.trim();
+    for (const cr of card.querySelectorAll('.mr-cat:not(.mr-cat-head)')) {
+      const name = val(cr, '[data-mr="cat-name"]');
       if (!name) continue;
       const origCat = (orig.categories ?? []).find((c) => c.name === cr.dataset.catName) ?? {};
-      const cat = { ...origCat, name, labels: csv(cr.querySelector('[data-mr="cat-labels"]').value) };
-      const feature = cr.querySelector('[data-mr="cat-feature"]').value.trim();
+      const cat = { ...origCat, name, labels: csv(val(cr, '[data-mr="cat-labels"]')) };
+      const feature = val(cr, '[data-mr="cat-feature"]');
       if (feature) cat.feature = feature; else delete cat.feature;
-      const metaRef = cr.querySelector('[data-mr="cat-meta"]').value.trim();
+      const metaRef = val(cr, '[data-mr="cat-meta"]');
       if (metaRef) cat.metaIssue = metaRef;
       else if (origCat.metaIssue !== null) delete cat.metaIssue; // keep an explicit opt-out (null)
+      const catIssueLabels = csv(val(cr, '[data-mr="cat-issuelabels"]'));
+      if (catIssueLabels.length) cat.issueLabels = catIssueLabels; else delete cat.issueLabels;
+      const projnum = val(cr, '[data-mr="cat-projnum"]');
+      if (projnum) cat.projectNumber = Number(projnum); else delete cat.projectNumber;
       cats.push(cat);
     }
 
     const repo = { ...orig, id: orig.id || `${source.owner}/${source.repo}`, source, target, categories: cats };
     if (label) repo.label = label; else delete repo.label;
     if (metaName) repo.metaIssue = metaName; else delete repo.metaIssue;
-    if (project) repo.project = project;
+    if (release.length) repo.releaseNoteLabels = release; else delete repo.releaseNoteLabels;
+    if (version) repo.versionLabelPattern = version; else delete repo.versionLabelPattern;
+    if (issueLabels.length) repo.issueLabels = issueLabels; else delete repo.issueLabels;
+    if (project) repo.project = project; else delete repo.project;
     repos.push(repo);
   }
   if (repos.length === 0) throw new Error('add at least one repository');
@@ -1085,12 +1104,11 @@ function serializeMultiRepoEditor() {
   const out = { ...base };
   out.title = document.getElementById('cfg-title').value.trim() || base.title;
   out.metaIssues = metaIssues;
-  out.releaseNoteLabels = csv(document.getElementById('cfg-mr-release').value);
-  const ver = document.getElementById('cfg-mr-version').value.trim();
-  if (ver) out.versionLabelPattern = ver; else delete out.versionLabelPattern;
-  out.issueLabels = csv(document.getElementById('cfg-mr-issuelabels').value);
   out.repos = repos;
-  // Drop legacy flat fields so they don't linger alongside repos[].
+  // Scan settings are now per-repo, and the flat shape is superseded by repos[].
+  delete out.releaseNoteLabels;
+  delete out.versionLabelPattern;
+  delete out.issueLabels;
   delete out.sourceRepo;
   delete out.targetRepo;
   delete out.categories;
@@ -1109,7 +1127,7 @@ function onMultiRepoEditorClick(e) {
       refreshMetaNameDatalist();
       break;
     case 'add-repo':
-      document.getElementById('cfg-mr-repos').appendChild(mrRepoCard({}));
+      document.getElementById('cfg-mr-repos').appendChild(mrRepoCard({}, state.config ?? {}));
       break;
     case 'remove-repo':
       btn.closest('.mr-repo').remove();

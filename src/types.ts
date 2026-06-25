@@ -230,13 +230,19 @@ export interface Category {
    * A matching label wins over `feature`.
    */
   featureByLabel?: Record<string, string>;
+  /** Issue labels for this category's issues. Falls back to the group's `issueLabels`. */
+  issueLabels?: string[];
+  /**
+   * Project board number for this category's issues. Overrides the group
+   * project's `number` only — org, defaults, and field maps are inherited.
+   */
+  projectNumber?: number;
   /**
    * Route this category's issues to a different target repo than the group's
-   * default. The user can still redirect per issue via the UI dropdown.
+   * default (advanced; edited via raw JSON). The user can still redirect per
+   * issue via the UI dropdown.
    */
   target?: RepoRef;
-  /** Add this category's issues to a different project than the group's default. */
-  project?: ProjectConfig;
 }
 
 /**

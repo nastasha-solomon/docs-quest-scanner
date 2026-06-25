@@ -105,7 +105,7 @@
   </div>
 
   <!-- Settings dialog -->
-  <dialog id="settings-dialog" class="anim-fade-in" style="border:none; border-radius:12px; padding:0; max-width:600px; width:90vw;">
+  <dialog id="settings-dialog" class="anim-fade-in" style="border:none; border-radius:12px; padding:0; max-width:900px; width:94vw;">
     <div class="Box">
       <div class="Box-header d-flex flex-items-center flex-justify-between">
         <h3 class="Box-title">Settings</h3>
@@ -170,20 +170,7 @@
               <div id="cfg-mr-metaissues"></div>
               <button type="button" class="btn btn-sm mt-1" data-action="add-metaissue">+ Add pattern</button>
             </div>
-            <!-- Global scan defaults -->
-            <div class="form-group mb-3">
-              <label class="form-group-header" for="cfg-mr-release">Release note labels (comma-separated)</label>
-              <input class="form-control input-sm width-full" id="cfg-mr-release" placeholder="release_note:breaking, release_note:feature, ..." />
-            </div>
-            <div class="form-group mb-3">
-              <label class="form-group-header" for="cfg-mr-version">Version label pattern (regex)</label>
-              <input class="form-control input-sm width-full" id="cfg-mr-version" placeholder="^v\d+\.\d+\.\d+$" />
-            </div>
-            <div class="form-group mb-3">
-              <label class="form-group-header" for="cfg-mr-issuelabels">Issue labels (comma-separated)</label>
-              <input class="form-control input-sm width-full" id="cfg-mr-issuelabels" placeholder="Team:Docs" />
-            </div>
-            <!-- Repo groups -->
+            <!-- Repo groups (scan settings + project + categories live per repo) -->
             <div class="form-group mb-3">
               <label class="form-group-header">Repositories</label>
               <div id="cfg-mr-repos"></div>

@@ -1164,10 +1164,21 @@ dialog::backdrop {
 }
 .mr-cat {
   display: grid;
-  grid-template-columns: 1.2fr 1.6fr 1.2fr 1fr auto;
+  grid-template-columns: 1.3fr 1.7fr 1.2fr 1fr 1.2fr 0.7fr auto;
   gap: 6px;
   align-items: center;
   margin-bottom: 6px;
+}
+.mr-cat-head {
+  margin-bottom: 2px;
+}
+.mr-cat-head span {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-fg-muted, #656d76);
+  padding-left: 2px;
 }
 
 /* ── Toast ────────────────────────────────────────────── */
