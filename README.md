@@ -179,7 +179,7 @@ Per-group fields:
 | `id` | Stable identifier (used internally to route issues) | `"<source.owner>/<source.repo>"` |
 | `label` | Optional display name | `id` |
 | `source` / `target` | Source repo scanned / target repo for issues | required |
-| `categories` | Team labels for this repo (supports per-category `metaIssue`) | required |
+| `categories` | Team labels for this repo. Each category may override `metaIssue`, `target`, and `project` for itself (falling back to the group). | required |
 | `project`, `metaIssue`, `issueLabels` | Same shape as the global fields, scoped to this group | — |
 | `versionLabelPattern`, `releaseNoteLabels`, `maxMergeAgeMonths` | Per-group overrides | global defaults |
 | `crossRefRepos` | Repos checked for existing docs issues | `[target, "<target>-internal"]` |

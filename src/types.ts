@@ -81,6 +81,8 @@ export interface Assessment {
 /** A single item in the triage queue — one or more related PRs */
 export interface QueueItem {
   id: string;
+  /** Id of the RepoGroup this item was scanned from. Resolves target/project/meta at create time. */
+  repoId: string;
   /** Primary category from config (e.g., "Dashboards and Visualizations") */
   category: string;
   /** Additional categories this item also applies to (from cross-category dedup) */
@@ -117,6 +119,8 @@ export interface HistoryEntry {
   /** PR numbers covered by this decision */
   prNumbers: number[];
   decision: 'created' | 'dismissed';
+  /** Id of the RepoGroup this decision belongs to (absent on legacy entries). */
+  repoId?: string;
   /** Why it was dismissed (e.g., "no docs needed", "already tracked") */
   reason?: string;
   /** URL of the created issue */
@@ -137,8 +141,40 @@ export interface History {
 
 /** Last scan metadata */
 export interface LastRun {
-  /** ISO date of the last completed scan */
-  lastRunDate: string;
+  /** ISO date of the last completed scan (legacy/global fallback). */
+  lastRunDate?: string;
+  /** Per-repo-group last-run dates (repoId → ISO date). Preferred when present. */
+  byRepo?: Record<string, string>;
+}
+
+/** A GitHub repo reference. */
+export interface RepoRef {
+  owner: string;
+  repo: string;
+}
+
+/** GitHub Projects v2 integration config (issues are added to the project and fields auto-filled). */
+export interface ProjectConfig {
+  /** GitHub org that owns the project (e.g., "elastic") */
+  org: string;
+  /** Project number (from the URL, e.g., 1034) */
+  number: number;
+  /** Default area field value (e.g., "Kibana core") */
+  defaultArea?: string;
+  /** Default priority field value (e.g., "P2 (Normal)") */
+  defaultPriority?: string;
+  /** Effort tag → Size mapping */
+  sizeMap?: Record<string, string>;
+  /** Effort tag → Content Type field value mapping */
+  contentTypeMap?: Record<string, string>;
+  /** Category name → Feature field value mapping */
+  featureMap?: Record<string, string>;
+  /**
+   * PR-label → Feature field value mapping. Takes precedence over featureMap
+   * when any of an item's PR labels matches — lets a single category that spans
+   * teams route by team label. Entry order sets priority (first match wins).
+   */
+  featureLabelMap?: Record<string, string>;
 }
 
 /**
@@ -176,74 +212,81 @@ export interface Category {
    * Set `{ enabled: false }` to opt this category out of meta-issue linking.
    */
   metaIssue?: MetaIssueConfig;
+  /**
+   * Route this category's issues to a different target repo than the group's
+   * default. The user can still redirect per issue via the UI dropdown.
+   */
+  target?: RepoRef;
+  /** Add this category's issues to a different project than the group's default. */
+  project?: ProjectConfig;
 }
 
-/** App configuration */
+/**
+ * A self-contained scan target: one source repo and its categories, routed to
+ * one target repo / project / meta-issue. A scan iterates `repos × categories`.
+ */
+export interface RepoGroup {
+  /** Stable id, referenced by QueueItem.repoId. Defaults to `${source.owner}/${source.repo}`. */
+  id: string;
+  /** Optional display label for the UI. */
+  label?: string;
+  /** Repo whose merged PRs are scanned. */
+  source: RepoRef;
+  /** Repo where docs issues are created (default target; user can still redirect per issue). */
+  target: RepoRef;
+  categories: Category[];
+  project?: ProjectConfig;
+  metaIssue?: MetaIssueConfig;
+  issueLabels?: string[];
+  /** Defaults to `^v\d+\.\d+\.\d+$`. */
+  versionLabelPattern?: string;
+  releaseNoteLabels?: string[];
+  /** Defaults to 6 (see Config.maxMergeAgeMonths). */
+  maxMergeAgeMonths?: number;
+  /** Repos to scan for existing cross-referenced docs issues. Defaults to [target, `${target}-internal`]. */
+  crossRefRepos?: string[];
+  /** Regex to extract a product-side issue URL from PR bodies. Defaults to the source repo's issues URL. */
+  productIssuePattern?: string;
+}
+
+/**
+ * App configuration. Two shapes are accepted on disk:
+ *  - Multi-repo: define `repos[]`.
+ *  - Legacy single-target: define the top-level `sourceRepo`/`targetRepo`/`categories`/… fields.
+ * `normalizeConfig` (config.ts) turns either into a `NormalizedConfig`; the legacy
+ * fields are kept optional so both validate.
+ */
 export interface Config {
   /** Display title shown in the header. */
   title?: string;
-  sourceRepo: { owner: string; repo: string };
-  targetRepo: { owner: string; repo: string };
-  categories: Category[];
-  /**
-   * Regex pattern to detect version labels on PRs (e.g., "v9.4.0").
-   * Applied against each PR's labels to extract the target version.
-   * Default: /^v\d+\.\d+\.\d+$/
-   */
-  versionLabelPattern: string;
-  /**
-   * Release note labels that qualify a PR for docs triage.
-   * Only PRs with at least one of these labels will be included in the scan.
-   * Typically: release_note:breaking, release_note:deprecation,
-   * release_note:feature, release_note:enhancement, release_note:fix.
-   *
-   * Note: release_note:fix PRs rarely need docs unless mistagged,
-   * but are included for completeness.
-   */
-  releaseNoteLabels: string[];
+  /** Multi-repo scan targets. When present, takes precedence over the legacy fields below. */
+  repos?: RepoGroup[];
+
+  // ── Legacy single-target fields (used only when `repos` is absent) ──
+  sourceRepo?: RepoRef;
+  targetRepo?: RepoRef;
+  categories?: Category[];
+  /** Regex pattern to detect version labels on PRs. Default: /^v\d+\.\d+\.\d+$/ */
+  versionLabelPattern?: string;
+  /** Release note labels that qualify a PR for docs triage. */
+  releaseNoteLabels?: string[];
   /**
    * Drop late-label-catch results whose mergedAt is older than this many
-   * months before sinceDate. The dual-query strategy uses `updated:>=sinceDate`
-   * to catch PRs labeled after merge, but it also surfaces PRs whose only
-   * recent activity is an unrelated label edit. Setting a cap filters out
-   * stale edits on old PRs without affecting the primary `merged:>=` query.
-   * Default: 6.
+   * months before sinceDate. Default: 6.
    */
   maxMergeAgeMonths?: number;
-  issueLabels: string[];
+  issueLabels?: string[];
   /**
    * Global meta issue configuration. Applies to all categories unless a
    * category defines its own `metaIssue` override.
-   *
-   * Omit this field entirely to use the defaults (enabled, "Kibana {version}").
-   * Set `enabled: false` to disable meta issue linking entirely.
    */
   metaIssue?: MetaIssueConfig;
-  /**
-   * GitHub Projects v2 integration. When set, newly created issues
-   * are added to the project and fields are auto-filled.
-   */
-  project?: {
-    /** GitHub org that owns the project (e.g., "elastic") */
-    org: string;
-    /** Project number (from the URL, e.g., 1034) */
-    number: number;
-    /** Default area field value (e.g., "Kibana core") */
-    defaultArea?: string;
-    /** Default priority field value (e.g., "P2 (Normal)") */
-    defaultPriority?: string;
-    /** Effort tag → Size mapping */
-    sizeMap?: Record<string, string>;
-    /** Effort tag → Content Type field value mapping */
-    contentTypeMap?: Record<string, string>;
-    /** Category name → Feature field value mapping */
-    featureMap?: Record<string, string>;
-    /**
-     * PR-label → Feature field value mapping. Takes precedence over
-     * featureMap when any of an item's PR labels matches — lets a single
-     * category that spans teams (e.g. "Dashboards and Visualizations")
-     * route by team label. Entry order sets priority (first match wins).
-     */
-    featureLabelMap?: Record<string, string>;
-  };
+  /** GitHub Projects v2 integration. */
+  project?: ProjectConfig;
+}
+
+/** Config after normalization — always expressed as repo groups. Consumed by scan/create code. */
+export interface NormalizedConfig {
+  title?: string;
+  repos: RepoGroup[];
 }

@@ -1,7 +1,17 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { Config, History, LastRun, Queue, NormalizedConfig, RepoGroup } from './types.js';
+import type {
+  Config,
+  History,
+  LastRun,
+  Queue,
+  NormalizedConfig,
+  RepoGroup,
+  Category,
+  RepoRef,
+  ProjectConfig,
+} from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
@@ -108,6 +118,26 @@ export function normalizeConfig(raw: Config): NormalizedConfig {
 /** Load and normalize the config into repo groups (what scan/create code consumes). */
 export function loadNormalizedConfig(): NormalizedConfig {
   return normalizeConfig(loadConfig());
+}
+
+/** The target repo / project an issue is routed to, after category + group resolution. */
+export interface ResolvedRouting {
+  target: RepoRef;
+  project?: ProjectConfig;
+  issueLabels: string[];
+}
+
+/**
+ * Resolve where an item's issue is filed and which project it joins.
+ * Precedence: category override → group default. Single source of truth so
+ * create-issue and the UI agree.
+ */
+export function resolveRouting(group: RepoGroup, category?: Category): ResolvedRouting {
+  return {
+    target: category?.target ?? group.target,
+    project: category?.project ?? group.project,
+    issueLabels: group.issueLabels ?? [],
+  };
 }
 
 export function saveConfig(config: Config): void {

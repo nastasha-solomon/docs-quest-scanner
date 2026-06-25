@@ -3,6 +3,7 @@ import {
   loadConfig,
   loadNormalizedConfig,
   normalizeConfig,
+  resolveRouting,
   saveConfig,
   loadQueue,
   saveQueue,
@@ -58,7 +59,11 @@ apiRouter.get('/queue', (_req, res) => {
   // for the per-issue target dropdown.
   const targetOptions = [
     ...new Set(
-      config.repos.flatMap((g) => [`${g.target.owner}/${g.target.repo}`, ...(g.crossRefRepos ?? [])])
+      config.repos.flatMap((g) => [
+        `${g.target.owner}/${g.target.repo}`,
+        ...(g.crossRefRepos ?? []),
+        ...g.categories.flatMap((c) => (c.target ? [`${c.target.owner}/${c.target.repo}`] : [])),
+      ])
     ),
   ];
 
@@ -72,12 +77,15 @@ apiRouter.get('/queue', (_req, res) => {
       suggestedBody = '(template rendering failed)';
     }
     const group = groupById.get(item.repoId);
+    const routing = group
+      ? resolveRouting(group, group.categories.find((c) => c.name === item.category))
+      : undefined;
     return {
       ...item,
       suggestedBody,
-      resolvedTarget: group ? `${group.target.owner}/${group.target.repo}` : undefined,
+      resolvedTarget: routing ? `${routing.target.owner}/${routing.target.repo}` : undefined,
       repoLabel: group?.label ?? group?.id,
-      projectNumber: group?.project?.number,
+      projectNumber: routing?.project?.number,
     };
   });
 
@@ -177,17 +185,22 @@ apiRouter.post('/create-issue', async (req, res) => {
       return;
     }
 
+    // Resolve routing: a category override (target/project) wins over the group
+    // default. The primary category decides where the issue is filed.
+    const primaryCategory = group.categories.find((c) => c.name === item.category);
+    const routing = resolveRouting(group, primaryCategory);
+
     const title = item.userEdits?.title ?? item.suggestedTitle;
     const ok = getOctokit();
     const { data: authUser } = await ok.users.getAuthenticated().catch(() => ({ data: null }));
     const body = renderIssueBody(item, authUser?.login);
-    // Target repo stays a UI choice: the dropdown wins, defaulting to the group's
-    // target. It only changes where the issue is filed — project/meta follow the group.
-    const targetRepo = item.userEdits?.targetRepo ?? `${group.target.owner}/${group.target.repo}`;
+    // Target repo stays a UI choice: the dropdown wins, defaulting to the resolved
+    // target. It only changes where the issue is filed — project/meta follow routing.
+    const targetRepo = item.userEdits?.targetRepo ?? `${routing.target.owner}/${routing.target.repo}`;
     const [owner, repo] = targetRepo.split('/');
 
     // Create the issue
-    const labels = [...(group.issueLabels ?? [])];
+    const labels = [...routing.issueLabels];
     if (goodFirstIssue) {
       labels.push('good first issue');
     }
@@ -195,8 +208,8 @@ apiRouter.post('/create-issue', async (req, res) => {
 
     // Try to set project fields
     let projectFields: Awaited<ReturnType<typeof setProjectFields>> | null = null;
-    if (group.project) {
-      const p = group.project;
+    if (routing.project) {
+      const p = routing.project;
       const versionMatch = item.version?.match(/v?(\d+\.\d+)/);
       const latestMerge = item.prs.map((pr) => pr.mergedAt).filter(Boolean).sort().pop();
       let serverlessPubDate: string | undefined;

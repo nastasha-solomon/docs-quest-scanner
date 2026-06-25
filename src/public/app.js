@@ -887,6 +887,8 @@ function createCategoryRow(cat = {}) {
   if (cat.metaIssueHeading) overrides.push(`heading: ${cat.metaIssueHeading}`);
   if (cat.metaIssue?.titlePattern) overrides.push(`meta: ${cat.metaIssue.titlePattern}`);
   if (cat.metaIssue?.enabled === false) overrides.push('meta: disabled');
+  if (cat.target) overrides.push(`target: ${cat.target.owner}/${cat.target.repo}`);
+  if (cat.project?.number) overrides.push(`project: #${cat.project.number}`);
   const overrideHint = overrides.length
     ? `<div class="category-override-hint">${esc(overrides.join('  ·  '))}</div>`
     : '';
