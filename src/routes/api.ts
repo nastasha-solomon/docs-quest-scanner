@@ -4,6 +4,8 @@ import {
   loadNormalizedConfig,
   normalizeConfig,
   resolveRouting,
+  resolveMetaPattern,
+  resolveFeature,
   saveConfig,
   loadQueue,
   saveQueue,
@@ -222,12 +224,10 @@ apiRouter.post('/create-issue', async (req, res) => {
         serverlessPubDate = d.toISOString().split('T')[0];
       }
 
-      // Feature: a matching PR label (featureLabelMap, in declaration order)
-      // wins over the category default, so multi-team categories route correctly.
+      // Feature: a per-label override (featureByLabel) wins over the category's
+      // feature, so a category that bundles teams still routes each correctly.
       const prLabels = item.prs.flatMap((pr) => pr.labels ?? []);
-      const labelFeature = Object.entries(p.featureLabelMap ?? {}).find(
-        ([label]) => prLabels.includes(label)
-      )?.[1];
+      const feature = resolveFeature(primaryCategory, prLabels);
 
       projectFields = await setProjectFields(
         p.org,
@@ -240,7 +240,7 @@ apiRouter.post('/create-issue', async (req, res) => {
           size: p.sizeMap?.[item.assessment.effortTag ?? ''] ?? undefined,
           priority: p.defaultPriority ?? undefined,
           area: p.defaultArea ?? undefined,
-          feature: labelFeature ?? p.featureMap?.[item.category] ?? undefined,
+          feature,
           contentType: p.contentTypeMap?.[item.assessment.effortTag ?? ''] ?? undefined,
           serverlessPubDate,
         }
@@ -258,21 +258,19 @@ apiRouter.post('/create-issue', async (req, res) => {
       const metaCache = new Map<string, Awaited<ReturnType<typeof findMetaIssue>>>();
       for (const catName of categoriesToLink) {
         const cat = group.categories.find((c) => c.name === catName);
-        const metaConfig = cat?.metaIssue ?? group.metaIssue;
-        if (metaConfig?.enabled === false) continue;
-        const titlePattern = metaConfig?.titlePattern;
+        const titlePattern = resolveMetaPattern(config.metaIssues, group, cat);
+        if (!titlePattern) continue; // no pattern resolved → not linked
         try {
-          const cacheKey = titlePattern ?? '<default>';
-          let meta = metaCache.get(cacheKey);
+          let meta = metaCache.get(titlePattern);
           if (meta === undefined) {
             meta = await findMetaIssue(owner, repo, item.version, titlePattern);
-            metaCache.set(cacheKey, meta);
+            metaCache.set(titlePattern, meta);
           }
           if (meta) {
             const heading = cat?.metaIssueHeading ?? catName;
             await addToMetaIssue(owner, repo, meta.number, heading, issue.url);
           } else {
-            console.warn(`No meta issue found for version ${item.version} (pattern: "${titlePattern ?? 'Kibana {version}'}")`);
+            console.warn(`No meta issue found for version ${item.version} (pattern: "${titlePattern}")`);
           }
         } catch (err) {
           console.warn(`Failed to update meta issue for ${catName} ${item.version}:`, err);

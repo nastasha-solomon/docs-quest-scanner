@@ -167,15 +167,21 @@ export interface ProjectConfig {
   sizeMap?: Record<string, string>;
   /** Effort tag → Content Type field value mapping */
   contentTypeMap?: Record<string, string>;
-  /** Category name → Feature field value mapping */
+  /**
+   * @deprecated Legacy category-name → Feature mapping. Superseded by
+   * `Category.feature`. Still read for backward compatibility (folded into
+   * categories by normalizeConfig).
+   */
   featureMap?: Record<string, string>;
   /**
-   * PR-label → Feature field value mapping. Takes precedence over featureMap
-   * when any of an item's PR labels matches — lets a single category that spans
-   * teams route by team label. Entry order sets priority (first match wins).
+   * @deprecated Legacy PR-label → Feature mapping. Superseded by
+   * `Category.featureByLabel`. Still read for backward compatibility.
    */
   featureLabelMap?: Record<string, string>;
 }
+
+/** Named meta-issue patterns: name → title pattern (with a `{version}` placeholder). */
+export type MetaIssuesRegistry = Record<string, string>;
 
 /**
  * Meta issue configuration. A meta issue is a checklist issue in the target
@@ -207,11 +213,23 @@ export interface Category {
   /** Heading to match in the meta issue body (defaults to name if not set) */
   metaIssueHeading?: string;
   /**
-   * Route this category's issues to a different meta issue than the global
-   * (or repo-group) default. Overrides `Config.metaIssue` for this category only.
-   * Set `{ enabled: false }` to opt this category out of meta-issue linking.
+   * Name of a meta-issue pattern (from the top-level `metaIssues` registry) to
+   * link this category's issues into. Overrides the group's default `metaIssue`.
+   * Set to `null` to opt this category out of meta-issue linking. Omit to inherit
+   * the group default.
    */
-  metaIssue?: MetaIssueConfig;
+  metaIssue?: string | null;
+  /**
+   * Feature field value for this category's issues on the project board
+   * (e.g. "Kib: Discover"). Applies to every label in the category.
+   */
+  feature?: string;
+  /**
+   * Per-label Feature overrides for the rare category that bundles teams mapping
+   * to different Features (e.g. Team:Visualizations → "Kib: Visualizations").
+   * A matching label wins over `feature`.
+   */
+  featureByLabel?: Record<string, string>;
   /**
    * Route this category's issues to a different target repo than the group's
    * default. The user can still redirect per issue via the UI dropdown.
@@ -236,7 +254,8 @@ export interface RepoGroup {
   target: RepoRef;
   categories: Category[];
   project?: ProjectConfig;
-  metaIssue?: MetaIssueConfig;
+  /** Default meta-issue pattern name (from the `metaIssues` registry) for this group's categories. */
+  metaIssue?: string;
   issueLabels?: string[];
   /** Defaults to `^v\d+\.\d+\.\d+$`. */
   versionLabelPattern?: string;
@@ -259,6 +278,8 @@ export interface RepoGroup {
 export interface Config {
   /** Display title shown in the header. */
   title?: string;
+  /** Named meta-issue patterns referenced by `RepoGroup.metaIssue` / `Category.metaIssue`. */
+  metaIssues?: MetaIssuesRegistry;
   /** Multi-repo scan targets. When present, takes precedence over the legacy fields below. */
   repos?: RepoGroup[];
 
@@ -277,8 +298,9 @@ export interface Config {
   maxMergeAgeMonths?: number;
   issueLabels?: string[];
   /**
-   * Global meta issue configuration. Applies to all categories unless a
-   * category defines its own `metaIssue` override.
+   * @deprecated Legacy global meta issue (object form). Superseded by the named
+   * `metaIssues` registry; still read for backward compatibility and registered
+   * under the name "default" by normalizeConfig.
    */
   metaIssue?: MetaIssueConfig;
   /** GitHub Projects v2 integration. */
@@ -288,5 +310,7 @@ export interface Config {
 /** Config after normalization — always expressed as repo groups. Consumed by scan/create code. */
 export interface NormalizedConfig {
   title?: string;
+  /** Named meta-issue patterns (name → title pattern). */
+  metaIssues: MetaIssuesRegistry;
   repos: RepoGroup[];
 }

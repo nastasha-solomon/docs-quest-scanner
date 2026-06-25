@@ -62,82 +62,75 @@ Edit `data/config.json` after setup. Key settings:
 | `categories` | Team labels to monitor, grouped by doc area | See below |
 | `releaseNoteLabels` | PR labels that qualify for triage | `["release_note:feature", ...]` |
 | `issueLabels` | Labels added to created issues | `["Team:Docs"]` |
-| `metaIssue` | Meta tracking issue integration | See below |
+| `metaIssues` | Named release-checklist patterns, referenced by name | See below |
 | `project` | GitHub Project board integration | See below |
+
+To scan more than one source repo in a single run, use the `repos[]` array (see [Multiple source repositories](#multiple-source-repositories)); the top-level `sourceRepo`/`targetRepo`/`categories` form is the single-repo shorthand.
 
 ### Categories
 
-Each category groups one or more team labels under a doc area name:
+A category groups one or more team labels under a doc area, and declares how its issues are routed on the project board:
 
 ```json
 {
   "categories": [
+    { "name": "Discover", "labels": ["Team:dataDiscovery"], "feature": "Kib: Discover" },
     {
-      "name": "Search",
-      "labels": ["Team:Search"]
-    },
-    {
-      "name": "Dashboards",
+      "name": "Dashboards and Visualizations",
       "labels": ["Team:Presentation", "Team:Visualizations"],
-      "metaIssueHeading": "Dashboards and Visualizations"
+      "feature": "Kib: Dashboards",
+      "featureByLabel": { "Team:Visualizations": "Kib: Visualizations" }
     }
   ]
 }
 ```
 
-The optional `metaIssueHeading` is used when the meta tracking issue uses a different heading than the category name.
+| Field | Description |
+|-------|-------------|
+| `name` | Doc area name (the category) |
+| `labels` | One or more team/feature labels; a PR matching **any** lands in this category |
+| `feature` | Feature field value on the project board for this category |
+| `featureByLabel` | Optional per-label Feature override — for a category that bundles teams needing different Features. A matching label wins over `feature`. |
+| `metaIssue` | Name of a meta-issue pattern (see below) to link into. Overrides the group default; `null` opts the category out. |
+| `metaIssueHeading` | Heading to match in the meta issue body (defaults to `name`) |
+| `target` / `project` | Optional per-category overrides of the group's target repo / project |
 
-### Meta issue integration
+A category can list several labels (e.g. `Team:Presentation` + `Team:Visualizations`) and still route to one meta issue; use `featureByLabel` only when those labels need different board Features.
 
-When you accept a quest, the tool can automatically add a link to the created issue inside a release checklist issue in your target repo. Configure this with the `metaIssue` key:
+### Meta issues
+
+When you accept a quest, the tool can add a link to the created issue inside a release checklist ("meta issue") in your target repo. Define your checklists once as **named patterns** in a top-level `metaIssues` registry, where `{version}` is replaced with the major.minor version (e.g. `9.5`):
 
 ```json
 {
-  "metaIssue": {
-    "enabled": true,
-    "titlePattern": "My Project {version} release checklist"
+  "metaIssues": {
+    "kibana": "Kibana {version}",
+    "observability": "Observability {version}",
+    "security": "Security {version}"
   }
 }
 ```
 
-| Field | Description | Default |
-|-------|-------------|---------|
-| `enabled` | Whether to look for and update a meta issue | `true` |
-| `titlePattern` | Title search pattern. Use `{version}` as a placeholder for the major.minor version (e.g., `"9.5"`). | `"Kibana {version}"` |
-
-Omit `metaIssue` entirely to use the defaults. Set `enabled: false` to disable the feature completely. You can also configure this in the Settings dialog of the review UI without editing JSON.
-
-#### Per-category meta issue override
-
-`metaIssue` can be set **globally** (applies to all categories) or **per category** (overrides the global setting for that category only). A category-level override is the right approach when a single scan covers features across multiple solutions, each with its own release checklist — issues land in the correct checklist automatically, without manual moves.
+Then **reference a pattern by name**. A repo group sets a default that all its categories inherit; a category can override it:
 
 ```json
 {
-  "categories": [
-    {
-      "name": "Kibana platform",
-      "labels": ["Team:sharedUX", "Team:Kibana Management"],
-      "metaIssue": { "titlePattern": "Kibana {version} docs checklist" }
-    },
-    {
-      "name": "Observability",
-      "labels": ["Team:obs-ux-management"],
-      "metaIssue": { "titlePattern": "Observability {version} docs checklist" }
-    },
-    {
-      "name": "Security",
-      "labels": ["Team:Security"],
-      "metaIssue": { "titlePattern": "Security {version} docs checklist" }
-    }
-  ]
+  "repos": [{
+    "metaIssue": "kibana",
+    "categories": [
+      { "name": "Dashboards", "labels": ["Team:Presentation"] },
+      { "name": "Observability UI", "labels": ["Team:obs-ux-management"], "metaIssue": "observability" },
+      { "name": "Internal only", "labels": ["Team:internal"], "metaIssue": null }
+    ]
+  }]
 }
 ```
 
-- A category with `metaIssue` uses it exclusively; categories without one fall back to the global `metaIssue`.
-- A category can opt out entirely with `"metaIssue": { "enabled": false }`, without affecting other categories.
-- `{version}` resolution is unchanged at both levels.
+- A category inherits the group's `metaIssue` unless it sets its own.
+- `"metaIssue": null` opts a category out of meta-issue linking.
+- This is how one scan routes issues into the right solution checklist automatically, without manual moves.
 
-Per-category overrides are currently edited in `config.json` (the Settings dialog surfaces them read-only beneath each category row).
+Per-category settings are edited in `config.json` (the Settings dialog surfaces them read-only beneath each category row).
 
 ### Multiple source repositories
 
@@ -146,25 +139,27 @@ A single scan can span several source repos, each with its own labels, target re
 ```json
 {
   "title": "Docs triage",
+  "metaIssues": { "kibana": "Kibana {version}", "elasticsearch": "Elasticsearch {version}" },
   "repos": [
     {
       "id": "elastic/kibana",
       "source": { "owner": "elastic", "repo": "kibana" },
       "target": { "owner": "elastic", "repo": "docs-content" },
-      "categories": [
-        { "name": "Dashboards", "labels": ["Team:Presentation", "Team:Visualizations"] }
-      ],
+      "metaIssue": "kibana",
       "project": { "org": "elastic", "number": 1034, "defaultArea": "Kibana core" },
-      "metaIssue": { "titlePattern": "Kibana {version}" }
+      "categories": [
+        { "name": "Dashboards", "labels": ["Team:Presentation", "Team:Visualizations"], "feature": "Kib: Dashboards" }
+      ]
     },
     {
       "id": "elastic/elasticsearch",
       "source": { "owner": "elastic", "repo": "elasticsearch" },
       "target": { "owner": "elastic", "repo": "docs-content" },
+      "metaIssue": "elasticsearch",
+      "project": { "org": "elastic", "number": 1034 },
       "categories": [
-        { "name": "Search", "labels": [":Search/Search"] }
-      ],
-      "project": { "org": "elastic", "number": 1034 }
+        { "name": "Search", "labels": [":Search Relevance/Search"], "feature": "ES: Search" }
+      ]
     }
   ]
 }
@@ -180,7 +175,8 @@ Per-group fields:
 | `label` | Optional display name | `id` |
 | `source` / `target` | Source repo scanned / target repo for issues | required |
 | `categories` | Team labels for this repo. Each category may override `metaIssue`, `target`, and `project` for itself (falling back to the group). | required |
-| `project`, `metaIssue`, `issueLabels` | Same shape as the global fields, scoped to this group | — |
+| `metaIssue` | Default meta-issue **pattern name** (from the top-level `metaIssues` registry) for this group's categories | — |
+| `project`, `issueLabels` | Same shape as the global fields, scoped to this group | — |
 | `versionLabelPattern`, `releaseNoteLabels`, `maxMergeAgeMonths` | Per-group overrides | global defaults |
 | `crossRefRepos` | Repos checked for existing docs issues | `[target, "<target>-internal"]` |
 | `productIssuePattern` | Regex to extract the product issue URL from PR bodies | source repo's issues URL |
@@ -198,20 +194,13 @@ Auto-fill project board fields when creating issues:
     "number": 42,
     "defaultArea": "My area",
     "defaultPriority": "P2 (Important)",
-    "sizeMap": {
-      "quick-fix": "XS",
-      "update": "S",
-      "new-content": "M"
-    },
-    "featureMap": {
-      "Search": "Feature: Search",
-      "Dashboards": "Feature: Dashboards"
-    }
+    "sizeMap": { "quick-fix": "XS", "update": "S", "new-content": "M" },
+    "contentTypeMap": { "quick-fix": "Improvement", "update": "Improvement", "new-content": "Net-new" }
   }
 }
 ```
 
-Fields set automatically: **Release** (from version label), **Size** (from effort estimate), **Priority**, **Area**, **Feature** (from category mapping), **Serverless-pub** (computed deploy date).
+Fields set automatically: **Release** (from version label), **Size** and **Content Type** (from the effort estimate via `sizeMap` / `contentTypeMap`), **Priority** and **Area** (group defaults), **Feature** (from the matched category's `feature` / `featureByLabel`), **Serverless-pub** (computed deploy date).
 
 Your GitHub token needs the `project` scope for this. If using the `gh` CLI:
 

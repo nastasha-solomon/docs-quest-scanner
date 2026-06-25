@@ -895,8 +895,9 @@ function createCategoryRow(cat = {}) {
   // (and the save path preserves them). Edit these via config JSON for now.
   const overrides = [];
   if (cat.metaIssueHeading) overrides.push(`heading: ${cat.metaIssueHeading}`);
-  if (cat.metaIssue?.titlePattern) overrides.push(`meta: ${cat.metaIssue.titlePattern}`);
-  if (cat.metaIssue?.enabled === false) overrides.push('meta: disabled');
+  if (cat.metaIssue === null) overrides.push('meta: none');
+  else if (typeof cat.metaIssue === 'string') overrides.push(`meta: ${cat.metaIssue}`);
+  if (cat.feature) overrides.push(`feature: ${cat.feature}`);
   if (cat.target) overrides.push(`target: ${cat.target.owner}/${cat.target.repo}`);
   if (cat.project?.number) overrides.push(`project: #${cat.project.number}`);
   const overrideHint = overrides.length

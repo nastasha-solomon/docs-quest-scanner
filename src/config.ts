@@ -11,6 +11,7 @@ import type {
   Category,
   RepoRef,
   ProjectConfig,
+  MetaIssuesRegistry,
 } from './types.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -83,36 +84,70 @@ function fillRepoDefaults(g: RepoGroup): RepoGroup {
 }
 
 /**
- * Normalize either config shape into repo groups. A `repos[]` config is used
- * directly; a legacy flat config is wrapped into a single synthetic group so
- * the rest of the app only ever deals with `RepoGroup`s.
+ * Fold legacy `project.featureMap` / `featureLabelMap` into per-category
+ * `feature` / `featureByLabel`, so resolution code only deals with the new shape.
+ */
+function foldLegacyFeatures(group: RepoGroup): RepoGroup {
+  const fm = group.project?.featureMap;
+  const flm = group.project?.featureLabelMap;
+  if (!fm && !flm) return group;
+  const categories = group.categories.map((c) => {
+    const next: Category = { ...c };
+    if (next.feature === undefined && fm?.[c.name]) next.feature = fm[c.name];
+    if (flm) {
+      const byLabel: Record<string, string> = { ...(next.featureByLabel ?? {}) };
+      for (const lbl of c.labels) if (flm[lbl]) byLabel[lbl] = flm[lbl];
+      if (Object.keys(byLabel).length) next.featureByLabel = byLabel;
+    }
+    return next;
+  });
+  return { ...group, categories };
+}
+
+/**
+ * Normalize either config shape into repo groups + a meta-issue registry. A
+ * `repos[]` config is used directly; a legacy flat config is wrapped into a
+ * single synthetic group. Legacy global `metaIssue` and `project.featureMap`/
+ * `featureLabelMap` are migrated so the rest of the app only deals with the
+ * new shape (named meta issues + per-category feature).
  */
 export function normalizeConfig(raw: Config): NormalizedConfig {
+  // Named meta-issue registry; a legacy global metaIssue object becomes "default".
+  const metaIssues: MetaIssuesRegistry = { ...(raw.metaIssues ?? {}) };
+  if (raw.metaIssue && metaIssues.default === undefined) {
+    metaIssues.default = raw.metaIssue.titlePattern ?? 'Kibana {version}';
+  }
+
   let groups: RepoGroup[];
   if (raw.repos?.length) {
-    groups = raw.repos.map(fillRepoDefaults);
+    groups = raw.repos.map((g) => foldLegacyFeatures(fillRepoDefaults(g)));
   } else {
     if (!raw.sourceRepo || !raw.targetRepo || !raw.categories) {
       throw new Error(
         'Config must define either `repos` or the legacy `sourceRepo`/`targetRepo`/`categories` fields.'
       );
     }
+    // Legacy global meta issue → reference the synthesized "default" pattern,
+    // unless it was explicitly disabled.
+    const legacyMeta = raw.metaIssue && raw.metaIssue.enabled === false ? undefined : 'default';
     groups = [
-      fillRepoDefaults({
-        id: `${raw.sourceRepo.owner}/${raw.sourceRepo.repo}`,
-        source: raw.sourceRepo,
-        target: raw.targetRepo,
-        categories: raw.categories,
-        project: raw.project,
-        metaIssue: raw.metaIssue,
-        issueLabels: raw.issueLabels,
-        versionLabelPattern: raw.versionLabelPattern,
-        releaseNoteLabels: raw.releaseNoteLabels,
-        maxMergeAgeMonths: raw.maxMergeAgeMonths,
-      }),
+      foldLegacyFeatures(
+        fillRepoDefaults({
+          id: `${raw.sourceRepo.owner}/${raw.sourceRepo.repo}`,
+          source: raw.sourceRepo,
+          target: raw.targetRepo,
+          categories: raw.categories,
+          project: raw.project,
+          metaIssue: raw.metaIssue ? legacyMeta : undefined,
+          issueLabels: raw.issueLabels,
+          versionLabelPattern: raw.versionLabelPattern,
+          releaseNoteLabels: raw.releaseNoteLabels,
+          maxMergeAgeMonths: raw.maxMergeAgeMonths,
+        })
+      ),
     ];
   }
-  return { title: raw.title, repos: groups };
+  return { title: raw.title, metaIssues, repos: groups };
 }
 
 /** Load and normalize the config into repo groups (what scan/create code consumes). */
@@ -138,6 +173,38 @@ export function resolveRouting(group: RepoGroup, category?: Category): ResolvedR
     project: category?.project ?? group.project,
     issueLabels: group.issueLabels ?? [],
   };
+}
+
+/**
+ * Resolve the meta-issue title pattern for a category, or null if it isn't linked.
+ * Precedence: category.metaIssue (null = opt out) → group.metaIssue → none.
+ * The resolved name is looked up in the registry.
+ */
+export function resolveMetaPattern(
+  metaIssues: MetaIssuesRegistry,
+  group: RepoGroup,
+  category?: Category
+): string | null {
+  // Explicit category opt-out.
+  if (category && 'metaIssue' in category && category.metaIssue === null) return null;
+  const name = category?.metaIssue ?? group.metaIssue;
+  if (!name) return null;
+  return metaIssues[name] ?? null;
+}
+
+/**
+ * Resolve the Feature field value for an item: a per-label override
+ * (featureByLabel) wins over the category's default feature.
+ */
+export function resolveFeature(category: Category | undefined, prLabels: string[]): string | undefined {
+  if (!category) return undefined;
+  if (category.featureByLabel) {
+    for (const label of prLabels) {
+      const f = category.featureByLabel[label];
+      if (f) return f;
+    }
+  }
+  return category.feature;
 }
 
 export function saveConfig(config: Config): void {
