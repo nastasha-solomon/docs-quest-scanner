@@ -39,11 +39,18 @@ fi
 
 mkdir -p "$CANON"
 
+# The skill template lives at .claude/skills/docs-quest-scanner/SKILL.md in the dev
+# repo (see the sed step below), but it must never land in the install: the skill
+# scanner walks SKILL.md files recursively and would treat it as a duplicate skill.
+# Remove any stray copy left by an older deploy or a git clone of this repo.
+rm -rf "$CANON/.claude"
+
 # Sync code; keep node_modules/.git/dist and all runtime data intact.
 # config.defaults.json (tracked) is intentionally NOT excluded, so it updates.
 rsync -a \
   --exclude='node_modules/' \
   --exclude='.git/' \
+  --exclude='.claude/' \
   --exclude='dist/' \
   --exclude='.env' \
   --exclude='/SKILL.md' \
