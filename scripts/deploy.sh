@@ -39,10 +39,9 @@ fi
 
 mkdir -p "$CANON"
 
-# The skill template lives at .claude/skills/docs-quest-scanner/SKILL.md in the dev
-# repo (see the sed step below), but it must never land in the install: the skill
-# scanner walks SKILL.md files recursively and would treat it as a duplicate skill.
-# Remove any stray copy left by an older deploy or a git clone of this repo.
+# Scrub any .claude/ left in the install by an older deploy or a git clone of this
+# repo. Older versions kept the skill template at .claude/skills/.../SKILL.md, which
+# the scanner would pick up as a duplicate skill. The template now lives in templates/.
 rm -rf "$CANON/.claude"
 
 # Sync code; keep node_modules/.git/dist and all runtime data intact.
@@ -58,9 +57,10 @@ rsync -a \
   "$SRC"/ "$CANON"/
 
 # Render the runtime SKILL.md from the template, pointing __TOOL_DIR__ at the
-# canonical dir (gitignored, so not synced above).
+# canonical dir (gitignored, so not synced above). The template lives outside a
+# SKILL.md-named path on purpose, so scanners never treat it as a second skill.
 sed "s|__TOOL_DIR__|$CANON|g" \
-  "$SRC/.claude/skills/docs-quest-scanner/SKILL.md" > "$CANON/SKILL.md"
+  "$SRC/templates/skill.md.template" > "$CANON/SKILL.md"
 
 # Point every other runtime at the canonical copy via a symlink.
 for entry in "${LINKS[@]}"; do

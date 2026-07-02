@@ -8,7 +8,9 @@ data/enrichments.json
 .env
 *.tgz
 
-# Rendered SKILL.md created by scripts/setup.sh when the repo is cloned
-# inside ~/.claude/skills/. Don't commit it — only the template at
-# .claude/skills/docs-quest-scanner/SKILL.md is the source of truth.
+# Rendered SKILL.md files created by scripts/setup.sh and scripts/deploy.sh.
+# Don't commit them — the only source of truth is templates/skill.md.template.
+# The repo-local install (setup.sh option 2) renders into .claude/skills/... ;
+# keeping it ignored stops it from being discovered as a duplicate skill in git.
 /SKILL.md
+.claude/

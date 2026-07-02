@@ -91,10 +91,10 @@ read -p "  Choice [1]: " SKILL_CHOICE
 SKILL_CHOICE="${SKILL_CHOICE:-1}"
 
 TOOL_DIR=$(pwd)
-SKILL_SOURCE="$TOOL_DIR/.claude/skills/docs-quest-scanner/SKILL.md"
+SKILL_SOURCE="$TOOL_DIR/templates/skill.md.template"
 
 if [ ! -f "$SKILL_SOURCE" ]; then
-  echo "  ✗ Cannot find canonical SKILL.md at $SKILL_SOURCE"
+  echo "  ✗ Cannot find the skill template at $SKILL_SOURCE"
   echo "    The repo layout looks wrong — re-clone and try again."
   exit 1
 fi
