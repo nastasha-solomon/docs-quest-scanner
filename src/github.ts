@@ -171,12 +171,17 @@ export async function createIssue(
  * @param titlePattern - Title search pattern with `{version}` placeholder.
  *   Defaults to `"Kibana {version}"`. The placeholder is replaced with
  *   the major.minor extracted from `versionLabel` (e.g., "v9.5.0" → "9.5").
+ * @param expectedHeadings - The tool's category headings (category name or its
+ *   `metaIssueHeading`). Used to disambiguate when the title pattern matches
+ *   several issues: the broad release meta is the one whose body carries the
+ *   most of these `## heading` sections.
  */
 export async function findMetaIssue(
   owner: string,
   repo: string,
   versionLabel: string,
-  titlePattern?: string
+  titlePattern?: string,
+  expectedHeadings?: string[]
 ): Promise<{ number: number; title: string; body: string } | null> {
   const ok = getOctokit();
 
@@ -191,13 +196,38 @@ export async function findMetaIssue(
   const query = `repo:${owner}/${repo} is:issue is:open "${searchTitle}" in:title`;
   const { data } = await ok.search.issuesAndPullRequests({
     q: query,
-    per_page: 5,
+    per_page: 20,
   });
 
   if (data.items.length === 0) return null;
 
-  // Pick the best match
-  const item = data.items[0];
+  // A title pattern like "Kibana 9.5" can match several open issues: the broad
+  // release meta plus narrower trackers that share the version prefix (for
+  // example a "Kibana 9.5 - Dashboards and library APIs GA" issue). Blindly
+  // taking items[0] let GitHub relevance ranking send checklist entries to the
+  // wrong tracker. Rank candidates so the comprehensive release meta wins:
+  //   1. most of the tool's expected category headings present as "## heading"
+  //   2. most "## " sections overall
+  //   3. lowest issue number (the long-lived release meta is usually the oldest)
+  const headings = (expectedHeadings ?? []).map((h) => h.toLowerCase());
+  const headingMatchCount = (body: string): number => {
+    const lower = body.toLowerCase();
+    return headings.reduce(
+      (n, h) => (new RegExp(`^##\\s+${escapeRegex(h)}\\s*$`, 'm').test(lower) ? n + 1 : n),
+      0
+    );
+  };
+  const sectionCount = (body: string): number => (body.match(/^##\s+/gm) ?? []).length;
+
+  const ranked = [...data.items].sort((a, b) => {
+    const byHeading = headingMatchCount(b.body ?? '') - headingMatchCount(a.body ?? '');
+    if (byHeading !== 0) return byHeading;
+    const bySections = sectionCount(b.body ?? '') - sectionCount(a.body ?? '');
+    if (bySections !== 0) return bySections;
+    return a.number - b.number;
+  });
+
+  const item = ranked[0];
   return {
     number: item.number,
     title: item.title,

@@ -253,6 +253,9 @@ apiRouter.post('/create-issue', async (req, res) => {
     // checklists. Categories without an override share the global config.
     if (item.version && item.version !== 'unknown') {
       const categoriesToLink = [item.category, ...(item.alsoAppliesTo ?? [])];
+      // The tool's category headings, used to disambiguate when a version title
+      // pattern matches several issues (release meta vs. a narrower tracker).
+      const expectedHeadings = group.categories.map((c) => c.metaIssueHeading ?? c.name);
       // Cache meta-issue lookups by title pattern so categories sharing a
       // checklist don't trigger duplicate searches. Value `null` = not found.
       const metaCache = new Map<string, Awaited<ReturnType<typeof findMetaIssue>>>();
@@ -263,7 +266,7 @@ apiRouter.post('/create-issue', async (req, res) => {
         try {
           let meta = metaCache.get(titlePattern);
           if (meta === undefined) {
-            meta = await findMetaIssue(owner, repo, item.version, titlePattern);
+            meta = await findMetaIssue(owner, repo, item.version, titlePattern, expectedHeadings);
             metaCache.set(titlePattern, meta);
           }
           if (meta) {
@@ -374,7 +377,8 @@ apiRouter.get('/meta-issue', async (req, res) => {
     const repoId = req.query.repoId as string | undefined;
     const group = (repoId && config.repos.find((r) => r.id === repoId)) || config.repos[0];
     const { owner, repo } = group.target;
-    const meta = await findMetaIssue(owner, repo, version);
+    const expectedHeadings = group.categories.map((c) => c.metaIssueHeading ?? c.name);
+    const meta = await findMetaIssue(owner, repo, version, undefined, expectedHeadings);
     res.json(meta ?? { number: null });
   } catch (err) {
     res.status(500).json({ error: String(err) });
