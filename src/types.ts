@@ -161,7 +161,7 @@ export interface ProjectConfig {
   number: number;
   /** Default area field value (e.g., "Kibana core") */
   defaultArea?: string;
-  /** Default priority field value (e.g., "P2 (Normal)") */
+  /** Default priority field value (e.g., "P1: High") */
   defaultPriority?: string;
   /** Effort tag → Size mapping */
   sizeMap?: Record<string, string>;

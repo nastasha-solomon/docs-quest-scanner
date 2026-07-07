@@ -193,7 +193,7 @@ Auto-fill project board fields when creating issues:
     "org": "my-org",
     "number": 42,
     "defaultArea": "My area",
-    "defaultPriority": "P2 (Important)",
+    "defaultPriority": "P1: High",
     "sizeMap": { "quick-fix": "XS", "update": "S", "new-content": "M" },
     "contentTypeMap": { "quick-fix": "Improvement", "update": "Improvement", "new-content": "Net-new" }
   }

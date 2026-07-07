@@ -534,7 +534,7 @@ export interface ProjectFieldValues {
   release?: string;
   /** e.g., "XS", "S", "M" for Size */
   size?: string;
-  /** e.g., "P2 (Normal)" for Priority */
+  /** e.g., "P1: High" for Priority */
   priority?: string;
   /** e.g., "Kibana core" for Area */
   area?: string;
