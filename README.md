@@ -194,13 +194,14 @@ Auto-fill project board fields when creating issues:
     "number": 42,
     "defaultArea": "My area",
     "defaultPriority": "P1: High",
+    "defaultRequester": "DQS",
     "sizeMap": { "quick-fix": "XS", "update": "S", "new-content": "M" },
     "contentTypeMap": { "quick-fix": "Improvement", "update": "Improvement", "new-content": "Net-new" }
   }
 }
 ```
 
-Fields set automatically: **Release** (from version label), **Size** and **Content Type** (from the effort estimate via `sizeMap` / `contentTypeMap`), **Priority** and **Area** (group defaults), **Feature** (from the matched category's `feature` / `featureByLabel`), **Serverless-pub** (computed deploy date).
+Fields set automatically: **Release** (from version label), **Size** and **Content Type** (from the effort estimate via `sizeMap` / `contentTypeMap`), **Priority**, **Requester**, and **Area** (group defaults), **Feature** (from the matched category's `feature` / `featureByLabel`), **Serverless-pub** (computed deploy date).
 
 Your GitHub token needs the `project` scope for this. If using the `gh` CLI:
 

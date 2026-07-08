@@ -163,6 +163,8 @@ export interface ProjectConfig {
   defaultArea?: string;
   /** Default priority field value (e.g., "P1: High") */
   defaultPriority?: string;
+  /** Default requester field value (e.g., "DQS") */
+  defaultRequester?: string;
   /** Effort tag → Size mapping */
   sizeMap?: Record<string, string>;
   /** Effort tag → Content Type field value mapping */

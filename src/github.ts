@@ -536,6 +536,8 @@ export interface ProjectFieldValues {
   size?: string;
   /** e.g., "P1: High" for Priority */
   priority?: string;
+  /** e.g., "DQS" for Requester */
+  requester?: string;
   /** e.g., "Kibana core" for Area */
   area?: string;
   /** e.g., "Kib: ES|QL" for Feature */
@@ -604,7 +606,7 @@ export async function preflightProjectScope(projectConfigured: boolean): Promise
       '',
       '⚠️  GitHub token is missing the `project` scope.',
       '   Issues will still be created, but they will NOT be added to the',
-      '   project board or have Area / Size / Priority / Feature / Release set.',
+      '   project board or have Area / Size / Priority / Requester / Feature / Release set.',
       '',
       '   Fix it:   gh auth refresh -s project',
       '   Restart:  GITHUB_TOKEN=$(gh auth token) yarn dev',
@@ -661,6 +663,12 @@ export async function setProjectFields(
       const match = findOption(schema, 'Priority', values.priority);
       if (match) ops.push(setSelectField(schema.projectId, itemId, match.fieldId, match.optionId));
       else console.warn(`  Priority option "${values.priority}" not found in project`);
+    }
+
+    if (values.requester) {
+      const match = findOption(schema, 'Requester', values.requester);
+      if (match) ops.push(setSelectField(schema.projectId, itemId, match.fieldId, match.optionId));
+      else console.warn(`  Requester option "${values.requester}" not found in project`);
     }
 
     if (values.area) {
