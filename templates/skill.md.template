@@ -31,7 +31,7 @@ Both `yarn scan` and `yarn dev` need:
    GITHUB_TOKEN=$(gh auth token) yarn dev
    ```
 
-2. **`project` token scope** — creating issues needs the `repo` scope (almost always already present), but adding them to the project board and setting fields (Area / Size / Priority / Feature / Release / Serverless-pub) additionally needs the **`project`** scope. Without it, issues are still created, but project fields are silently skipped — the tool only warns (a startup banner and a per-issue toast in the UI), it does not fail.
+2. **`project` token scope** — creating issues needs the `repo` scope (almost always already present), but adding them to the project board and setting fields (Area / Size / Priority / Requester / Feature / Release / Serverless-pub) additionally needs the **`project`** scope. Without it, issues are still created, but project fields are silently skipped — the tool only warns (a startup banner and a per-issue toast in the UI), it does not fail.
 
    Verify and fix before the first run:
 

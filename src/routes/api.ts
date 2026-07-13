@@ -239,6 +239,7 @@ apiRouter.post('/create-issue', async (req, res) => {
           release: versionMatch ? versionMatch[1] : undefined,
           size: p.sizeMap?.[item.assessment.effortTag ?? ''] ?? undefined,
           priority: p.defaultPriority ?? undefined,
+          requester: p.defaultRequester ?? undefined,
           area: p.defaultArea ?? undefined,
           feature,
           contentType: p.contentTypeMap?.[item.assessment.effortTag ?? ''] ?? undefined,

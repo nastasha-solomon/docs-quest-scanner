@@ -23,7 +23,8 @@
         "org": "elastic",
         "number": 1034,
         "defaultArea": "Kibana core",
-        "defaultPriority": "P2 (Important)",
+        "defaultPriority": "P1: High",
+        "defaultRequester": "DQS",
         "sizeMap": {
           "quick-fix": "XS (<1D)",
           "update": "S (2-3D)",
