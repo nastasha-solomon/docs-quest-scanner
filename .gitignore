@@ -14,3 +14,4 @@ data/enrichments.json
 # keeping it ignored stops it from being discovered as a duplicate skill in git.
 /SKILL.md
 .claude/
+.worktrees/
