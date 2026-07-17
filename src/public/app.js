@@ -997,7 +997,7 @@ function mrRepoCard(repo = {}, cfg = {}) {
       <label class="mr-field">Default meta issue<input class="form-control input-sm" list="cfg-mr-metanames" data-mr="repo-meta" placeholder="(none)" value="${esc(repo.metaIssue ?? '')}" /></label>
       <label class="mr-field">Version label pattern (regex)<input class="form-control input-sm" data-mr="repo-version" placeholder="^v\\d+\\.\\d+\\.\\d+$" value="${esc(version)}" /></label>
     </div>
-    <label class="mr-field">Release note labels (comma-separated)<input class="form-control input-sm" data-mr="repo-release" placeholder="release_note:feature, ..." value="${esc(release)}" /></label>
+    <label class="mr-field">Release note labels (comma-separated)<input class="form-control input-sm" data-mr="repo-release" placeholder="release_note:*, release_note:feature, ..." value="${esc(release)}" /></label>
     <div class="mr-grid2 mt-2">
       <label class="mr-field">Default project number<input class="form-control input-sm" data-mr="repo-proj-number" placeholder="1034" value="${esc(p.number ?? '')}" /></label>
       <label class="mr-field">Board Area field<input class="form-control input-sm" data-mr="repo-proj-area" placeholder="Kibana core" value="${esc(p.defaultArea ?? '')}" /></label>

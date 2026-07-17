@@ -1,6 +1,6 @@
 ---
 name: docs-quest-scanner
-version: 3.7.0
+version: 3.8.0
 description: Triage PRs for documentation impact. Scans merged PRs by team label and release note label, assesses doc needs, and opens a review UI to create or dismiss doc issues. Use when doing weekly docs triage, checking what's new in a Kibana release, or when asked to scan PRs for doc impact.
 allowed-tools: Bash, Read, Grep, Glob, Agent, WebFetch, mcp__github__search_pull_requests, mcp__github__pull_request_read, mcp__github__issue_read, mcp__github__issue_write, mcp__github__add_issue_comment, mcp__elastic-docs__search_docs, mcp__elastic-docs__find_related_docs, mcp__elastic-docs__get_document_by_url, mcp__elastic-docs__check_docs_coherence
 sources:
@@ -54,7 +54,7 @@ GITHUB_TOKEN=$(gh auth token) yarn scan
 
 Run this with `required_permissions: ["all"]` (see Environment requirements above).
 
-This fetches merged PRs from `elastic/kibana` matching the configured team labels, filtered to only include PRs with a release note label (`release_note:breaking`, `release_note:deprecation`, `release_note:feature`, `release_note:enhancement`). It filters out already-processed PRs and writes a triage queue to `data/queue.json`.
+This fetches merged PRs from `elastic/kibana` matching the configured team labels, filtered to only include PRs with a configured release note label. The default configuration includes `release_note:breaking`, `release_note:deprecation`, `release_note:feature`, and `release_note:enhancement`. To include every current and future release note category, configure `release_note:*`; you can also combine exact labels and trailing-wildcard patterns. It filters out already-processed PRs and writes a triage queue to `data/queue.json`.
 
 The scanner automatically:
 - Deduplicates PRs that appear in multiple categories (adds `alsoAppliesTo` field)
@@ -179,6 +179,8 @@ For non-{{kib}} repos (for example {{es}}), there is no `serverless.yml` plugin 
 - `release_note:breaking` or `release_note:deprecation` → almost always needs docs
 - `release_note:feature` → likely needs docs
 - `release_note:enhancement` → needs docs unless purely internal (see heuristics below)
+- `release_note:fix` → review for changes to documented behavior or incorrect existing docs
+- `release_note:skip` → review for documentation impact even though the release note was intentionally omitted
 - Assign `needsDocs`: `"yes"`, `"no"`, or `"check"`
 - Assign `confidence`: 0.0–1.0 — then apply the premise accuracy adjustment from step 2a
 - Assign `premiseAccuracy` from step 2a
@@ -312,7 +314,7 @@ Key settings:
 - `targetRepo`: `elastic/docs-content` (or `elastic/docs-content-internal`)
 - `categories`: team labels grouped by doc area. Each category has an optional `metaIssueHeading` field — when set, this heading is used to match the section in the meta issue instead of the category `name`. This avoids creating duplicate sections when the meta issue uses different headings than the scan categories.
 - `versionLabelPattern`: regex to detect version labels on PRs (default: `^v\d+\.\d+\.\d+$`)
-- `releaseNoteLabels`: labels that qualify a PR for triage (breaking, deprecation, feature, enhancement)
+- `releaseNoteLabels`: exact labels or trailing-wildcard patterns that qualify a PR for triage. The default is breaking, deprecation, feature, and enhancement; use `release_note:*` to include every release note category, including `fix`, `skip`, and categories added later.
 - `issueLabels`: labels for created issues (e.g., `Team:SKI`)
 
 ## Issue template
@@ -358,6 +360,8 @@ This trades some recall (a PR genuinely labeled for the first time more than 6 m
 ## Assessment heuristics
 
 When you're unsure about doc impact, lean toward `check` rather than `no`. It's better to flag something for review than to miss it.
+
+Treat `release_note:fix` and `release_note:skip` as manual-review signals. A fix can change documented behavior or reveal incorrect docs, and a skipped release note does not prove that no docs change is needed.
 
 **Things that almost always need docs:**
 - New UI elements (buttons, panels, tabs, pages)

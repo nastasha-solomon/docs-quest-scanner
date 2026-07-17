@@ -60,12 +60,14 @@ Edit `data/config.json` after setup. Key settings:
 | `sourceRepo` | Repo to scan for PRs | `{ "owner": "my-org", "repo": "my-repo" }` |
 | `targetRepo` | Repo where doc issues are created | `{ "owner": "my-org", "repo": "docs" }` |
 | `categories` | Team labels to monitor, grouped by doc area | See below |
-| `releaseNoteLabels` | PR labels that qualify for triage | `["release_note:feature", ...]` |
+| `releaseNoteLabels` | Exact PR labels or trailing-wildcard patterns that qualify for triage | `["release_note:*"]` |
 | `issueLabels` | Labels added to created issues | `["Team:Docs"]` |
 | `metaIssues` | Named release-checklist patterns, referenced by name | See below |
 | `project` | GitHub Project board integration | See below |
 
 To scan more than one source repo in a single run, use the `repos[]` array (see [Multiple source repositories](#multiple-source-repositories)); the top-level `sourceRepo`/`targetRepo`/`categories` form is the single-repo shorthand.
+
+The default release note filter includes `release_note:breaking`, `release_note:deprecation`, `release_note:feature`, and `release_note:enhancement`. Configure `release_note:*` to include every current and future release note category, including `release_note:fix` and `release_note:skip`. You can combine exact labels and trailing-wildcard patterns.
 
 ### Categories
 
