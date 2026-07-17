@@ -89,22 +89,67 @@ export async function searchMergedPRs(
 
 /**
  * Paginate through all pages of a GitHub search query and return PullRequest objects.
+ * GitHub exposes at most 1,000 results for any one search query, so searches
+ * above that limit are recursively split into non-overlapping date ranges.
  */
 async function paginateSearch(ok: Octokit, query: string): Promise<PullRequest[]> {
+  const firstPage = await fetchSearchPage(ok, query, 1);
+
+  if (firstPage.totalCount <= SEARCH_RESULT_LIMIT) {
+    return collectSearchPages(ok, query, firstPage);
+  }
+
+  const dateQualifier = query.match(/\b(merged|updated):>=(\d{4}-\d{2}-\d{2})\b/);
+  if (!dateQualifier) {
+    throw new Error(
+      `GitHub search returned ${firstPage.totalCount} results, but the query has no supported date qualifier to partition: ${query}`
+    );
+  }
+
+  const [, qualifier, startDate] = dateQualifier;
+  const endDate = formatUtcDate(new Date());
+  return searchDateRange(ok, query, qualifier, startDate, startDate, endDate);
+}
+
+const SEARCH_RESULT_LIMIT = 1000;
+const SEARCH_PAGE_SIZE = 100;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+type SearchPage = Awaited<ReturnType<typeof fetchSearchPage>>;
+
+async function fetchSearchPage(
+  ok: Octokit,
+  query: string,
+  page: number
+): Promise<{
+  totalCount: number;
+  items: Awaited<ReturnType<Octokit['search']['issuesAndPullRequests']>>['data']['items'];
+}> {
+  const result = await ok.search.issuesAndPullRequests({
+    q: query,
+    per_page: SEARCH_PAGE_SIZE,
+    page,
+    sort: 'updated',
+    order: 'desc',
+  });
+
+  return {
+    totalCount: result.data.total_count,
+    items: result.data.items,
+  };
+}
+
+async function collectSearchPages(
+  ok: Octokit,
+  query: string,
+  firstPage: SearchPage
+): Promise<PullRequest[]> {
   const results: PullRequest[] = [];
   let page = 1;
-  const perPage = 100;
+  let items = firstPage.items;
 
-  while (true) {
-    const result = await ok.search.issuesAndPullRequests({
-      q: query,
-      per_page: perPage,
-      page,
-      sort: 'updated',
-      order: 'desc',
-    });
-
-    for (const item of result.data.items) {
+  while (items.length > 0) {
+    for (const item of items) {
       results.push({
         number: item.number,
         title: item.title,
@@ -118,11 +163,61 @@ async function paginateSearch(ok: Octokit, query: string): Promise<PullRequest[]
       });
     }
 
-    if (result.data.items.length < perPage) break;
+    if (results.length >= firstPage.totalCount) break;
     page++;
+    items = (await fetchSearchPage(ok, query, page)).items;
   }
 
   return results;
+}
+
+async function searchDateRange(
+  ok: Octokit,
+  baseQuery: string,
+  qualifier: string,
+  lowerBound: string,
+  startDate: string,
+  endDate: string
+): Promise<PullRequest[]> {
+  const boundedQuery = baseQuery.replace(
+    `${qualifier}:>=${lowerBound}`,
+    `${qualifier}:${startDate}..${endDate}`
+  );
+  const firstPage = await fetchSearchPage(ok, boundedQuery, 1);
+
+  if (firstPage.totalCount <= SEARCH_RESULT_LIMIT) {
+    return collectSearchPages(ok, boundedQuery, firstPage);
+  }
+
+  if (startDate === endDate) {
+    throw new Error(
+      `GitHub search returned ${firstPage.totalCount} results for ${qualifier}:${startDate}; a single day cannot be partitioned further`
+    );
+  }
+
+  const startMs = parseUtcDate(startDate).getTime();
+  const endMs = parseUtcDate(endDate).getTime();
+  const midpointMs = startMs + Math.floor((endMs - startMs) / (2 * DAY_MS)) * DAY_MS;
+  const midpoint = formatUtcDate(new Date(midpointMs));
+  const nextDay = formatUtcDate(new Date(midpointMs + DAY_MS));
+
+  const [left, right] = await Promise.all([
+    searchDateRange(ok, baseQuery, qualifier, lowerBound, startDate, midpoint),
+    searchDateRange(ok, baseQuery, qualifier, lowerBound, nextDay, endDate),
+  ]);
+  return [...left, ...right];
+}
+
+function parseUtcDate(value: string): Date {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || formatUtcDate(date) !== value) {
+    throw new Error(`Invalid search date: ${value}`);
+  }
+  return date;
+}
+
+function formatUtcDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
 }
 
 
