@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { loadConfig, normalizeConfig, loadHistory, loadLastRun, loadQueue, saveQueue } from './config.js';
 import { searchMergedPRs, getPRFiles, findCrossReferencedIssues } from './github.js';
+import { hasMatchingConfiguredLabel } from './release-note-labels.js';
 import type { Config, PullRequest, QueueItem, Queue, Assessment, RepoGroup, TrackedIssue } from './types.js';
 
 /** Default lookback if no last run exists: 14 days */
@@ -52,7 +53,7 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
     console.log(`  Version pattern: ${group.versionLabelPattern}`);
     console.log(`  Release note filter: ${(group.releaseNoteLabels ?? []).join(', ')}`);
 
-    const releaseNoteLabels = new Set((group.releaseNoteLabels ?? []).map((l) => l.toLowerCase()));
+    const releaseNoteLabels = group.releaseNoteLabels ?? [];
 
     for (const category of group.categories) {
       console.log(`  Scanning ${category.name} (${category.labels.join(', ')})...`);
@@ -68,7 +69,7 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
 
       // Filter: PR must have at least one release note label to be triaged.
       const beforeFilter = prs.length;
-      prs = prs.filter((pr) => pr.labels.some((l) => releaseNoteLabels.has(l.toLowerCase())));
+      prs = prs.filter((pr) => hasMatchingConfiguredLabel(pr.labels, releaseNoteLabels));
       if (beforeFilter > prs.length) {
         console.log(`    Filtered ${beforeFilter - prs.length} PRs without release note labels.`);
       }
@@ -336,9 +337,11 @@ function cleanPRTitle(title: string): string {
  * Heuristic-based assessment (no AI).
  *
  * The primary signal is the release note label — every PR in the queue already
- * passed the release-note-label filter, so we know it has one of:
+ * passed the release-note-label filter, so it has one of the configured labels,
+ * which can include wildcard patterns such as release_note:*.
+ * Recognized labels are:
  *   release_note:breaking, release_note:deprecation, release_note:feature,
- *   release_note:enhancement, release_note:fix
+ *   release_note:enhancement, release_note:fix, release_note:skip
  *
  * Assessment strategy:
  * - breaking / deprecation → always "yes" (high confidence)
@@ -346,8 +349,10 @@ function cleanPRTitle(title: string): string {
  * - enhancement → "yes" unless title/body signals it's purely internal
  * - fix → "check" by default. Fixes rarely need docs unless the fix changes
  *   documented behavior or the PR was mistagged. Flag for manual review.
+ * - skip → "check" by default because omitting a release note does not prove
+ *   that the change has no documentation impact.
  */
-function basicAssessment(prs: PullRequest[], productIssuePattern?: string): Assessment {
+export function basicAssessment(prs: PullRequest[], productIssuePattern?: string): Assessment {
   const allLabels = prs.flatMap((p) => p.labels);
   const allLabelLower = allLabels.map((l) => l.toLowerCase());
   const allFiles = prs.flatMap((p) => p.changedFiles ?? []);
@@ -361,6 +366,7 @@ function basicAssessment(prs: PullRequest[], productIssuePattern?: string): Asse
   const hasFeature = allLabelLower.includes('release_note:feature');
   const hasEnhancement = allLabelLower.includes('release_note:enhancement');
   const hasFix = allLabelLower.includes('release_note:fix');
+  const hasSkip = allLabelLower.includes('release_note:skip');
 
   // Signals that an enhancement/fix might be purely internal (no user-facing impact)
   const internalSignals = [
@@ -442,6 +448,10 @@ function basicAssessment(prs: PullRequest[], productIssuePattern?: string): Asse
     needsDocs = 'check';
     confidence = 0.3;
     reasoning = 'Bug fix — usually no docs needed unless it changes documented behavior or was mistagged.';
+  } else if (hasSkip) {
+    needsDocs = 'check';
+    confidence = 0.3;
+    reasoning = 'Skipped release note — review for documentation impact despite release-note omission.';
   } else {
     needsDocs = 'check';
     confidence = 0.2;
