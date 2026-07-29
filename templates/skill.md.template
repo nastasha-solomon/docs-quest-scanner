@@ -1,6 +1,6 @@
 ---
 name: docs-quest-scanner
-version: 3.10.0
+version: 3.10.1
 description: Triage PRs for documentation impact. Scans merged PRs by team label and release note label, assesses doc needs, and opens a review UI to create or dismiss doc issues. Use when doing weekly docs triage, checking what's new in a Kibana release, or when asked to scan PRs for doc impact.
 allowed-tools: Bash, Read, Grep, Glob, Agent, WebFetch, mcp__github__search_pull_requests, mcp__github__pull_request_read, mcp__github__issue_read, mcp__github__issue_write, mcp__github__add_issue_comment, mcp__elastic-docs__search_docs, mcp__elastic-docs__find_related_docs, mcp__elastic-docs__get_document_by_url, mcp__elastic-docs__check_docs_coherence
 sources:
@@ -110,6 +110,7 @@ For each item's `existingDocs` URLs (and any additional pages found via search):
 - **Only flag a gap if the page currently discusses the topic at a level of detail where the omission would be wrong or misleading.** A page that says "the default is Prefix" when it's now Contains is a real gap. A generic overview page that doesn't list specific panel types is NOT a gap just because a new panel type exists.
 - **Don't suggest adding specifics to pages that stay deliberately generic.** If a page says "save panels to the library" without listing which panel types support this, don't suggest adding "including Markdown." The page is correct at its chosen level of abstraction.
 - **Do flag pages that make factually incorrect statements** due to the change (wrong defaults, wrong behavior descriptions, outdated status badges).
+- **"Planned" badges are NOT gaps.** A page already tagged with a future version (for example `applies_to: stack: ga 9.6` before 9.6 releases) renders a "Planned" badge that switches automatically when the version ships — there is nothing for a writer to do, so never flag it or scope an issue for it. Badge work is only real when the **lifecycle state itself changes** (preview → beta → GA → deprecated → removed, which requires editing the `applies_to` value) or when the tagged version or state is wrong.
 - **Do flag pages that describe a workflow that now has a new step or option** that users would miss without the update.
 - **Don't pad the list.** 1-2 high-quality gaps are better than 5 marginal ones. If there's no real gap, return an empty array — that's fine.
 
@@ -424,7 +425,7 @@ Suggest adding or updating an `applies_to` tag when:
 - A feature changes lifecycle state (preview → beta → GA → deprecated → removed)
 - Availability differs between stack and serverless, or across deployment types (ECE, ECK, ECH, self-managed)
 
-Do **not** suggest tagging: typo fixes, rewording, restructuring, or features that are GA in unversioned (serverless) products with no lifecycle change to call out.
+Do **not** suggest tagging: typo fixes, rewording, restructuring, or features that are GA in unversioned (serverless) products with no lifecycle change to call out. Do **not** suggest "update the Planned badge when X.Y releases" — pages tagged with a future version flip from "Planned" to the live badge automatically at release.
 
 ### Which syntax to suggest
 

@@ -236,7 +236,8 @@ body {
   white-space: nowrap;
 }
 
-/* release_note:* label chips — how the team marked the PR */
+/* release_note:* label chips — how the team marked the PR.
+   Uniform chip appearance; only the text color hints at the kind. */
 .rn-badge {
   font-size: 11px;
   font-family: var(--fontStack-monospace, ui-monospace, monospace);
@@ -247,12 +248,12 @@ body {
   color: #656d76;
   white-space: nowrap;
 }
-.rn-badge--breaking { background: #ffebe9; border-color: #ff818266; color: #cf222e; }
-.rn-badge--deprecation { background: #fff8c5; border-color: #d4a72c66; color: #7d4e00; }
-.rn-badge--feature { background: #dafbe1; border-color: #4ac26b66; color: #116329; }
-.rn-badge--enhancement { background: #ddf4ff; border-color: #54aeff66; color: #0969da; }
-.rn-badge--fix { background: #fbefff; border-color: #c297ff66; color: #8250df; }
-.rn-badge--skip { background: #f6f8fa; border-color: #e1e4e8; color: #8c959f; }
+.rn-badge--breaking { color: #cf222e; }
+.rn-badge--deprecation { color: #7d4e00; }
+.rn-badge--feature { color: #116329; }
+.rn-badge--enhancement { color: #0969da; }
+.rn-badge--fix { color: #8250df; }
+.rn-badge--skip { color: #8c959f; }
 
 .effort-badge {
   display: inline-flex;

@@ -8,7 +8,7 @@ test('bumps the deployed skill version without changing configurable defaults', 
     'utf8'
   );
 
-  assert.match(template, /^version: 3\.10\.0$/m);
+  assert.match(template, /^version: 3\.10\.1$/m);
   assert.match(
     template,
     /The default configuration includes `release_note:breaking`, `release_note:deprecation`, `release_note:feature`, and `release_note:enhancement`\./
