@@ -1,6 +1,6 @@
 ---
 name: docs-quest-scanner
-version: 3.9.0
+version: 3.10.0
 description: Triage PRs for documentation impact. Scans merged PRs by team label and release note label, assesses doc needs, and opens a review UI to create or dismiss doc issues. Use when doing weekly docs triage, checking what's new in a Kibana release, or when asked to scan PRs for doc impact.
 allowed-tools: Bash, Read, Grep, Glob, Agent, WebFetch, mcp__github__search_pull_requests, mcp__github__pull_request_read, mcp__github__issue_read, mcp__github__issue_write, mcp__github__add_issue_comment, mcp__elastic-docs__search_docs, mcp__elastic-docs__find_related_docs, mcp__elastic-docs__get_document_by_url, mcp__elastic-docs__check_docs_coherence
 sources:
@@ -188,7 +188,7 @@ For non-{{kib}} repos (for example {{es}}), there is no `serverless.yml` plugin 
 - `release_note:fix` → review for changes to documented behavior or incorrect existing docs
 - `release_note:skip` → review for documentation impact even though the release note was intentionally omitted
 - Assign `needsDocs`: `"yes"`, `"no"`, or `"check"`
-- Assign `confidence`: 0.0–1.0 — then apply the premise accuracy adjustment from step 2a
+- Assign `confidence`: 0.0–1.0 — then apply the premise accuracy adjustment from step 2a. Calibration matters: `needsDocs: "no"` at confidence ≥ 0.8 is **auto-dismissed** after enrichment (step 2i), so reserve ≥ 0.8 for verdicts verified against the diff or the published docs, and stay below 0.8 when hedging (feature-flagged, screenshot-only, "not documented yet").
 - Assign `premiseAccuracy` from step 2a
 
 **For all items — including `needsDocs: "no"`** — always run the full doc analysis from step 2b and always produce a populated `docsGap`. This is not optional.
@@ -293,6 +293,18 @@ If a batch agent reports "permission denied" on Write, do **not** ask the user t
 
 **Always populate `assessment.reasoning`** — this is rendered in the issue template as "Why this needs docs: …". Write a short 1-sentence rationale (e.g. "New UI toggle that changes the documented layout options." or "Purely cosmetic font change with no user-configurable settings."). If premise accuracy reduced confidence, include that in the reasoning (e.g. "PR description claims X but diff only confirms Y."). Do not omit it even for `needsDocs: "no"` items.
 
+#### 2i. Auto-dismiss high-confidence "no" items
+
+After the merge script runs, auto-dismiss the items that need no human review:
+
+```bash
+node scripts/auto-dismiss.mjs
+```
+
+This dismisses every queue item with `needsDocs: "no"` and confidence ≥ 0.8 (pre-filtered items qualify at 0.95), writing a history entry with an `(auto, …)` reason so each one is auditable in the UI's History view and undoable. Items with user edits are never touched; `yes`/`check` items are never touched regardless of confidence. Report the dismissed count to the user.
+
+Tune with `--threshold=0.9` or `--dry-run`, or set `autoDismissConfidence` in `data/config.json` (`0` disables). The 0.8 default was validated against the 2026-07-28 200-item queue, where every "no" at ≥ 0.8 survived manual review.
+
 ### Step 3: Start the review UI
 
 ```bash
@@ -302,6 +314,8 @@ cd __TOOL_DIR__ && GITHUB_TOKEN=$(gh auth token) yarn dev
 Run this with `required_permissions: ["all"]` and `block_until_ms: 0` so it starts in the background. The server **must** run unsandboxed — otherwise UI actions like Skip, Mark complete, and Create issue will return 500 errors with `EPERM` when the server tries to write `data/history.json` or `data/queue.json` (see Environment requirements above).
 
 Tell the user: "The triage review UI is running at http://localhost:3847 — open it in your browser to review and create issues."
+
+Each card header shows the PR's `release_note:*` label(s) as colored chips next to the assessment badge, so the team's own marking (breaking/deprecation/feature/enhancement/fix/skip) is visible at a glance.
 
 ### Step 4: If asked to create issues directly
 
@@ -323,6 +337,7 @@ Key settings:
 - `releaseNoteLabels`: exact labels or trailing-wildcard patterns that qualify a PR for triage. The default is breaking, deprecation, feature, and enhancement; use `release_note:*` to include every release note category, including `fix`, `skip`, and categories added later.
 - `issueLabels`: labels for created issues (e.g., `Team:SKI`)
 - `prefilter`: deterministic stage-1 pre-filter (default `true`). Set to `false` to send every item to AI enrichment.
+- `autoDismissConfidence`: threshold for auto-dismissing `needsDocs: "no"` items after enrichment (default `0.8`; `0` disables).
 
 ## Issue template
 

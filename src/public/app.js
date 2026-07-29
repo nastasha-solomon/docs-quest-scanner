@@ -375,6 +375,25 @@ function effortBadge(tag) {
   return `<span class="effort-badge ${c.cls}">${c.icon} ${c.label}</span>`;
 }
 
+/** Unique release_note:* label values across an item's PRs, e.g. ["fix", "skip"]. */
+function releaseNoteKinds(item) {
+  const kinds = new Set();
+  for (const pr of item.prs ?? []) {
+    for (const label of pr.labels ?? []) {
+      if (label.toLowerCase().startsWith('release_note:')) {
+        kinds.add(label.slice('release_note:'.length).toLowerCase());
+      }
+    }
+  }
+  return [...kinds].sort();
+}
+
+function releaseNoteBadges(item) {
+  return releaseNoteKinds(item)
+    .map((k) => `<span class="rn-badge rn-badge--${esc(k)}" title="release_note:${esc(k)}">${esc(k)}</span>`)
+    .join('');
+}
+
 function renderCard(item) {
   const badge = badgeClass(item.assessment.needsDocs);
   const badgeLabel = {
@@ -397,6 +416,7 @@ function renderCard(item) {
         <span class="triage-card-title">${esc(title)}</span>
         <div class="triage-card-meta">
           <span class="docs-badge ${badge}">${badgeLabel}<span class="docs-badge-conf">${confStr}</span></span>
+          ${releaseNoteBadges(item)}
           ${avail ? `<span class="avail-badge">${esc(avail)}</span>` : ''}
           ${effortBadge(item.assessment.effortTag)}
           ${item.assessment.trackedIn?.length ? `<span class="tracked-badge">Already tracked</span>` : ''}
