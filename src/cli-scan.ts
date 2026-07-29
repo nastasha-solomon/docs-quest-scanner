@@ -31,10 +31,21 @@ async function main() {
   const needsDocs = queue.items.filter((i) => i.assessment.needsDocs === 'yes').length;
   const check = queue.items.filter((i) => i.assessment.needsDocs === 'check').length;
   const noDocs = queue.items.filter((i) => i.assessment.needsDocs === 'no').length;
+  const prefiltered = queue.items.filter((i) => i.assessment.prefiltered).length;
 
   console.log(`\n  Needs docs: ${needsDocs}`);
   console.log(`  Check: ${check}`);
   console.log(`  No docs needed: ${noDocs}`);
+  if (prefiltered > 0) {
+    const byRule = new Map<string, number>();
+    for (const i of queue.items) {
+      if (i.assessment.prefiltered) {
+        byRule.set(i.assessment.prefiltered, (byRule.get(i.assessment.prefiltered) ?? 0) + 1);
+      }
+    }
+    const detail = [...byRule].map(([r, n]) => `${r}: ${n}`).join(', ');
+    console.log(`  Pre-filtered (skip AI enrichment): ${prefiltered} (${detail})`);
+  }
   console.log(`\nRun 'yarn dev' to review in the browser.`);
 
   // Warn now if the token can't write project fields, so it's caught before

@@ -74,6 +74,12 @@ export interface Assessment {
   premiseAccuracy?: 'accurate' | 'partially-accurate' | 'stale' | 'unsupported';
   /** Screenshot/GIF URLs extracted from PR bodies */
   screenshots?: string[];
+  /**
+   * Set when the deterministic stage-1 pre-filter marked this item "no docs
+   * needed" (value = rule name, e.g. "infra-only"). Pre-filtered items skip
+   * AI enrichment; the UI still shows them so a misfire can be rescued.
+   */
+  prefiltered?: string;
   /** Existing docs issues found in the target repo that already track this PR */
   trackedIn?: TrackedIssue[];
 }
@@ -270,6 +276,8 @@ export interface RepoGroup {
   releaseNoteLabels?: string[];
   /** Defaults to 6 (see Config.maxMergeAgeMonths). */
   maxMergeAgeMonths?: number;
+  /** Deterministic stage-1 pre-filter (see prefilter.ts). Defaults to true. */
+  prefilter?: boolean;
   /** Repos to scan for existing cross-referenced docs issues. Defaults to [target, `${target}-internal`]. */
   crossRefRepos?: string[];
   /** Regex to extract a product-side issue URL from PR bodies. Defaults to the source repo's issues URL. */
@@ -304,6 +312,8 @@ export interface Config {
    * months before sinceDate. Default: 6.
    */
   maxMergeAgeMonths?: number;
+  /** Deterministic stage-1 pre-filter (see prefilter.ts). Default: true. */
+  prefilter?: boolean;
   issueLabels?: string[];
   /**
    * @deprecated Legacy global meta issue (object form). Superseded by the named

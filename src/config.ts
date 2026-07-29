@@ -69,6 +69,7 @@ interface ScanFallback {
   releaseNoteLabels?: string[];
   issueLabels?: string[];
   maxMergeAgeMonths?: number;
+  prefilter?: boolean;
 }
 
 /** Fill per-group defaults: group value → top-level fallback → built-in default. */
@@ -81,6 +82,7 @@ function fillRepoDefaults(g: RepoGroup, fb: ScanFallback = {}): RepoGroup {
     releaseNoteLabels: g.releaseNoteLabels ?? fb.releaseNoteLabels ?? DEFAULT_RELEASE_NOTE_LABELS,
     issueLabels: g.issueLabels ?? fb.issueLabels ?? [],
     maxMergeAgeMonths: g.maxMergeAgeMonths ?? fb.maxMergeAgeMonths ?? 6,
+    prefilter: g.prefilter ?? fb.prefilter ?? true,
     crossRefRepos:
       g.crossRefRepos ??
       (g.target.repo.endsWith('-internal')
@@ -131,6 +133,7 @@ export function normalizeConfig(raw: Config): NormalizedConfig {
     releaseNoteLabels: raw.releaseNoteLabels,
     issueLabels: raw.issueLabels,
     maxMergeAgeMonths: raw.maxMergeAgeMonths,
+    prefilter: raw.prefilter,
   };
 
   let groups: RepoGroup[];

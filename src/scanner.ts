@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { loadConfig, normalizeConfig, loadHistory, loadLastRun, loadQueue, saveQueue } from './config.js';
 import { searchMergedPRs, getPRFiles, findCrossReferencedIssues } from './github.js';
 import { hasMatchingConfiguredLabel } from './release-note-labels.js';
+import { prefilterVerdict } from './prefilter.js';
 import type { Config, PullRequest, QueueItem, Queue, Assessment, RepoGroup, TrackedIssue } from './types.js';
 
 /** Default lookback if no last run exists: 14 days */
@@ -294,6 +295,18 @@ function buildQueueItem(
   const primary = prs[0];
   const assessment = basicAssessment(prs, group.productIssuePattern);
   const version = detectVersion(prs, group.versionLabelPattern ?? '^v\\d+\\.\\d+\\.\\d+$');
+
+  // Deterministic stage-1 pre-filter: mark provably non-docs items "no" so
+  // the AI enrichment layer skips them. They stay visible in the UI.
+  if (group.prefilter !== false) {
+    const verdict = prefilterVerdict(prs);
+    if (verdict) {
+      assessment.needsDocs = 'no';
+      assessment.confidence = 0.95;
+      assessment.reasoning = `Pre-filtered (${verdict.rule}): ${verdict.reasoning}`;
+      assessment.prefiltered = verdict.rule;
+    }
+  }
 
   // Build a suggested title
   const suggestedTitle = prs.length === 1
