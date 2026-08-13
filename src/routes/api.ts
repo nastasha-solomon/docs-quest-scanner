@@ -7,6 +7,8 @@ import {
   resolveMetaIssue,
   resolveMetaBucket,
   resolveFeature,
+  resolveArea,
+  resolveIssueLabels,
   saveConfig,
   loadQueue,
   saveQueue,
@@ -204,10 +206,13 @@ apiRouter.post('/create-issue', async (req, res) => {
     const [owner, repo] = targetRepo.split('/');
 
     // Create the issue
-    const labels = [...routing.issueLabels];
-    if (goodFirstIssue) {
-      labels.push('good first issue');
-    }
+    const prLabels = item.prs.flatMap((pr) => pr.labels ?? []);
+    const labels = resolveIssueLabels(
+      routing.issueLabels,
+      primaryCategory,
+      prLabels,
+      Boolean(goodFirstIssue)
+    );
     const issue = await createIssue(owner, repo, title, body, labels);
 
     // Try to set project fields
@@ -228,7 +233,6 @@ apiRouter.post('/create-issue', async (req, res) => {
 
       // Feature: a per-label override (featureByLabel) wins over the category's
       // feature, so a category that bundles teams still routes each correctly.
-      const prLabels = item.prs.flatMap((pr) => pr.labels ?? []);
       const feature = resolveFeature(primaryCategory, prLabels);
 
       projectFields = await setProjectFields(
@@ -242,7 +246,7 @@ apiRouter.post('/create-issue', async (req, res) => {
           size: p.sizeMap?.[item.assessment.effortTag ?? ''] ?? undefined,
           priority: p.defaultPriority ?? undefined,
           requester: p.defaultRequester ?? undefined,
-          area: p.defaultArea ?? undefined,
+          area: resolveArea(primaryCategory, prLabels, p.defaultArea),
           feature,
           contentType: p.contentTypeMap?.[item.assessment.effortTag ?? ''] ?? undefined,
           serverlessPubDate,

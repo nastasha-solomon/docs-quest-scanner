@@ -248,6 +248,60 @@ export function resolveFeature(category: Category | undefined, prLabels: string[
   return category.feature;
 }
 
+function resolveCategoryValue(
+  value: string | undefined,
+  byLabel: Record<string, string> | undefined,
+  prLabels: readonly string[]
+): string | undefined {
+  if (byLabel) {
+    for (const label of prLabels) {
+      const override = byLabel[label];
+      if (override) return override;
+    }
+  }
+  return value;
+}
+
+/** Resolve the project Area, preferring a PR-label override and category value. */
+export function resolveArea(
+  category: Category | undefined,
+  prLabels: string[],
+  defaultArea?: string
+): string | undefined {
+  if (!category) return defaultArea;
+  return resolveCategoryValue(category.area, category.areaByLabel, prLabels) ?? defaultArea;
+}
+
+/** Resolve the GitHub feature label for an item from its category and PR labels. */
+export function resolveFeatureLabel(
+  category: Category | undefined,
+  prLabels: string[]
+): string | undefined {
+  if (!category) return undefined;
+  return resolveCategoryValue(category.featureLabel, category.featureLabelByLabel, prLabels);
+}
+
+/** Build created-issue labels, preserving the first spelling of case-insensitive duplicates. */
+export function resolveIssueLabels(
+  baseLabels: string[],
+  category: Category | undefined,
+  prLabels: string[],
+  goodFirstIssue = false
+): string[] {
+  const labels = [...baseLabels];
+  const featureLabel = resolveFeatureLabel(category, prLabels);
+  if (featureLabel) labels.push(featureLabel);
+  if (goodFirstIssue) labels.push('good first issue');
+
+  const seen = new Set<string>();
+  return labels.filter((label) => {
+    const key = label.toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 /**
  * Resolve the meta-issue sub-list heading for an item, or undefined to append it
  * as a flat list item (sub-lists disabled, or no buckets configured).

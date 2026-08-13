@@ -46,7 +46,7 @@
       "project": {
         "org": "elastic",
         "number": 1034,
-        "defaultArea": "Kibana core",
+        "defaultArea": "Kib: Core Analytics",
         "defaultPriority": "P1: High",
         "defaultRequester": "DQS",
         "sizeMap": {
@@ -88,9 +88,10 @@
             "Team:Presentation",
             "Team:Visualizations"
           ],
-          "feature": "Kib: Dashboards",
-          "featureByLabel": {
-            "Team:Visualizations": "Kib: Visualizations"
+          "area": "Kib: Core Analytics",
+          "featureLabel": "Feature: Dashboards",
+          "featureLabelByLabel": {
+            "Team:Visualizations": "Feature: Visualizations"
           },
           "metaIssue": "kib-core-analytics"
         },
@@ -99,7 +100,8 @@
           "labels": [
             "Team:DataDiscovery"
           ],
-          "feature": "Kib: Discover",
+          "area": "Kib: Core Analytics",
+          "featureLabel": "Feature: Discover",
           "metaIssue": "kib-core-analytics"
         },
         {
@@ -109,7 +111,8 @@
             "Feature:ES|QL"
           ],
           "metaIssueHeading": "ES|QL editor in Kibana",
-          "feature": "Kib: ES|QL",
+          "area": "Kib: Core Analytics",
+          "featureLabel": "Feature: ES|QL",
           "metaIssue": "kib-core-analytics"
         },
         {
@@ -118,7 +121,8 @@
             "Team:ML"
           ],
           "metaIssueHeading": "Machine learning",
-          "feature": "Kib: Machine Learning UI",
+          "area": "Kib: Core Analytics",
+          "featureLabel": "Feature: Machine Learning UI",
           "metaIssue": "kib-core-analytics"
         },
         {
@@ -126,7 +130,8 @@
           "labels": [
             "Team:SharedUX"
           ],
-          "feature": "Kib: Navigation",
+          "area": "Kib: UX",
+          "featureLabel": "Feature: Kibana UX",
           "metaIssue": "kib-ux"
         },
         {
@@ -134,7 +139,8 @@
           "labels": [
             "Team:AI Infra"
           ],
-          "feature": "Kib: AI infra",
+          "area": "Kib: AI Framework",
+          "featureLabel": "Feature: AI infrastructure",
           "metaIssue": "kib-ai-framework"
         },
         {
@@ -143,7 +149,8 @@
             "connectors-v2",
             "Feature:Actions/ConnectorTypes"
           ],
-          "feature": "Kib: Connectors",
+          "area": "Kib: AI Framework",
+          "featureLabel": "Feature: Connectors",
           "metaIssue": "kib-ai-framework",
           "maxMergeAgeMonths": 0
         }

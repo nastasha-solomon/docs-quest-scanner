@@ -836,6 +836,12 @@ async function createIssue(itemId) {
       body: { queueItemId: itemId, goodFirstIssue },
     });
     showToast(`Quest accepted! Issue #${result.issue.number} created.`, 'success');
+    if (result.issue.skippedLabels?.length) {
+      showToast(
+        `Issue created without unavailable labels: ${result.issue.skippedLabels.join(', ')}`,
+        'error'
+      );
+    }
     if (result.projectFields && result.projectFields.ok === false) {
       showToast(
         `Issue created, but project fields were not set. ${result.projectFields.message ?? ''}`.trim(),
@@ -928,7 +934,9 @@ function createCategoryRow(cat = {}) {
   if (cat.metaIssueHeading) overrides.push(`heading: ${cat.metaIssueHeading}`);
   if (cat.metaIssue === null) overrides.push('meta: none');
   else if (typeof cat.metaIssue === 'string') overrides.push(`meta: ${cat.metaIssue}`);
-  if (cat.feature) overrides.push(`feature: ${cat.feature}`);
+  if (cat.area) overrides.push(`area: ${cat.area}`);
+  if (cat.featureLabel) overrides.push(`feature label: ${cat.featureLabel}`);
+  if (cat.feature) overrides.push(`project feature: ${cat.feature}`);
   if (cat.target) overrides.push(`target: ${cat.target.owner}/${cat.target.repo}`);
   if (cat.project?.number) overrides.push(`project: #${cat.project.number}`);
   const overrideHint = overrides.length
@@ -986,7 +994,8 @@ function mrCatRow(cat = {}) {
   row.innerHTML = `
     <input class="form-control input-sm" data-mr="cat-name" placeholder="Name" value="${esc(cat.name ?? '')}" />
     <input class="form-control input-sm" data-mr="cat-labels" placeholder="labels, comma-sep" value="${esc((cat.labels ?? []).join(', '))}" />
-    <input class="form-control input-sm" data-mr="cat-feature" placeholder="Feature" value="${esc(cat.feature ?? '')}" />
+    <input class="form-control input-sm" data-mr="cat-area" placeholder="(default)" value="${esc(cat.area ?? '')}" />
+    <input class="form-control input-sm" data-mr="cat-feature-label" placeholder="Feature: …" value="${esc(cat.featureLabel ?? '')}" />
     <input class="form-control input-sm" list="cfg-mr-metanames" data-mr="cat-meta" placeholder="(inherit)" value="${esc(typeof cat.metaIssue === 'string' ? cat.metaIssue : '')}" />
     <input class="form-control input-sm" data-mr="cat-issuelabels" placeholder="(inherit)" value="${esc((cat.issueLabels ?? []).join(', '))}" />
     <input class="form-control input-sm" data-mr="cat-projnum" placeholder="(inherit)" value="${esc(cat.projectNumber ?? '')}" />
@@ -1028,7 +1037,7 @@ function mrRepoCard(repo = {}, cfg = {}) {
     <label class="mr-field mt-2">Default issue labels (comma-separated)<input class="form-control input-sm" data-mr="repo-issuelabels" placeholder="Team:Docs" value="${esc(issueLabels)}" /></label>
     <div class="mr-cats-label">Categories</div>
     <div class="mr-cat mr-cat-head">
-      <span>Name</span><span>Labels</span><span>Feature</span><span>Meta issue</span><span>Issue labels</span><span>Project #</span><span></span>
+      <span>Name</span><span>Source labels</span><span>Project Area</span><span>Feature label</span><span>Meta issue</span><span>Issue labels</span><span>Project #</span><span></span>
     </div>
     <div class="mr-cats"></div>
     <button type="button" class="btn btn-sm mt-1" data-action="add-category">+ Add category</button>
@@ -1053,7 +1062,7 @@ function renderMultiRepoEditor(config) {
 }
 
 /** Build a config object from the structured editor, preserving advanced fields
- *  (sizeMap, contentTypeMap, featureByLabel, per-category target, …) by merging
+ *  (sizeMap, contentTypeMap, label-specific overrides, per-category target, …) by merging
  *  onto the loaded config matched by repo id / category name. */
 function serializeMultiRepoEditor() {
   const base = JSON.parse(JSON.stringify(state.config ?? {}));
@@ -1101,8 +1110,10 @@ function serializeMultiRepoEditor() {
       if (!name) continue;
       const origCat = (orig.categories ?? []).find((c) => c.name === cr.dataset.catName) ?? {};
       const cat = { ...origCat, name, labels: csv(val(cr, '[data-mr="cat-labels"]')) };
-      const feature = val(cr, '[data-mr="cat-feature"]');
-      if (feature) cat.feature = feature; else delete cat.feature;
+      const area = val(cr, '[data-mr="cat-area"]');
+      if (area) cat.area = area; else delete cat.area;
+      const featureLabel = val(cr, '[data-mr="cat-feature-label"]');
+      if (featureLabel) cat.featureLabel = featureLabel; else delete cat.featureLabel;
       const metaRef = val(cr, '[data-mr="cat-meta"]');
       if (metaRef) cat.metaIssue = metaRef;
       else if (origCat.metaIssue !== null) delete cat.metaIssue; // keep an explicit opt-out (null)

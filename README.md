@@ -71,17 +71,23 @@ The default release note filter includes `release_note:breaking`, `release_note:
 
 ### Categories
 
-A category groups one or more team labels under a doc area, and declares how its issues are routed on the project board:
+A category groups one or more source labels and declares its project Area and created-issue feature label:
 
 ```json
 {
   "categories": [
-    { "name": "Discover", "labels": ["Team:dataDiscovery"], "feature": "Kib: Discover" },
+    {
+      "name": "Discover",
+      "labels": ["Team:dataDiscovery"],
+      "area": "Kib: Core Analytics",
+      "featureLabel": "Feature: Discover"
+    },
     {
       "name": "Dashboards and Visualizations",
       "labels": ["Team:Presentation", "Team:Visualizations"],
-      "feature": "Kib: Dashboards",
-      "featureByLabel": { "Team:Visualizations": "Kib: Visualizations" }
+      "area": "Kib: Core Analytics",
+      "featureLabel": "Feature: Dashboards",
+      "featureLabelByLabel": { "Team:Visualizations": "Feature: Visualizations" }
     }
   ]
 }
@@ -91,14 +97,17 @@ A category groups one or more team labels under a doc area, and declares how its
 |-------|-------------|
 | `name` | Doc area name (the category) |
 | `labels` | One or more team/feature labels; a PR matching **any** lands in this category |
-| `feature` | Feature field value on the project board for this category |
-| `featureByLabel` | Optional per-label Feature override — for a category that bundles teams needing different Features. A matching label wins over `feature`. |
+| `area` | Area field value on the project board. Overrides `project.defaultArea`. |
+| `areaByLabel` | Optional per-source-label Area override. A matching label wins over `area`. |
+| `featureLabel` | GitHub label added to issues created for this category. |
+| `featureLabelByLabel` | Optional per-source-label issue-label override. A matching label wins over `featureLabel`. |
+| `feature` / `featureByLabel` | Optional legacy mapping for projects that still use a Feature field. |
 | `metaIssue` | Name of a meta-issue pattern (see below) to link into. Overrides the group default; `null` opts the category out. |
 | `metaIssueHeading` | Heading to match in the meta issue body (defaults to `name`) |
 | `maxMergeAgeMonths` | How far before the last scan date the late-label catch may reach, in months. Falls back to the group value. Set to `0` when adding new labels, so the first scan doesn't drag in months of already-merged PRs. |
 | `target` / `project` | Optional per-category overrides of the group's target repo / project |
 
-A category can list several labels (e.g. `Team:Presentation` + `Team:Visualizations`) and still route to one meta issue; use `featureByLabel` only when those labels need different board Features.
+A category can list several source labels and still route to one meta issue. Use the `ByLabel` mappings when those source labels require different project Areas or feature labels.
 
 ### Meta issues
 
@@ -192,9 +201,9 @@ A single scan can span several source repos, each with its own labels, target re
       "source": { "owner": "elastic", "repo": "kibana" },
       "target": { "owner": "elastic", "repo": "docs-content" },
       "metaIssue": "kibana",
-      "project": { "org": "elastic", "number": 1034, "defaultArea": "Kibana core" },
+      "project": { "org": "elastic", "number": 1034, "defaultArea": "Kib: Core Analytics" },
       "categories": [
-        { "name": "Dashboards", "labels": ["Team:Presentation", "Team:Visualizations"], "feature": "Kib: Dashboards" }
+        { "name": "Dashboards", "labels": ["Team:Presentation"], "featureLabel": "Feature: Dashboards" }
       ]
     },
     {
@@ -204,14 +213,14 @@ A single scan can span several source repos, each with its own labels, target re
       "metaIssue": "elasticsearch",
       "project": { "org": "elastic", "number": 1034 },
       "categories": [
-        { "name": "Search", "labels": [":Search Relevance/Search"], "feature": "ES: Search" }
+        { "name": "Search", "labels": [":Search Relevance/Search"], "area": "Search" }
       ]
     }
   ]
 }
 ```
 
-Each repo group owns its routing. A scan iterates every group × its categories; created issues are added to that group's project and meta issue, and the **Feature / project / meta-issue mapping is resolved automatically** from the PR's source repo and labels — the writer doesn't pick it. The **target repo** remains a per-issue dropdown choice (defaulting to the group's `target`).
+Each repo group owns its routing. A scan iterates every group × its categories. The scanner resolves project Area, issue labels, project, and meta issue from the PR's source repo and labels. The **target repo** remains a per-issue dropdown choice that defaults to the group's `target`.
 
 Per-group fields:
 
@@ -227,7 +236,7 @@ Per-group fields:
 | `crossRefRepos` | Repos checked for existing docs issues | `[target, "<target>-internal"]` |
 | `productIssuePattern` | Regex to extract the product issue URL from PR bodies | source repo's issues URL |
 
-The legacy flat config (top-level `sourceRepo`/`targetRepo`/`categories`) still works unchanged — it's treated as a single repo group internally. The Settings dialog edits `repos[]` configs with a structured form (meta-issue patterns, per-repo fields, and category rows), with a raw-JSON panel as an advanced fallback for fields the form doesn't expose (`sizeMap`, `featureByLabel`, per-category `target`/`project`).
+The legacy flat config (top-level `sourceRepo`/`targetRepo`/`categories`) still works unchanged. The Settings dialog edits `repos[]` configs with a structured form and provides a raw-JSON panel for fields the form doesn't expose, including label-specific overrides and the legacy project Feature mapping.
 
 ### GitHub Project integration
 
@@ -247,7 +256,7 @@ Auto-fill project board fields when creating issues:
 }
 ```
 
-Fields set automatically: **Release** (from version label), **Size** and **Content Type** (from the effort estimate via `sizeMap` / `contentTypeMap`), **Priority**, **Requester**, and **Area** (group defaults), **Feature** (from the matched category's `feature` / `featureByLabel`), **Serverless-pub** (computed deploy date).
+Fields set automatically: **Release** (from version label), **Size** and **Content Type** (from the effort estimate via `sizeMap` / `contentTypeMap`), **Priority**, **Requester**, **Area** (from `area` / `areaByLabel`, then `defaultArea`), and **Serverless-pub** (computed deploy date). If your project still uses a **Feature** field, configure `feature` / `featureByLabel` on each category.
 
 Your GitHub token needs the `project` scope for this. If using the `gh` CLI:
 
