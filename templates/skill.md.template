@@ -1,6 +1,6 @@
 ---
 name: docs-quest-scanner
-version: 3.10.1
+version: 3.14.0
 description: Triage PRs for documentation impact. Scans merged PRs by team label and release note label, assesses doc needs, and opens a review UI to create or dismiss doc issues. Use when doing weekly docs triage, checking what's new in a Kibana release, or when asked to scan PRs for doc impact.
 allowed-tools: Bash, Read, Grep, Glob, Agent, WebFetch, mcp__github__search_pull_requests, mcp__github__pull_request_read, mcp__github__issue_read, mcp__github__issue_write, mcp__github__add_issue_comment, mcp__elastic-docs__search_docs, mcp__elastic-docs__find_related_docs, mcp__elastic-docs__get_document_by_url, mcp__elastic-docs__check_docs_coherence
 sources:
@@ -66,12 +66,13 @@ The scanner automatically:
 
 ### Step 2: Enrich with deep AI assessment
 
-After the scan, read `data/queue.json` and identify which items still need enrichment. Skip two kinds of items:
+After the scan, read `data/queue.json` and identify which items still need enrichment. Skip three kinds of items:
 
 - **Pre-filtered items** (`assessment.prefiltered` is set) — the deterministic stage-1 filter already marked these `needsDocs: "no"` with a mechanical reasoning. Do not enrich them (their `docsGap` stays empty by design) unless the user explicitly asks to re-analyze one.
 - **Items that already have a populated `docsGap` array** (i.e., `assessment.docsGap` exists and is non-empty) — those were enriched in a prior run and should not be overwritten unless the user explicitly asks to re-enrich (e.g., "re-enrich item X" or "re-analyze all").
+- **Items whose same-PR external docs were already verified** (`assessment.dismissReason` is `"owned by dev"`) — a prior enrichment confirmed that the development team included sufficient user documentation in the product PR. Their `docsGap` may be empty by design.
 
-Only enrich items where `prefiltered` is absent and `docsGap` is missing or empty.
+Only enrich items where `prefiltered` is absent, `dismissReason` is not `"owned by dev"`, and `docsGap` is missing or empty.
 
 For the items that do need enrichment, **use parallel Agent calls** to process them in batches of 6-8 for efficiency. Each batch agent should:
 
@@ -97,6 +98,15 @@ If the file pattern is purely server-side with zero `*/public/` or UI component 
 - `"unsupported"` — the diff is a refactor, test fix, or internal change that does not match the stated user-facing claim
 
 If `premiseAccuracy` is `"partially-accurate"`, `"stale"`, or `"unsupported"`: reduce `confidence` by 0.2–0.4, note the discrepancy in one clause of `reasoning`, and narrow `docsGap` to only what the diff actually supports. Do not scope docs work for claims the diff does not back up.
+
+**Same-PR external docs detection:** Inspect the changed paths for user-facing documentation added or updated in the product PR. A path with a `docs/` segment is a strong signal, especially `docs/reference/`, but the path alone never proves sufficient coverage.
+
+- Read every candidate external docs file from the PR diff or merge commit. Do not count READMEs, developer guides, test fixtures, generated schemas without explanatory prose, or release-note text as external user documentation.
+- Compare the docs with the implementation. Verify configuration and authentication, supported actions and workflows, permissions, defaults, limitations, security constraints, availability, and lifecycle state when those aspects apply.
+- Verify assembly. New pages must be linked from the relevant table of contents, inventory, or parent page. Confirm that links and reused snippets fit every consuming page.
+- Continue through the published-doc search in step 2b. Same-PR docs do not qualify when they contradict current source, leave a real gap elsewhere, or are not assembled into the user-facing docs.
+- If the same PR's external docs fully cover the supported user-facing change, set `needsDocs: "no"`, `dismissReason: "owned by dev"`, and confidence at or above the auto-dismiss threshold only when the evidence supports it. Explain which files provide complete coverage, populate `existingDocs`, leave `docsGap` empty, omit `effortTag`, and do not propose a docs issue.
+- If coverage is incomplete or incorrect, omit `dismissReason` and keep the item as `"yes"` or `"check"` with the specific gaps. Never classify an item as owned by dev merely because it touches `docs/`.
 
 #### 2b. Deep doc analysis with content-type and assembly awareness
 
@@ -192,11 +202,11 @@ For non-{{kib}} repos (for example {{es}}), there is no `serverless.yml` plugin 
 - Assign `confidence`: 0.0–1.0 — then apply the premise accuracy adjustment from step 2a. Calibration matters: `needsDocs: "no"` at confidence ≥ 0.8 is **auto-dismissed** after enrichment (step 2i), so reserve ≥ 0.8 for verdicts verified against the diff or the published docs, and stay below 0.8 when hedging (feature-flagged, screenshot-only, "not documented yet").
 - Assign `premiseAccuracy` from step 2a
 
-**For all items — including `needsDocs: "no"`** — always run the full doc analysis from step 2b and always produce a populated `docsGap`. This is not optional.
+**For all items — including `needsDocs: "no"`** — always run the full doc analysis from step 2b. Produce a populated `docsGap` unless the API-only early exit applies or complete same-PR external docs qualify for `dismissReason: "owned by dev"`.
 
 - If the analysis finds a real gap (a page that currently says something the PR changes), upgrade `needsDocs` to `"check"` and note in `reasoning` that the initial assessment was revised.
 - If the feature isn't strictly missing from the docs but a writer *could* add coverage, still populate `docsGap` — frame each entry's `gap` field as "what you'd need to add if you chose to document this", including surrounding context: what the feature is, how it fits the existing section, what a writer would need to know to add it. This gives the user a proper analysis to act on even when the AI verdict is "no".
-- The API-only early exit in step 2a is the **only** case where `docsGap` may be left empty. For every other item, `docsGap` must have at least one entry.
+- The API-only early exit and verified complete same-PR external docs are the only cases where `docsGap` may be left empty. For every other item, `docsGap` must have at least one entry.
 - Never leave `docsGap` empty just because `needsDocs` is `"no"` — a bare `existingDocs` list with no analysis is not useful to the user.
 
 #### 2d. Write the issue title
@@ -229,7 +239,7 @@ Derive from the `actionType` values in `docsGap`:
 
 #### 2h. Update queue.json
 
-Update `data/queue.json` with the enriched `assessment` (including `docsGap`, `effortTag`, `existingDocs`, `summary`, `needsDocs`, `confidence`, `premiseAccuracy`) and `suggestedTitle`. Clear `suggestedBody` to empty string so it re-renders fresh from the template.
+Update `data/queue.json` with the enriched `assessment` (including `docsGap`, `effortTag`, `existingDocs`, `summary`, `needsDocs`, `confidence`, `premiseAccuracy`, and `dismissReason` when applicable) and `suggestedTitle`. Clear `suggestedBody` to empty string so it re-renders fresh from the template.
 
 **Never write queue.json using string replacement (StrReplace, sed, etc.).** PR body content from GitHub often contains double quotes, backslashes, and other characters that break hand-crafted JSON.
 
@@ -264,7 +274,7 @@ The merge script accepts **flat** enrichments (recommended) or items nested unde
 }
 ```
 
-`featureStatus` and `featureFlags` are optional — omit them entirely when unknown rather than setting them to placeholders. Singular `featureFlag` (string) is also accepted. `serverlessApplies` defaults to `"yes"` when omitted; set it explicitly to `"no"` for stack-only features (the only way to get **N/A** in the Serverless cell) or `"unknown"` when genuinely unresolvable.
+`dismissReason` is optional. Set it to `"owned by dev"` only after verifying that external docs in the same product PR fully cover the user-facing change; for that case, also set `needsDocs` to `"no"`, `docsGap` to `[]`, and `effortTag` to `null`. Omit it when docs are missing, incomplete, or incorrect. An explicit `needsDocs` update without `dismissReason` clears any stale ownership marker. `featureStatus` and `featureFlags` are optional — omit them entirely when unknown rather than setting them to placeholders. Singular `featureFlag` (string) is also accepted. `serverlessApplies` defaults to `"yes"` when omitted; set it explicitly to `"no"` for stack-only features (the only way to get **N/A** in the Serverless cell) or `"unknown"` when genuinely unresolvable.
 
 ##### Sandbox-safe write strategy for parallel agents
 
@@ -302,7 +312,7 @@ After the merge script runs, auto-dismiss the items that need no human review:
 node scripts/auto-dismiss.mjs
 ```
 
-This dismisses every queue item with `needsDocs: "no"` and confidence ≥ 0.8 (pre-filtered items qualify at 0.95), writing a history entry with an `(auto, …)` reason so each one is auditable in the UI's History view and undoable. Items with user edits are never touched; `yes`/`check` items are never touched regardless of confidence. Report the dismissed count to the user.
+This dismisses every queue item with `needsDocs: "no"` and confidence ≥ 0.8 (pre-filtered items qualify at 0.95), writing an auditable and undoable History entry. Items with `dismissReason: "owned by dev"` are recorded as `owned by dev (auto, …)`; other items use `no docs needed (auto, …)`. Items with user edits are never touched; `yes`/`check` items are never touched regardless of confidence. Report the dismissed count to the user.
 
 Tune with `--threshold=0.9` or `--dry-run`, or set `autoDismissConfidence` in `data/config.json` (`0` disables). The 0.8 default was validated against the 2026-07-28 200-item queue, where every "no" at ≥ 0.8 survived manual review.
 
@@ -339,6 +349,8 @@ Key settings:
 - `issueLabels`: labels for created issues (e.g., `Team:SKI`)
 - `prefilter`: deterministic stage-1 pre-filter (default `true`). Set to `false` to send every item to AI enrichment.
 - `autoDismissConfidence`: threshold for auto-dismissing `needsDocs: "no"` items after enrichment (default `0.8`; `0` disables).
+- `project`: GitHub Projects v2 integration. On create, the tool auto-fills Area, Priority, Requester, Size, Content Type, Feature, Release, and Serverless-pub. The static defaults come from `defaultArea`, `defaultPriority`, and `defaultRequester` (e.g. `"DQS"`, so every scanner-created issue is attributed to the Docs Quest Scanner); Size and Content Type come from the `sizeMap` / `contentTypeMap` effort mappings.
+- `metaSubLists`: optional, per repo group. When `enabled`, each meta-issue category section is split into `### heading` sub-lists so headline changes are separated from fixes. Provide ordered `buckets`, each with a `heading` and the `labels` that route into it. An item lands in the first bucket whose labels match any label on any of its PRs; if none match, it falls to the last bucket. The default config ships two buckets — **Notable changes** (`release_note:feature` / `enhancement` / `breaking` / `deprecation`) and **Fixes and clarifications** (`release_note:fix` / `skip`). Omit the key (or set `enabled: false`) to keep one flat list per section, the original behavior.
 
 ## Issue template
 
@@ -368,7 +380,9 @@ A PR whose team label is added before the last scan date will still be missed �
 
 The secondary query also surfaces PRs whose only recent activity is an unrelated label edit (e.g. a `v9.x` label removed years after merge). These bump `updated_at` and look identical to a genuine late-label catch, but the PR itself is stale.
 
-To filter them out, the scanner drops late-label entries whose `mergedAt` is more than **`maxMergeAgeMonths`** before `sinceDate` (default: 6). When this fires, the scanner logs: `(Skipped N late-label entries merged >6 months ago)`. Override the default by setting `maxMergeAgeMonths` in `data/config.json`.
+To filter them out, the scanner drops late-label entries whose `mergedAt` is more than **`maxMergeAgeMonths`** before `sinceDate` (default: 6). When this fires, the scanner logs: `(Skipped N late-label entries merged >6 months ago)`. Override the default by setting `maxMergeAgeMonths` in `data/config.json`, either on the repo group or on a single category.
+
+**Adding new labels to a category:** adding a label counts as a label change, so on the first scan the secondary query surfaces every already-merged PR that carries it, back to the reach-back limit. Set `maxMergeAgeMonths: 0` on that category to hold it to PRs merged since the last scan. Raise or remove the setting later if you want the backlog after all.
 
 This trades some recall (a PR genuinely labeled for the first time more than 6 months after merging won't be caught) for much better precision — that case is rare, and surfacing every random label edit on year-old PRs is worse.
 
@@ -376,9 +390,11 @@ This trades some recall (a PR genuinely labeled for the first time more than 6 m
 
 - The scan does not filter by version — it fetches all PRs matching team + release note labels since the last run date
 - Each PR's version is auto-detected from its labels (matching `versionLabelPattern`)
-- When an issue is created, the tool auto-detects the right meta issue for that version, adds the issue link under the matching section (using `metaIssueHeading` if configured), and updates the `_[Last check: ...]_` date in that section
+- When an issue is created, the tool auto-detects the right meta issue for that version, adds the issue link under the matching section (using `metaIssueHeading` if configured), and updates the `_[Last check: ...]_` date in that section. When `metaSubLists` is enabled, the link is routed into the matching `### heading` sub-list (created at the end of the section if absent) instead of a flat list. On a section that still holds pre-existing flat items, the sub-headings are added below them the first time an item is routed there.
 - This means the tool naturally picks up new versions (e.g., v9.5.0) without config changes
-- **Disambiguating multiple metas for one version:** the `"Kibana {version}"` title search can match more than one open issue — the broad release meta plus narrower trackers that share the version prefix (e.g. "Kibana 9.5 - Dashboards and library APIs GA"). `findMetaIssue` ranks the candidates and picks the one whose body contains the most of the tool's configured category headings (then the most `##` sections, then the lowest issue number), so checklist entries land in the comprehensive release meta rather than a topic-specific tracker. If a release ever needs to target a specific narrower meta, set a more precise title pattern under `metaIssues` (e.g. the `kibana` entry) in `data/config.json`, or in `data/config.defaults.json` when no `config.json` exists.
+- **Disambiguating multiple metas for one version:** the `"Kibana {version}"` title search can match more than one open issue — the broad release meta plus narrower trackers that share the version prefix (e.g. "Kibana 9.5 - Dashboards and library APIs GA"). An exact title match always wins. Otherwise `findMetaIssue` ranks the candidates and picks the one whose body contains the most of the tool's configured category headings (then the most `##` sections, then the lowest issue number), so checklist entries land in the comprehensive release meta rather than a topic-specific tracker. If a release ever needs to target a specific narrower meta, set a more precise title pattern under `metaIssues` (e.g. the `kibana` entry) in `data/config.json`, or in `data/config.defaults.json` when no `config.json` exists.
+- **Meta issues outside the target repo:** a `metaIssues` entry can be an object with `titlePattern`, `owner`, and `repo` instead of a bare string. Use it when issues are filed in a public docs repo but tracked in a private planning repo. Both `owner` and `repo` default to the group's target repo.
+- **Quarterly trackers:** when a checklist is named by fiscal quarter rather than release, use the `{quarter}` and `{fy}` placeholders and define a top-level `quarterCalendar`. One `anchor` (a known version → quarter pairing) extrapolates forwards indefinitely, so nothing needs editing each quarter. A major version bump is the exception: the number of minors before it isn't knowable in advance, so derivation refuses to guess and logs the `majorMinorCounts` entry to add. If a resolved title matches no open issue, the docs issue is still created and only the meta link is skipped, with a warning naming the title it searched for.
 
 ## Assessment heuristics
 
@@ -469,11 +485,12 @@ Docs serve all active versions. When a feature changes behavior, don't suggest r
 
 ## Skip reasons
 
-The UI offers two skip actions to build signal over time:
+The UI offers three skip actions to build signal over time:
 - **"Skip – no docs"**: the change genuinely doesn't need documentation (internal, cosmetic, bug fix, etc.)
 - **"Skip – already tracked"**: the change needs docs but is already tracked elsewhere (existing issue, another team's checklist, etc.)
+- **"Skip – owned by dev"**: the change needs docs, but the development team owns the required docs work
 
-Both are stored in `data/history.json` with the `reason` field. Over time, reviewing the "no docs needed" history can help refine the assessment heuristics above — patterns of what gets dismissed suggest the AI enrichment should mark those as `needsDocs: "no"` more confidently.
+All three are stored in `data/history.json` with the `reason` field. Over time, reviewing the "no docs needed" history can help refine the assessment heuristics above — patterns of what gets dismissed suggest the AI enrichment should mark those as `needsDocs: "no"` more confidently.
 
 ## Key technical notes
 

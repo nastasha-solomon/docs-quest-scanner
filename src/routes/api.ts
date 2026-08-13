@@ -4,7 +4,8 @@ import {
   loadNormalizedConfig,
   normalizeConfig,
   resolveRouting,
-  resolveMetaPattern,
+  resolveMetaIssue,
+  resolveMetaBucket,
   resolveFeature,
   saveConfig,
   loadQueue,
@@ -15,6 +16,7 @@ import {
   saveLastRun,
 } from '../config.js';
 import { getOctokit, createIssue, addToMetaIssue, findMetaIssue, setProjectFields } from '../github.js';
+import { resolveMetaTitle } from '../fiscal-quarter.js';
 import { runScan } from '../scanner.js';
 import { renderIssueBody, clearTemplateCache } from '../template.js';
 import type { HistoryEntry, QueueItem } from '../types.js';
@@ -254,27 +256,44 @@ apiRouter.post('/create-issue', async (req, res) => {
     // checklists. Categories without an override share the global config.
     if (item.version && item.version !== 'unknown') {
       const categoriesToLink = [item.category, ...(item.alsoAppliesTo ?? [])];
+      // Route into a "Notable changes" / "Fixes and clarifications" sub-list based
+      // on the item's release-note labels (undefined when sub-lists are disabled).
+      const subHeading = resolveMetaBucket(group, item.prs.flatMap((pr) => pr.labels ?? []));
       // The tool's category headings, used to disambiguate when a version title
       // pattern matches several issues (release meta vs. a narrower tracker).
       const expectedHeadings = group.categories.map((c) => c.metaIssueHeading ?? c.name);
-      // Cache meta-issue lookups by title pattern so categories sharing a
+      // Cache meta-issue lookups by resolved location so categories sharing a
       // checklist don't trigger duplicate searches. Value `null` = not found.
       const metaCache = new Map<string, Awaited<ReturnType<typeof findMetaIssue>>>();
       for (const catName of categoriesToLink) {
         const cat = group.categories.find((c) => c.name === catName);
-        const titlePattern = resolveMetaPattern(config.metaIssues, group, cat);
-        if (!titlePattern) continue; // no pattern resolved → not linked
+        const meta = resolveMetaIssue(config.metaIssues, group, cat);
+        if (!meta) continue; // no meta issue resolved → not linked
+        // A meta issue can live outside the group's target repo (for example a
+        // quarterly planning tracker in an internal repo).
+        const resolved = resolveMetaTitle(meta.titlePattern, item.version, config.quarterCalendar);
+        if (!resolved.ok) {
+          console.warn(
+            `Skipped meta-issue link for ${catName} ${item.version}: ${resolved.reason} ` +
+              `(pattern: "${meta.titlePattern}")`
+          );
+          continue;
+        }
+        const cacheKey = `${meta.owner}/${meta.repo}#${resolved.title}`;
         try {
-          let meta = metaCache.get(titlePattern);
-          if (meta === undefined) {
-            meta = await findMetaIssue(owner, repo, item.version, titlePattern, expectedHeadings);
-            metaCache.set(titlePattern, meta);
+          let found = metaCache.get(cacheKey);
+          if (found === undefined) {
+            found = await findMetaIssue(meta.owner, meta.repo, resolved.title, expectedHeadings);
+            metaCache.set(cacheKey, found);
           }
-          if (meta) {
+          if (found) {
             const heading = cat?.metaIssueHeading ?? catName;
-            await addToMetaIssue(owner, repo, meta.number, heading, issue.url);
+            await addToMetaIssue(meta.owner, meta.repo, found.number, heading, issue.url, subHeading);
           } else {
-            console.warn(`No meta issue found for version ${item.version} (pattern: "${titlePattern}")`);
+            console.warn(
+              `No open meta issue titled "${resolved.title}" in ${meta.owner}/${meta.repo} ` +
+                `(version ${item.version}) — create it, or fix the quarterCalendar anchor.`
+            );
           }
         } catch (err) {
           console.warn(`Failed to update meta issue for ${catName} ${item.version}:`, err);
@@ -366,7 +385,11 @@ apiRouter.post('/undo-dismiss', (req, res) => {
 
 // ── Meta issue detection ────────────────────────────────
 
-/** Look up meta issue for a specific version (pass ?version=v9.4.0) */
+/**
+ * Look up the meta issue for a version (?version=v9.4.0). Categories can resolve to
+ * different trackers, so pass ?category= to check a specific one; without it, the
+ * group default is used.
+ */
 apiRouter.get('/meta-issue', async (req, res) => {
   try {
     const version = req.query.version as string;
@@ -377,10 +400,23 @@ apiRouter.get('/meta-issue', async (req, res) => {
     const config = loadNormalizedConfig();
     const repoId = req.query.repoId as string | undefined;
     const group = (repoId && config.repos.find((r) => r.id === repoId)) || config.repos[0];
-    const { owner, repo } = group.target;
+    const categoryName = req.query.category as string | undefined;
+    const category = categoryName
+      ? group.categories.find((c) => c.name === categoryName)
+      : undefined;
+    const target = resolveMetaIssue(config.metaIssues, group, category);
+    if (!target) {
+      res.json({ number: null, reason: 'no meta issue configured' });
+      return;
+    }
+    const resolved = resolveMetaTitle(target.titlePattern, version, config.quarterCalendar);
+    if (!resolved.ok) {
+      res.json({ number: null, reason: resolved.reason });
+      return;
+    }
     const expectedHeadings = group.categories.map((c) => c.metaIssueHeading ?? c.name);
-    const meta = await findMetaIssue(owner, repo, version, undefined, expectedHeadings);
-    res.json(meta ?? { number: null });
+    const meta = await findMetaIssue(target.owner, target.repo, resolved.title, expectedHeadings);
+    res.json(meta ?? { number: null, reason: `no open issue titled "${resolved.title}"` });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

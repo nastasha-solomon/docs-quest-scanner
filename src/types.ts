@@ -46,6 +46,8 @@ export interface Assessment {
   summary: string;
   /** Why this assessment was made */
   reasoning: string;
+  /** History reason used when this item is auto-dismissed after enrichment. */
+  dismissReason?: 'no docs needed' | 'owned by dev';
   /** preview, beta, ga, or unknown */
   featureStatus?: string;
   /** Feature flag name if behind one, or null */
@@ -127,7 +129,7 @@ export interface HistoryEntry {
   decision: 'created' | 'dismissed';
   /** Id of the RepoGroup this decision belongs to (absent on legacy entries). */
   repoId?: string;
-  /** Why it was dismissed (e.g., "no docs needed", "already tracked") */
+  /** Why it was dismissed (for example, "no docs needed", "already tracked", "owned by dev") */
   reason?: string;
   /** URL of the created issue */
   issueUrl?: string;
@@ -188,8 +190,55 @@ export interface ProjectConfig {
   featureLabelMap?: Record<string, string>;
 }
 
-/** Named meta-issue patterns: name → title pattern (with a `{version}` placeholder). */
-export type MetaIssuesRegistry = Record<string, string>;
+/**
+ * Where a meta issue lives and how to find it. The string form is shorthand for
+ * `{ titlePattern }` in the group's own target repo.
+ */
+export interface MetaIssueSpec {
+  /**
+   * Title search pattern. Placeholders, all optional:
+   *   `{version}` → major.minor of the PR's version label, e.g. "9.6"
+   *   `{quarter}` → fiscal quarter derived from that version, e.g. "2"
+   *   `{fy}`      → fiscal year derived from that version, e.g. "27"
+   * Quarter placeholders require a top-level `quarterCalendar`.
+   */
+  titlePattern: string;
+  /** Repo holding the meta issue. Both default to the group's target repo. */
+  owner?: string;
+  repo?: string;
+}
+
+/** Named meta-issue patterns: name → title pattern, or a full spec. */
+export type MetaIssuesRegistry = Record<string, string | MetaIssueSpec>;
+
+/**
+ * Maps a release version onto Elastic's fiscal calendar, so quarterly trackers can
+ * be found by title without hardcoding issue numbers that change every quarter.
+ *
+ * Elastic's fiscal year starts in May, and Kibana ships one minor per quarter, so a
+ * single anchor extrapolates forwards indefinitely: 9.6 = Q2 FY27 gives 9.7 = Q3 FY27,
+ * 9.8 = Q4 FY27, 9.9 = Q1 FY28, and so on.
+ */
+export interface QuarterCalendar {
+  /** One known version → fiscal quarter pairing. Everything else extrapolates from it. */
+  anchor: {
+    /** Version as "9.6" or "v9.6.0". */
+    version: string;
+    /** 1-4. */
+    fiscalQuarter: number;
+    /** Two-digit fiscal year, e.g. 27 for FY27. */
+    fiscalYear: number;
+  };
+  /** Minors shipped per fiscal quarter. Defaults to 1. */
+  minorsPerQuarter?: number;
+  /**
+   * Last minor of a major, keyed by major version, so the sequence can cross a major
+   * bump: `{"9": 9}` means 9.9 is the final 9.x and 10.0 is the next quarter after it.
+   * Nobody knows this number in advance, so derivation refuses to guess across a
+   * major boundary until the entry is added.
+   */
+  majorMinorCounts?: Record<string, number>;
+}
 
 /**
  * Meta issue configuration. A meta issue is a checklist issue in the target
@@ -212,6 +261,33 @@ export interface MetaIssueConfig {
    *   "Docs tracker — {version}"
    */
   titlePattern?: string;
+}
+
+/** One bucket in a meta-issue category section (a `### heading` sub-list). */
+export interface MetaSubListBucket {
+  /** Sub-heading text rendered as `### heading` under the `## Category` section. */
+  heading: string;
+  /**
+   * Release-note (or any) labels that route an item into this bucket. An item is
+   * assigned to the first bucket that matches any of its PRs' labels.
+   */
+  labels: string[];
+}
+
+/**
+ * Splits each meta-issue category section into `### heading` sub-lists so headline
+ * changes (features, breaking changes) are separated from fixes and clarifications.
+ * Opt-in: when absent or `enabled: false`, items are appended as one flat list
+ * under the `## Category` heading (the original behavior).
+ *
+ * Classification: an item lands in the first bucket whose `labels` match any label
+ * on any of its PRs; if none match, it falls to the last bucket.
+ */
+export interface MetaSubListsConfig {
+  /** Whether to split category sections into sub-lists. Defaults to false. */
+  enabled?: boolean;
+  /** Ordered buckets. Order matters: first match wins, last is the fallback. */
+  buckets: MetaSubListBucket[];
 }
 
 /** A team category with its GitHub labels */
@@ -240,6 +316,15 @@ export interface Category {
   featureByLabel?: Record<string, string>;
   /** Issue labels for this category's issues. Falls back to the group's `issueLabels`. */
   issueLabels?: string[];
+  /**
+   * How far before the last scan date the late-label catch may reach for this
+   * category, in months. Falls back to the group's `maxMergeAgeMonths`.
+   *
+   * Set to `0` when adding new labels to the config: adding a label counts as a
+   * label change, so without this the first scan pulls in every already-merged PR
+   * carrying it. `0` limits the category to PRs merged since the last scan.
+   */
+  maxMergeAgeMonths?: number;
   /**
    * Project board number for this category's issues. Overrides the group
    * project's `number` only — org, defaults, and field maps are inherited.
@@ -270,6 +355,8 @@ export interface RepoGroup {
   project?: ProjectConfig;
   /** Default meta-issue pattern name (from the `metaIssues` registry) for this group's categories. */
   metaIssue?: string;
+  /** Split meta-issue category sections into `### heading` sub-lists (opt-in). */
+  metaSubLists?: MetaSubListsConfig;
   issueLabels?: string[];
   /** Defaults to `^v\d+\.\d+\.\d+$`. */
   versionLabelPattern?: string;
@@ -296,6 +383,8 @@ export interface Config {
   title?: string;
   /** Named meta-issue patterns referenced by `RepoGroup.metaIssue` / `Category.metaIssue`. */
   metaIssues?: MetaIssuesRegistry;
+  /** Version → fiscal quarter mapping, for `{quarter}` / `{fy}` title placeholders. */
+  quarterCalendar?: QuarterCalendar;
   /** Multi-repo scan targets. When present, takes precedence over the legacy fields below. */
   repos?: RepoGroup[];
 
@@ -328,7 +417,9 @@ export interface Config {
 /** Config after normalization — always expressed as repo groups. Consumed by scan/create code. */
 export interface NormalizedConfig {
   title?: string;
-  /** Named meta-issue patterns (name → title pattern). */
+  /** Named meta-issue patterns (name → title pattern or spec). */
   metaIssues: MetaIssuesRegistry;
+  /** Version → fiscal quarter mapping, when configured. */
+  quarterCalendar?: QuarterCalendar;
   repos: RepoGroup[];
 }

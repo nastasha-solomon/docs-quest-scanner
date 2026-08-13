@@ -544,6 +544,9 @@ function renderCardBody(item) {
       <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="already tracked">
         Skip – already tracked
       </button>
+      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="owned by dev">
+        Skip – owned by dev
+      </button>
       <div class="target-repo-select">
         <label>Target:</label>
         <select data-field="targetRepo" data-item="${item.id}">
