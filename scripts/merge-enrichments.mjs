@@ -17,7 +17,7 @@ const assessmentFields = new Set([
   'needsDocs', 'confidence', 'premiseAccuracy', 'summary', 'reasoning',
   'existingDocs', 'docsGap', 'effortTag', 'featureStatus', 'featureFlags',
   'featureFlag', 'productIssue', 'screenshots',
-  'serverlessApplies', 'serverlessEstimate'
+  'serverlessApplies', 'serverlessEstimate', 'dismissReason'
 ]);
 for (const [id, raw] of Object.entries(rawEnrichments)) {
   const flat = { ...raw };
@@ -52,6 +52,10 @@ for (const item of queue.items) {
   if (e.reasoning !== undefined) item.assessment.reasoning = e.reasoning;
   if (e.existingDocs !== undefined) item.assessment.existingDocs = e.existingDocs || [];
   if (e.docsGap !== undefined) item.assessment.docsGap = e.docsGap || [];
+  if (e.dismissReason) item.assessment.dismissReason = e.dismissReason;
+  else if (e.dismissReason === null || e.needsDocs !== undefined) {
+    delete item.assessment.dismissReason;
+  }
   if (e.effortTag) item.assessment.effortTag = e.effortTag;
   else if (e.effortTag === null) delete item.assessment.effortTag;
   if (e.featureStatus) item.assessment.featureStatus = e.featureStatus;

@@ -165,7 +165,7 @@ export function normalizeConfig(raw: Config): NormalizedConfig {
       ),
     ];
   }
-  return { title: raw.title, metaIssues, repos: groups };
+  return { title: raw.title, metaIssues, quarterCalendar: raw.quarterCalendar, repos: groups };
 }
 
 /** Load and normalize the config into repo groups (what scan/create code consumes). */
@@ -198,21 +198,39 @@ export function resolveRouting(group: RepoGroup, category?: Category): ResolvedR
   };
 }
 
+/** A meta issue's title pattern plus the repo it lives in, after registry lookup. */
+export interface ResolvedMetaIssue {
+  titlePattern: string;
+  owner: string;
+  repo: string;
+}
+
 /**
- * Resolve the meta-issue title pattern for a category, or null if it isn't linked.
+ * Resolve the meta issue for a category, or null if it isn't linked.
  * Precedence: category.metaIssue (null = opt out) → group.metaIssue → none.
  * The resolved name is looked up in the registry.
+ *
+ * A registry entry may name a different repo than the group's target, so a scan of
+ * one product repo can file issues in the docs repo while checking them off in a
+ * planning tracker that lives somewhere else.
  */
-export function resolveMetaPattern(
+export function resolveMetaIssue(
   metaIssues: MetaIssuesRegistry,
   group: RepoGroup,
   category?: Category
-): string | null {
+): ResolvedMetaIssue | null {
   // Explicit category opt-out.
   if (category && 'metaIssue' in category && category.metaIssue === null) return null;
   const name = category?.metaIssue ?? group.metaIssue;
   if (!name) return null;
-  return metaIssues[name] ?? null;
+  const entry = metaIssues[name];
+  if (!entry) return null;
+  const spec = typeof entry === 'string' ? { titlePattern: entry } : entry;
+  return {
+    titlePattern: spec.titlePattern,
+    owner: spec.owner ?? group.target.owner,
+    repo: spec.repo ?? group.target.repo,
+  };
 }
 
 /**
@@ -228,6 +246,26 @@ export function resolveFeature(category: Category | undefined, prLabels: string[
     }
   }
   return category.feature;
+}
+
+/**
+ * Resolve the meta-issue sub-list heading for an item, or undefined to append it
+ * as a flat list item (sub-lists disabled, or no buckets configured).
+ *
+ * An item lands in the first bucket whose labels match any of its PRs' labels;
+ * if none match, it falls to the last bucket (typically "Fixes and clarifications").
+ */
+export function resolveMetaBucket(
+  group: RepoGroup,
+  prLabels: readonly string[]
+): string | undefined {
+  const cfg = group.metaSubLists;
+  if (!cfg?.enabled || !cfg.buckets?.length) return undefined;
+  const labelSet = new Set(prLabels.map((l) => l.toLowerCase()));
+  for (const bucket of cfg.buckets) {
+    if (bucket.labels.some((l) => labelSet.has(l.toLowerCase()))) return bucket.heading;
+  }
+  return cfg.buckets[cfg.buckets.length - 1].heading;
 }
 
 export function saveConfig(config: Config): void {

@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 /**
- * Auto-dismiss high-confidence "no docs needed" items after enrichment.
+ * Auto-dismiss high-confidence resolved items after enrichment.
  *
  * Selects queue items where the assessment concluded needsDocs: "no" with
  * confidence >= threshold (default 0.8, from config `autoDismissConfidence`
  * or --threshold=N). Each dismissal is appended to history.json with a
- * distinct "(auto…)" reason, so it is auditable in the UI's History view and
- * undoable like any manual skip.
+ * distinct "(auto…)" reason. Complete same-PR docs use "owned by dev";
+ * other no-docs verdicts use "no docs needed". Both are auditable in the UI's
+ * History view and undoable like any manual skip.
  *
  * Safety properties:
  * - basicAssessment never emits "no" — a "no" verdict can only come from the
@@ -73,13 +74,16 @@ for (const item of targets) {
   const kind = item.assessment.prefiltered
     ? `pre-filtered: ${item.assessment.prefiltered}`
     : `confidence ${item.assessment.confidence}`;
+  const dismissReason = item.assessment.dismissReason === 'owned by dev'
+    ? 'owned by dev'
+    : 'no docs needed';
   console.log(`  - ${item.suggestedTitle} (${kind})`);
   if (dryRun) continue;
   history.entries.push({
     prNumbers: item.prs.map((p) => p.number),
     decision: 'dismissed',
     repoId: item.repoId,
-    reason: `no docs needed (auto, ${kind})`,
+    reason: `${dismissReason} (auto, ${kind})`,
     timestamp: new Date().toISOString(),
     version: item.version,
     title: item.userEdits?.title ?? item.suggestedTitle,

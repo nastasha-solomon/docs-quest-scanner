@@ -95,6 +95,7 @@ A category groups one or more team labels under a doc area, and declares how its
 | `featureByLabel` | Optional per-label Feature override — for a category that bundles teams needing different Features. A matching label wins over `feature`. |
 | `metaIssue` | Name of a meta-issue pattern (see below) to link into. Overrides the group default; `null` opts the category out. |
 | `metaIssueHeading` | Heading to match in the meta issue body (defaults to `name`) |
+| `maxMergeAgeMonths` | How far before the last scan date the late-label catch may reach, in months. Falls back to the group value. Set to `0` when adding new labels, so the first scan doesn't drag in months of already-merged PRs. |
 | `target` / `project` | Optional per-category overrides of the group's target repo / project |
 
 A category can list several labels (e.g. `Team:Presentation` + `Team:Visualizations`) and still route to one meta issue; use `featureByLabel` only when those labels need different board Features.
@@ -133,6 +134,49 @@ Then **reference a pattern by name**. A repo group sets a default that all its c
 - This is how one scan routes issues into the right solution checklist automatically, without manual moves.
 
 Per-category settings are edited in `config.json` (the Settings dialog surfaces them read-only beneath each category row).
+
+#### Meta issues in another repo
+
+A registry entry can be an object instead of a string, so a checklist can live outside the target repo. Use this when issues are filed in a public docs repo but tracked in a private planning one:
+
+```json
+{
+  "metaIssues": {
+    "kib-core-analytics": {
+      "titlePattern": "[Q{quarter} FY{fy}] [Kib] Core analytics docs",
+      "owner": "elastic",
+      "repo": "docs-content-internal"
+    }
+  }
+}
+```
+
+`owner` and `repo` both default to the group's target repo, so the string form stays shorthand for "same repo".
+
+#### Quarterly checklists
+
+Some trackers are named by fiscal quarter rather than by release. Add a `quarterCalendar` and use the `{quarter}` and `{fy}` placeholders:
+
+```json
+{
+  "quarterCalendar": {
+    "anchor": { "version": "9.6", "fiscalQuarter": 2, "fiscalYear": 27 },
+    "minorsPerQuarter": 1
+  }
+}
+```
+
+One anchor covers every future quarter. Elastic's fiscal year starts in May and Kibana ships one minor per quarter, so `9.6 = Q2 FY27` yields `9.7 = Q3 FY27`, `9.8 = Q4 FY27`, `9.9 = Q1 FY28`, and onward. Nothing needs editing each quarter.
+
+A major bump is the one thing that can't be extrapolated, because the number of minors before it isn't known in advance. Derivation refuses to guess across a major boundary and logs what to add:
+
+```json
+{ "quarterCalendar": { "majorMinorCounts": { "9": 9 } } }
+```
+
+That says 9.9 was the last 9.x, so 10.0 is the quarter after it. Set `minorsPerQuarter` if the release cadence ever changes.
+
+When a resolved title matches no open issue, the item is filed normally and the link is skipped with a warning naming the title it looked for — create the tracker or fix the anchor, then re-link. An exact title match always wins over the body-based ranking, so a near-empty quarterly tracker isn't outranked by a fuller sibling.
 
 ### Multiple source repositories
 
@@ -238,8 +282,14 @@ yarn deploy        # Sync repo changes to the skill install (~/.claude/skills/do
 - **Queue tab**: Cards for each PR needing triage, with AI summary, availability info, and a suggested issue
 - **Already tracked badge**: If the scan detected an existing docs issue that references a PR (via GitHub cross-reference events), the card shows a green "Already tracked" badge and links to the issue — so you can skip without wasting time re-reading the PR
 - **Accept quest**: Creates the issue, optionally adds it to the meta tracking issue, sets project fields
-- **Skip**: Marks the item as not needing docs (with reason)
+- **Skip – no docs**: Dismisses a change that doesn't need documentation.
+- **Skip – already tracked**: Dismisses documentation work tracked in another issue or checklist.
+- **Skip – owned by dev**: Dismisses documentation work owned by the development team.
 - **Mark scan complete**: Advances the scan timestamp so the next run only picks up new PRs
+
+### Same-PR documentation coverage
+
+During enrichment, the scanner inspects user-facing documentation included in the product PR, commonly under `docs/`, and compares it with the implemented behavior and the published docs. If those files completely and accurately cover the change and are assembled into the user-facing documentation, the item is automatically dismissed as **owned by dev**. A documentation path alone is never sufficient: incomplete, incorrect, unlinked, developer-only, generated, or release-note content stays in the triage queue with its specific gaps.
 
 ## Data files
 

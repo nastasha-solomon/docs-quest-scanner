@@ -261,32 +261,22 @@ export async function createIssue(
 }
 
 /**
- * Auto-detect the meta issue for a given version in the target repo.
+ * Find an open meta issue by title in the given repo.
  *
- * @param titlePattern - Title search pattern with `{version}` placeholder.
- *   Defaults to `"Kibana {version}"`. The placeholder is replaced with
- *   the major.minor extracted from `versionLabel` (e.g., "v9.5.0" → "9.5").
+ * @param searchTitle - Fully resolved title to search for (placeholders already
+ *   substituted by `resolveMetaTitle`).
  * @param expectedHeadings - The tool's category headings (category name or its
- *   `metaIssueHeading`). Used to disambiguate when the title pattern matches
- *   several issues: the broad release meta is the one whose body carries the
- *   most of these `## heading` sections.
+ *   `metaIssueHeading`). Used to disambiguate when the title matches several
+ *   issues: the broad release meta is the one whose body carries the most of
+ *   these `## heading` sections.
  */
 export async function findMetaIssue(
   owner: string,
   repo: string,
-  versionLabel: string,
-  titlePattern?: string,
+  searchTitle: string,
   expectedHeadings?: string[]
 ): Promise<{ number: number; title: string; body: string } | null> {
   const ok = getOctokit();
-
-  // Extract major.minor from "v9.4.0" -> "9.4"
-  const versionMatch = versionLabel.match(/v?(\d+\.\d+)/);
-  if (!versionMatch) return null;
-  const version = versionMatch[1];
-
-  const pattern = titlePattern ?? 'Kibana {version}';
-  const searchTitle = pattern.replace('{version}', version);
 
   const query = `repo:${owner}/${repo} is:issue is:open "${searchTitle}" in:title`;
   const { data } = await ok.search.issuesAndPullRequests({
@@ -295,6 +285,15 @@ export async function findMetaIssue(
   });
 
   if (data.items.length === 0) return null;
+
+  // An exact title match is unambiguous, so it always wins. Quarterly trackers like
+  // "[Q2 FY27] [Kib] Core analytics docs" are named exactly and start out nearly
+  // empty, so the body heuristics below would otherwise rank a fuller sibling above
+  // the right issue.
+  const exact = data.items.filter(
+    (i) => i.title.trim().toLowerCase() === searchTitle.trim().toLowerCase()
+  );
+  const candidates = exact.length ? exact : data.items;
 
   // A title pattern like "Kibana 9.5" can match several open issues: the broad
   // release meta plus narrower trackers that share the version prefix (for
@@ -314,7 +313,7 @@ export async function findMetaIssue(
   };
   const sectionCount = (body: string): number => (body.match(/^##\s+/gm) ?? []).length;
 
-  const ranked = [...data.items].sort((a, b) => {
+  const ranked = [...candidates].sort((a, b) => {
     const byHeading = headingMatchCount(b.body ?? '') - headingMatchCount(a.body ?? '');
     if (byHeading !== 0) return byHeading;
     const bySections = sectionCount(b.body ?? '') - sectionCount(a.body ?? '');
@@ -332,13 +331,17 @@ export async function findMetaIssue(
 
 /**
  * Append an issue reference to the meta issue body under the right category section.
+ * When `subHeading` is set, the item is routed into (or under a freshly created)
+ * `### subHeading` sub-list inside the category section; otherwise it joins the
+ * section's flat list, as before.
  */
 export async function addToMetaIssue(
   owner: string,
   repo: string,
   metaIssueNumber: number,
   categoryName: string,
-  issueUrl: string
+  issueUrl: string,
+  subHeading?: string
 ): Promise<void> {
   const ok = getOctokit();
 
@@ -349,53 +352,7 @@ export async function addToMetaIssue(
     issue_number: metaIssueNumber,
   });
 
-  let body = issue.body ?? '';
-  const newEntry = `- [ ] ${issueUrl}`;
-  const todayStr = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-
-  // Find the category heading (## Category name)
-  // Try exact match first, then fuzzy
-  const headingPattern = new RegExp(
-    `(## ${escapeRegex(categoryName)}[^\n]*\n)((?:.*\n)*?)(?=\n## |$)`,
-    'i'
-  );
-  const match = body.match(headingPattern);
-
-  if (match) {
-    // Insert after the last item in this section
-    const sectionContent = match[2];
-    const insertPos = (match.index ?? 0) + match[0].length;
-
-    // Update "Last check" date if present, or insert one after the heading
-    const lastCheckPattern = /_\[Last check: [^\]]*\]_/;
-    const beforeSection = body.slice(0, (match.index ?? 0) + match[1].length);
-    const afterSection = body.slice(insertPos);
-
-    let updatedSection = sectionContent;
-    if (lastCheckPattern.test(updatedSection)) {
-      updatedSection = updatedSection.replace(lastCheckPattern, `_[Last check: ${todayStr}]_`);
-    } else {
-      // No "Last check" line — insert one right at the start of the section
-      updatedSection = `_[Last check: ${todayStr}]_\n` + updatedSection;
-    }
-
-    // Find end of existing list items in the section
-    const lines = updatedSection.trimEnd().split('\n');
-    const lastListIdx = lines.reduceRight((found, l, i) => found === -1 && l.trim().startsWith('- ') ? i : found, -1);
-
-    if (lastListIdx >= 0) {
-      // Insert after last list item
-      const sectionLines = updatedSection.split('\n');
-      sectionLines.splice(lastListIdx + 1, 0, newEntry);
-      body = beforeSection + sectionLines.join('\n') + afterSection;
-    } else {
-      // No items yet, add after section content
-      body = beforeSection + updatedSection + newEntry + '\n' + afterSection;
-    }
-  } else {
-    // Category not found — append at the end with a "Last check" line
-    body = body.trimEnd() + `\n\n## ${categoryName}\n_[Last check: ${todayStr}]_\n${newEntry}\n`;
-  }
+  const body = insertIntoMetaBody(issue.body ?? '', categoryName, issueUrl, subHeading);
 
   await ok.issues.update({
     owner,
@@ -403,6 +360,111 @@ export async function addToMetaIssue(
     issue_number: metaIssueNumber,
     body,
   });
+}
+
+/**
+ * Pure body transform behind {@link addToMetaIssue} (extracted so it can be unit
+ * tested without hitting GitHub). Inserts a `- [ ] issueUrl` checklist item under
+ * the `## categoryName` section, refreshing the section's `_[Last check: …]_` line.
+ * With `subHeading`, the item goes under a `### subHeading` sub-list, created at the
+ * end of the section if it doesn't exist yet.
+ */
+export function insertIntoMetaBody(
+  body: string,
+  categoryName: string,
+  issueUrl: string,
+  subHeading?: string,
+  today: Date = new Date()
+): string {
+  const newEntry = `- [ ] ${issueUrl}`;
+  const todayStr = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  // Find the category heading (## Category name), case-insensitively.
+  const headingPattern = new RegExp(
+    `(## ${escapeRegex(categoryName)}[^\n]*\n)((?:.*\n)*?)(?=\n## |$)`,
+    'i'
+  );
+  const match = body.match(headingPattern);
+
+  if (!match) {
+    // Category not found — append it at the end with a "Last check" line.
+    const sub = subHeading ? `### ${subHeading}\n` : '';
+    return body.trimEnd() + `\n\n## ${categoryName}\n_[Last check: ${todayStr}]_\n${sub}${newEntry}\n`;
+  }
+
+  const headingLine = match[1];
+  const beforeSection = body.slice(0, (match.index ?? 0) + headingLine.length);
+  const afterSection = body.slice((match.index ?? 0) + match[0].length);
+
+  // Update "Last check" date if present, or insert one right after the heading.
+  const lastCheckPattern = /_\[Last check: [^\]]*\]_/;
+  let section = match[2];
+  if (lastCheckPattern.test(section)) {
+    section = section.replace(lastCheckPattern, `_[Last check: ${todayStr}]_`);
+  } else {
+    section = `_[Last check: ${todayStr}]_\n` + section;
+  }
+
+  section = subHeading
+    ? insertUnderSubHeading(section, subHeading, newEntry)
+    : insertAfterLastListItem(section, newEntry);
+
+  return beforeSection + section + afterSection;
+}
+
+/** Insert `newEntry` after the last `- ` list item in `section`, or append it. */
+function insertAfterLastListItem(section: string, newEntry: string): string {
+  const lastListIdx = section
+    .trimEnd()
+    .split('\n')
+    .reduceRight((found, l, i) => (found === -1 && l.trim().startsWith('- ') ? i : found), -1);
+
+  if (lastListIdx >= 0) {
+    const lines = section.split('\n');
+    lines.splice(lastListIdx + 1, 0, newEntry);
+    return lines.join('\n');
+  }
+  // No list items yet — append after the existing section content.
+  return section + newEntry + '\n';
+}
+
+/**
+ * Route `newEntry` under `### subHeading` within a category section, creating the
+ * sub-heading at the end of the section if it's absent. Line-based (rather than
+ * regex) so it's robust whether or not sub-lists are separated by blank lines.
+ */
+function insertUnderSubHeading(section: string, subHeading: string, newEntry: string): string {
+  const lines = section.split('\n');
+  const isSubHeading = (l: string) => /^###\s/.test(l);
+  const isHeading = (l: string) => /^##?#?\s/.test(l); // ## or ### boundary
+  const target = subHeading.trim().toLowerCase();
+
+  const headIdx = lines.findIndex(
+    (l) => isSubHeading(l) && l.replace(/^###\s+/, '').trim().toLowerCase() === target
+  );
+
+  if (headIdx === -1) {
+    // Sub-heading not present — create it at the end of the section.
+    return `${section.trimEnd()}\n\n### ${subHeading}\n${newEntry}\n`;
+  }
+
+  // The sub-block runs until the next ## / ### heading or the end of the section.
+  let end = lines.length;
+  for (let i = headIdx + 1; i < lines.length; i++) {
+    if (isHeading(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+
+  // Insert after the last list item in the sub-block, else right after the heading.
+  let insertAt = headIdx + 1;
+  for (let i = headIdx + 1; i < end; i++) {
+    if (lines[i].trim().startsWith('- ')) insertAt = i + 1;
+  }
+
+  lines.splice(insertAt, 0, newEntry);
+  return lines.join('\n');
 }
 
 function escapeRegex(str: string): string {

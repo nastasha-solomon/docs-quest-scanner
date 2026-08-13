@@ -8,6 +8,12 @@ import type { Config, PullRequest, QueueItem, Queue, Assessment, RepoGroup, Trac
 /** Default lookback if no last run exists: 14 days */
 const DEFAULT_LOOKBACK_DAYS = 14;
 
+export function shouldPreserveAssessment(assessment: Assessment | undefined): boolean {
+  return Boolean(
+    assessment?.docsGap?.length || assessment?.dismissReason === 'owned by dev'
+  );
+}
+
 /**
  * Run a full scan: fetch PRs, filter, group, and write queue.
  * Returns the updated queue.
@@ -40,7 +46,7 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
   for (const item of existingQueue.items) {
     const key = itemKey(item.repoId ?? defaultRepoId, item.prs);
     if (item.userEdits) existingEdits.set(key, item.userEdits);
-    if (item.assessment?.docsGap?.length) existingAssessments.set(key, item.assessment);
+    if (shouldPreserveAssessment(item.assessment)) existingAssessments.set(key, item.assessment);
     if (item.suggestedTitle) existingTitles.set(key, item.suggestedTitle);
   }
 
@@ -61,7 +67,11 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
 
       let prs: PullRequest[] = [];
       for (const label of category.labels) {
-        const found = await searchMergedPRs(group.source, [label], sinceDate, group.maxMergeAgeMonths);
+        // A category can shorten (or switch off) the late-label reach-back. Newly
+        // added labels otherwise drag in months of already-merged PRs on their
+        // first scan, because adding the label counts as a label change.
+        const maxMergeAgeMonths = category.maxMergeAgeMonths ?? group.maxMergeAgeMonths;
+        const found = await searchMergedPRs(group.source, [label], sinceDate, maxMergeAgeMonths);
         prs.push(...found);
       }
 

@@ -55,6 +55,25 @@ test('dismisses only "no" items at or above the threshold', () => {
   assert.equal(history.entries[0].session, '2026-07-28');
 });
 
+test('records same-PR documentation coverage as owned by dev', () => {
+  const dir = setup([
+    item('dev-owned', 'no', 0.95, {
+      assessment: {
+        needsDocs: 'no',
+        confidence: 0.95,
+        summary: 'The PR includes complete external documentation.',
+        reasoning: 'The same PR documents the full user-facing surface.',
+        dismissReason: 'owned by dev',
+      },
+    }),
+  ]);
+
+  run(dir);
+
+  const history = JSON.parse(readFileSync(join(dir, 'history.json'), 'utf-8'));
+  assert.equal(history.entries[0].reason, 'owned by dev (auto, confidence 0.95)');
+});
+
 test('never dismisses items with user edits', () => {
   const dir = setup([item('edited', 'no', 0.95, { userEdits: { title: 'Custom' } })]);
   const out = run(dir);

@@ -1,7 +1,22 @@
 {
   "title": "Docs Quest Scanner — Kibana Platform and Analyst UX",
   "metaIssues": {
-    "kibana": "Kibana {version}"
+    "kibana": "Kibana {version}",
+    "kib-core-analytics": {
+      "titlePattern": "[Q{quarter} FY{fy}] [Kib] Core analytics docs",
+      "owner": "elastic",
+      "repo": "docs-content-internal"
+    },
+    "kib-ux": {
+      "titlePattern": "[Q{quarter} FY{fy}] [Kib] Kibana UX docs",
+      "owner": "elastic",
+      "repo": "docs-content-internal"
+    },
+    "kib-ai-framework": {
+      "titlePattern": "[Q{quarter} FY{fy}] [Kib] AI framework docs",
+      "owner": "elastic",
+      "repo": "docs-content-internal"
+    }
   },
   "releaseNoteLabels": [
     "release_note:breaking",
@@ -10,15 +25,24 @@
     "release_note:enhancement"
   ],
   "versionLabelPattern": "^v\\d+\\.\\d+\\.\\d+$",
-  "issueLabels": ["Team:SKI"],
+  "issueLabels": [
+    "Team:SKI"
+  ],
   "maxMergeAgeMonths": 6,
   "repos": [
     {
       "id": "elastic/kibana",
-      "source": { "owner": "elastic", "repo": "kibana" },
-      "target": { "owner": "elastic", "repo": "docs-content" },
-      "metaIssue": "kibana",
-      "issueLabels": ["Team:SKI"],
+      "source": {
+        "owner": "elastic",
+        "repo": "kibana"
+      },
+      "target": {
+        "owner": "elastic",
+        "repo": "docs-content"
+      },
+      "issueLabels": [
+        "Team:SKI"
+      ],
       "project": {
         "org": "elastic",
         "number": 1034,
@@ -36,53 +60,102 @@
           "new-content": "Net-new"
         }
       },
+      "metaSubLists": {
+        "enabled": true,
+        "buckets": [
+          {
+            "heading": "Notable changes",
+            "labels": [
+              "release_note:feature",
+              "release_note:enhancement",
+              "release_note:breaking",
+              "release_note:deprecation"
+            ]
+          },
+          {
+            "heading": "Fixes and clarifications",
+            "labels": [
+              "release_note:fix",
+              "release_note:skip"
+            ]
+          }
+        ]
+      },
       "categories": [
         {
           "name": "Dashboards and Visualizations",
-          "labels": ["Team:Presentation", "Team:Visualizations"],
+          "labels": [
+            "Team:Presentation",
+            "Team:Visualizations"
+          ],
           "feature": "Kib: Dashboards",
-          "featureByLabel": { "Team:Visualizations": "Kib: Visualizations" }
+          "featureByLabel": {
+            "Team:Visualizations": "Kib: Visualizations"
+          },
+          "metaIssue": "kib-core-analytics"
         },
         {
           "name": "Discover",
-          "labels": ["Team:DataDiscovery"],
-          "feature": "Kib: Discover"
+          "labels": [
+            "Team:DataDiscovery"
+          ],
+          "feature": "Kib: Discover",
+          "metaIssue": "kib-core-analytics"
         },
         {
           "name": "ES|QL in Kibana",
-          "labels": ["Team:ESQL"],
+          "labels": [
+            "Team:ESQL",
+            "Feature:ES|QL"
+          ],
+          "metaIssueHeading": "ES|QL editor in Kibana",
           "feature": "Kib: ES|QL",
-          "metaIssueHeading": "ES|QL editor in Kibana"
-        },
-        {
-          "name": "Kibana navigation and UI",
-          "labels": ["Team:SharedUX"],
-          "feature": "Kib: Navigation"
-        },
-        {
-          "name": "Kibana security",
-          "labels": ["Team:Security"],
-          "feature": "Kib: General",
-          "metaIssueHeading": "Kibana admin"
-        },
-        {
-          "name": "Kibana management",
-          "labels": ["Team:Kibana Management"],
-          "feature": "Kib: Other",
-          "metaIssueHeading": "Kibana platform"
+          "metaIssue": "kib-core-analytics"
         },
         {
           "name": "Machine Learning",
-          "labels": ["Team:ML"],
+          "labels": [
+            "Team:ML"
+          ],
+          "metaIssueHeading": "Machine learning",
           "feature": "Kib: Machine Learning UI",
-          "metaIssueHeading": "Machine learning"
+          "metaIssue": "kib-core-analytics"
+        },
+        {
+          "name": "Kibana navigation and UI",
+          "labels": [
+            "Team:SharedUX"
+          ],
+          "feature": "Kib: Navigation",
+          "metaIssue": "kib-ux"
         },
         {
           "name": "AI infrastructure",
-          "labels": ["Team:AI Infra"],
-          "feature": "Kib: AI infra"
+          "labels": [
+            "Team:AI Infra"
+          ],
+          "feature": "Kib: AI infra",
+          "metaIssue": "kib-ai-framework"
+        },
+        {
+          "name": "Connectors",
+          "labels": [
+            "connectors-v2",
+            "Feature:Actions/ConnectorTypes"
+          ],
+          "feature": "Kib: Connectors",
+          "metaIssue": "kib-ai-framework",
+          "maxMergeAgeMonths": 0
         }
       ]
     }
-  ]
+  ],
+  "quarterCalendar": {
+    "anchor": {
+      "version": "9.6",
+      "fiscalQuarter": 2,
+      "fiscalYear": 27
+    },
+    "minorsPerQuarter": 1
+  }
 }
