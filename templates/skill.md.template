@@ -343,13 +343,13 @@ Config is at `__TOOL_DIR__/data/config.json` (falls back to `config.defaults.jso
 Key settings:
 - `sourceRepo`: `elastic/kibana`
 - `targetRepo`: `elastic/docs-content` (or `elastic/docs-content-internal`)
-- `categories`: team labels grouped by doc area. Each category has an optional `metaIssueHeading` field — when set, this heading is used to match the section in the meta issue instead of the category `name`. This avoids creating duplicate sections when the meta issue uses different headings than the scan categories.
+- `categories`: source labels grouped by docs area. Set `area` / `areaByLabel` to map categories to the project Area field, and `featureLabel` / `featureLabelByLabel` to add the corresponding GitHub label to created issues. The optional `metaIssueHeading` selects a different section heading in the meta issue.
 - `versionLabelPattern`: regex to detect version labels on PRs (default: `^v\d+\.\d+\.\d+$`)
 - `releaseNoteLabels`: exact labels or trailing-wildcard patterns that qualify a PR for triage. The default is breaking, deprecation, feature, and enhancement; use `release_note:*` to include every release note category, including `fix`, `skip`, and categories added later.
 - `issueLabels`: labels for created issues (e.g., `Team:SKI`)
 - `prefilter`: deterministic stage-1 pre-filter (default `true`). Set to `false` to send every item to AI enrichment.
 - `autoDismissConfidence`: threshold for auto-dismissing `needsDocs: "no"` items after enrichment (default `0.8`; `0` disables).
-- `project`: GitHub Projects v2 integration. On create, the tool auto-fills Area, Priority, Requester, Size, Content Type, Feature, Release, and Serverless-pub. The static defaults come from `defaultArea`, `defaultPriority`, and `defaultRequester` (e.g. `"DQS"`, so every scanner-created issue is attributed to the Docs Quest Scanner); Size and Content Type come from the `sizeMap` / `contentTypeMap` effort mappings.
+- `project`: GitHub Projects v2 integration. On create, the tool auto-fills Area, Priority, Requester, Size, Content Type, Release, and Serverless-pub. The static defaults come from `defaultArea`, `defaultPriority`, and `defaultRequester` (for example `"DQS"`, so every scanner-created issue is attributed to the Docs Quest Scanner); Size and Content Type come from the `sizeMap` / `contentTypeMap` effort mappings. Projects that still use a Feature field can configure `feature` / `featureByLabel` on each category.
 - `metaSubLists`: optional, per repo group. When `enabled`, each meta-issue category section is split into `### heading` sub-lists so headline changes are separated from fixes. Provide ordered `buckets`, each with a `heading` and the `labels` that route into it. An item lands in the first bucket whose labels match any label on any of its PRs; if none match, it falls to the last bucket. The default config ships two buckets — **Notable changes** (`release_note:feature` / `enhancement` / `breaking` / `deprecation`) and **Fixes and clarifications** (`release_note:fix` / `skip`). Omit the key (or set `enabled: false`) to keep one flat list per section, the original behavior.
 
 ## Issue template

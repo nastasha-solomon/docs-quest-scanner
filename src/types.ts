@@ -314,6 +314,14 @@ export interface Category {
    * A matching label wins over `feature`.
    */
   featureByLabel?: Record<string, string>;
+  /** Project Area field value for this category. Overrides `project.defaultArea`. */
+  area?: string;
+  /** Per-PR-label Area overrides. A matching label wins over `area`. */
+  areaByLabel?: Record<string, string>;
+  /** GitHub label added to issues created for this category. */
+  featureLabel?: string;
+  /** Per-PR-label issue-label overrides. A matching label wins over `featureLabel`. */
+  featureLabelByLabel?: Record<string, string>;
   /** Issue labels for this category's issues. Falls back to the group's `issueLabels`. */
   issueLabels?: string[];
   /**

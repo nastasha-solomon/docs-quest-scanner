@@ -242,22 +242,55 @@ export async function getPRFiles(
 /**
  * Create an issue on the target repo.
  */
+export function partitionIssueLabels(
+  requested: string[],
+  available: string[]
+): { existing: string[]; missing: string[] } {
+  const availableSet = new Set(available.map((label) => label.toLowerCase()));
+  return {
+    existing: requested.filter((label) => availableSet.has(label.toLowerCase())),
+    missing: requested.filter((label) => !availableSet.has(label.toLowerCase())),
+  };
+}
+
 export async function createIssue(
   owner: string,
   repo: string,
   title: string,
   body: string,
   labels: string[]
-): Promise<{ number: number; url: string }> {
+): Promise<{ number: number; url: string; skippedLabels: string[] }> {
   const ok = getOctokit();
+  let issueLabels = labels;
+  let skippedLabels: string[] = [];
+  if (labels.length) {
+    try {
+      const available = await ok.paginate(ok.issues.listLabelsForRepo, {
+        owner,
+        repo,
+        per_page: 100,
+      });
+      const partitioned = partitionIssueLabels(
+        labels,
+        available.map((label) => label.name)
+      );
+      issueLabels = partitioned.existing;
+      skippedLabels = partitioned.missing;
+      if (skippedLabels.length) {
+        console.warn(`  Labels not found in ${owner}/${repo}: ${skippedLabels.join(', ')}`);
+      }
+    } catch (err) {
+      console.warn(`  Could not validate labels for ${owner}/${repo}; using configured labels:`, err);
+    }
+  }
   const { data } = await ok.issues.create({
     owner,
     repo,
     title,
     body,
-    labels,
+    labels: issueLabels,
   });
-  return { number: data.number, url: data.html_url };
+  return { number: data.number, url: data.html_url, skippedLabels };
 }
 
 /**
