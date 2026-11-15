@@ -44,6 +44,7 @@ let state = {
   queueMergeTo: '',
   /** @type {Set<string>} */
   selectedQueueIds: new Set(),
+  bulkBusy: false,
 };
 
 // ── API helpers ─────────────────────────────────────────
@@ -727,7 +728,60 @@ function updateBulkBar() {
   const applyBtn = document.getElementById('btn-bulk-apply');
   const n = state.selectedQueueIds.size;
   if (countEl) countEl.textContent = n === 1 ? '1 selected' : `${n} selected`;
-  if (applyBtn) applyBtn.disabled = n === 0;
+  if (applyBtn) applyBtn.disabled = n === 0 || state.bulkBusy;
+  setBulkBarControlsDisabled(state.bulkBusy);
+}
+
+/** @param {boolean} disabled */
+function setBulkBarControlsDisabled(disabled) {
+  for (const id of [
+    'btn-bulk-select-visible',
+    'btn-bulk-clear',
+    'bulk-action-select',
+    'btn-bulk-apply',
+  ]) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    if (id === 'btn-bulk-apply') {
+      el.disabled = disabled || state.selectedQueueIds.size === 0;
+    } else {
+      el.disabled = disabled;
+    }
+  }
+}
+
+/** @param {number} total @param {string} verb e.g. "Creating issues" */
+function beginBulkProgress(total, verb) {
+  state.bulkBusy = true;
+  setBulkBarControlsDisabled(true);
+  const wrap = document.getElementById('queue-bulk-progress');
+  if (wrap) {
+    wrap.hidden = false;
+    wrap.setAttribute('aria-busy', 'true');
+  }
+  setBulkProgress(0, total, verb);
+}
+
+/** @param {number} completed @param {number} total @param {string} [verb] */
+function setBulkProgress(completed, total, verb) {
+  const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const fill = document.getElementById('queue-bulk-progress-fill');
+  const label = document.getElementById('queue-bulk-progress-label');
+  if (fill) fill.style.width = `${pct}%`;
+  const action = verb ? `${verb}… ` : '';
+  if (label) label.textContent = `${action}${completed} / ${total}`;
+}
+
+function endBulkProgress() {
+  state.bulkBusy = false;
+  const wrap = document.getElementById('queue-bulk-progress');
+  if (wrap) {
+    wrap.hidden = true;
+    wrap.removeAttribute('aria-busy');
+  }
+  const fill = document.getElementById('queue-bulk-progress-fill');
+  if (fill) fill.style.width = '0%';
+  updateBulkBar();
 }
 
 function setItemSelected(itemId, selected) {
@@ -1731,35 +1785,38 @@ async function createBulkIssues(ids = [...state.selectedQueueIds]) {
     return;
   }
 
-  const btn = document.getElementById('btn-bulk-apply');
-  const prevLabel = btn?.textContent;
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = 'Working…';
-  }
+  beginBulkProgress(ids.length, 'Creating issues');
+  let ok = 0;
+  let bad = 0;
+  /** @type {string | null} */
+  let firstErr = null;
 
   try {
-    const result = await api('/create-issues', {
-      method: 'POST',
-      body: { queueItemIds: ids },
-    });
-    const ok = result.created?.length ?? 0;
-    const bad = result.failed?.length ?? 0;
+    for (let i = 0; i < ids.length; i++) {
+      const queueItemId = ids[i];
+      try {
+        await api('/create-issue', { method: 'POST', body: { queueItemId } });
+        ok += 1;
+      } catch (err) {
+        bad += 1;
+        if (!firstErr) firstErr = err.message;
+      }
+      setBulkProgress(i + 1, ids.length, 'Creating issues');
+    }
     state.selectedQueueIds.clear();
     if (bad === 0) {
       showToast(`Created ${ok} issue${ok === 1 ? '' : 's'}.`, 'success');
     } else {
-      const firstErr = result.failed[0]?.error ?? 'unknown error';
-      showToast(`Created ${ok}, failed ${bad}. First error: ${firstErr}`, bad === ids.length ? 'error' : 'success');
+      showToast(
+        `Created ${ok}, failed ${bad}. First error: ${firstErr ?? 'unknown error'}`,
+        bad === ids.length ? 'error' : 'success'
+      );
     }
     await refreshAll();
   } catch (err) {
     showToast(`Bulk create failed: ${err.message}`, 'error');
   } finally {
-    if (btn) {
-      updateBulkBar();
-      btn.textContent = prevLabel ?? 'Apply';
-    }
+    endBulkProgress();
   }
 }
 
@@ -1782,20 +1839,15 @@ async function bulkDismissIssues(ids, reason) {
     return;
   }
 
-  const btn = document.getElementById('btn-bulk-apply');
-  const prevLabel = btn?.textContent;
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = 'Working…';
-  }
-
+  beginBulkProgress(ids.length, 'Skipping');
   let ok = 0;
   let bad = 0;
   /** @type {string | null} */
   let firstErr = null;
 
   try {
-    for (const queueItemId of ids) {
+    for (let i = 0; i < ids.length; i++) {
+      const queueItemId = ids[i];
       try {
         await api('/dismiss', { method: 'POST', body: { queueItemId, reason } });
         ok += 1;
@@ -1803,6 +1855,7 @@ async function bulkDismissIssues(ids, reason) {
         bad += 1;
         if (!firstErr) firstErr = err.message;
       }
+      setBulkProgress(i + 1, ids.length, 'Skipping');
     }
     state.selectedQueueIds.clear();
     if (bad === 0) {
@@ -1815,10 +1868,7 @@ async function bulkDismissIssues(ids, reason) {
     }
     await refreshAll();
   } finally {
-    if (btn) {
-      updateBulkBar();
-      btn.textContent = prevLabel ?? 'Apply';
-    }
+    endBulkProgress();
   }
 }
 

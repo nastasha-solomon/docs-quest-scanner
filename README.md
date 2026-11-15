@@ -299,7 +299,7 @@ yarn deploy        # Sync repo changes to the skill install (~/.claude/skills/do
 - **Already tracked**: If the scan detected an existing docs issue that references a PR (via GitHub cross-reference events), the card shows a green badge and link so you can skip without re-reading the PR.
 - **Collapsible scan scope**: Summary row above the queue lists source repo, scan window, and label count; expand to see team and release-note labels.
 - **Filters** (combinable, persisted in `sessionStorage`; optional defaults from `defaultQueueFilters` in config): Assessment, Stack release, **Merged** (merge date), Doc work, Category, Priority. Active filters show “Showing X of Y items.”
-- **Selection & bulk actions**: Checkbox per card and per category section; **Select visible**, **Bulk action** dropdown + **Apply**, **Clear**. Bulk actions operate on the current filter slice.
+- **Selection & bulk actions**: Checkbox per card and per category section; **Select visible**, **Bulk action** dropdown + **Apply**, **Clear**. While a bulk run is in progress, a progress bar shows `Creating issues…` or `Skipping…` with a `completed / total` count; bulk controls are disabled until it finishes. Bulk actions operate on the current filter slice.
 
 ### Per-card actions
 
@@ -320,8 +320,10 @@ Same outcomes for all **selected** visible items:
 
 | Bulk action | Effect |
 |-------------|--------|
-| Accept quest | `POST /create-issues` (confirm dialog; sequential create) |
-| Skip – … | Same `reason` values as the per-card skip buttons (`POST /dismiss` per item) |
+| Accept quest | Confirm dialog; then `POST /create-issue` per selected item (sequential, with progress) |
+| Skip – … | Same `reason` values as the per-card skip buttons (`POST /dismiss` per item, with progress) |
+
+The server also exposes `POST /create-issues` for a one-request batch create; the review UI uses single-item calls so the progress bar can update after each issue.
 
 ### Mark scan complete
 

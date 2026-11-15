@@ -144,6 +144,32 @@ body {
   min-width: 5.5rem;
 }
 
+.queue-bulk-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0 0 4px;
+}
+
+.queue-bulk-progress-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-canvas-subtle, #eaeef2);
+  overflow: hidden;
+}
+
+.queue-bulk-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--color-accent-fg, #0969da);
+  transition: width 0.15s ease-out;
+}
+
+.queue-bulk-progress-label {
+  font-variant-numeric: tabular-nums;
+}
+
 .category-select-all {
   display: inline-flex;
   align-items: center;

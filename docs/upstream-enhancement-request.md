@@ -201,6 +201,7 @@ When a category slice is ready (for example after filters + enrichment), writers
 
 - Checkbox on each triage card; **Select all** checkbox on each category header (visible items only).
 - Bar below filters: **Select visible** (current filter results), **Bulk action** (same pill style as other queue filters), **Apply**, **Clear**.
+- **Progress:** While **Apply** runs, a full-width bar under the bulk row advances per item (`Creating issues… 3 / 8` or `Skipping… 5 / 8`); other bulk controls stay disabled until the run ends.
 - **Apply** is disabled until at least one item is selected.
 - **Bulk action** dropdown options (each applies to all selected items):
 
@@ -219,7 +220,7 @@ When a category slice is ready (for example after filters + enrichment), writers
 
 **API**
 
-- **Accept quest:** `POST /create-issues` with `{ queueItemIds: string[], goodFirstIssue?: boolean }`. Processes items **sequentially**; returns `{ created: [...], failed: [...] }`. Each success uses the same path as `POST /create-issue` (project fields, meta-issue linking, history, queue removal). Shared implementation: `src/create-from-queue.ts` (`createDocsIssueFromQueueItem`).
+- **Accept quest (review UI):** `POST /create-issue` once per selected `queueItemId` so the progress bar can update after each success or failure. **Batch API:** `POST /create-issues` with `{ queueItemIds: string[], goodFirstIssue?: boolean }` still processes items **sequentially** in one request and returns `{ created: [...], failed: [...] }`. Each success uses `createDocsIssueFromQueueItem` in `src/create-from-queue.ts`.
 - **Skip – …:** client calls `POST /dismiss` once per selected `queueItemId` with `{ queueItemId, reason }` (sequential; failures collected like bulk create). No batch dismiss endpoint in the fork.
 
 ### 8. Skip / dismiss reasons (triage card actions)
@@ -279,7 +280,7 @@ Each **Skip** button calls `POST /dismiss` with a `reason` string; the item is r
 5. **Internal routes:** `access: 'internal'` — no API ref estimate; review-only internal gaps → not in API-only filter (`test/doc-surface.test.ts`).
 6. **Priority:** Breaking + `needsDocs: yes` → P0 heuristic; enriched `triagePriority` on card and on issue create (`test/triage-priority.test.ts`).
 7. **UI:** Scan scope collapses/expands and remembers state; filter row stays on one line with horizontal scroll; **Bulk action** uses the same `.queue-filter-field` pill as other filters.
-8. **Bulk actions:** Filter to one category → Select visible → **Accept quest** — partial create failures leave failed rows in queue; history records successes. **Skip – not my area** (or any skip) — confirm, dismiss all selected, history rows show `reason`; **Apply** disabled with zero selection.
+8. **Bulk actions:** Filter to one category → Select visible → **Accept quest** — progress bar advances item by item; partial create failures leave failed rows in queue; history records successes. **Skip – not my area** (or any skip) — confirm, dismiss all selected with progress; history rows show `reason`; **Apply** disabled with zero selection.
 9. **Merged:** Presets 7d / 30d / 90d match latest-`mergedAt` counts; **Since last scan** uses `filterMeta.lastScanAt`; custom From/To inclusive; custom row clears with **Clear range** (`test/queue-merge-filter.test.ts`).
 10. **Skip reasons:** Card shows five skip buttons; dismiss stores exact `reason`; History and Skipped list display it; `test/skip-options.test.ts`.
 11. **Regression:** `fixAlertingQueue`, excludes, `GET /queue` consumers, existing enrichment merge script, single `POST /create-issue` unchanged behavior.
