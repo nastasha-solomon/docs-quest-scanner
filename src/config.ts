@@ -70,6 +70,8 @@ interface ScanFallback {
   issueLabels?: string[];
   maxMergeAgeMonths?: number;
   prefilter?: boolean;
+  excludeLabels?: string[];
+  excludeTitlePatterns?: string[];
 }
 
 /** Fill per-group defaults: group value → top-level fallback → built-in default. */
@@ -83,6 +85,8 @@ function fillRepoDefaults(g: RepoGroup, fb: ScanFallback = {}): RepoGroup {
     issueLabels: g.issueLabels ?? fb.issueLabels ?? [],
     maxMergeAgeMonths: g.maxMergeAgeMonths ?? fb.maxMergeAgeMonths ?? 6,
     prefilter: g.prefilter ?? fb.prefilter ?? true,
+    excludeLabels: g.excludeLabels ?? fb.excludeLabels ?? [],
+    excludeTitlePatterns: g.excludeTitlePatterns ?? fb.excludeTitlePatterns ?? [],
     crossRefRepos:
       g.crossRefRepos ??
       (g.target.repo.endsWith('-internal')
@@ -134,6 +138,8 @@ export function normalizeConfig(raw: Config): NormalizedConfig {
     issueLabels: raw.issueLabels,
     maxMergeAgeMonths: raw.maxMergeAgeMonths,
     prefilter: raw.prefilter,
+    excludeLabels: raw.excludeLabels,
+    excludeTitlePatterns: raw.excludeTitlePatterns,
   };
 
   let groups: RepoGroup[];
@@ -161,6 +167,8 @@ export function normalizeConfig(raw: Config): NormalizedConfig {
           versionLabelPattern: raw.versionLabelPattern,
           releaseNoteLabels: raw.releaseNoteLabels,
           maxMergeAgeMonths: raw.maxMergeAgeMonths,
+          excludeLabels: raw.excludeLabels,
+          excludeTitlePatterns: raw.excludeTitlePatterns,
         })
       ),
     ];

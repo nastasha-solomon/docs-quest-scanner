@@ -3,6 +3,7 @@ import { loadConfig, normalizeConfig, loadHistory, loadLastRun, loadQueue, saveQ
 import { searchMergedPRs, getPRFiles, findCrossReferencedIssues } from './github.js';
 import { hasMatchingConfiguredLabel } from './release-note-labels.js';
 import { prefilterVerdict } from './prefilter.js';
+import { shouldExcludePullRequest } from './exclude-pr.js';
 import type { Config, PullRequest, QueueItem, Queue, Assessment, RepoGroup, TrackedIssue } from './types.js';
 
 /** Default lookback if no last run exists: 14 days */
@@ -88,6 +89,12 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
       // Filter out PRs already handled in this repo group (repo-scoped).
       prs = prs.filter((pr) => !knownPRs.has(`${group.id}#${pr.number}`));
 
+      const beforeExclude = prs.length;
+      prs = prs.filter((pr) => !shouldExcludePullRequest(pr, group));
+      if (beforeExclude > prs.length) {
+        console.log(`    Excluded ${beforeExclude - prs.length} PRs matching excludeLabels/title patterns.`);
+      }
+
       if (prs.length === 0) {
         console.log(`    No new PRs found.`);
         continue;
@@ -162,7 +169,7 @@ export async function runScan(configOverride?: Config): Promise<Queue> {
 
   const queue: Queue = {
     scannedAt: new Date().toISOString(),
-    items: deduped,
+    items: fixAlertingQueue(deduped),
   };
 
   // Log version breakdown
@@ -524,6 +531,65 @@ function buildSummary(prs: PullRequest[]): string {
  * with both Team:esql and Team:dataDiscovery), keep the first occurrence
  * and add the other categories to `alsoAppliesTo`.
  */
+/** Choose v1 vs v2 from PR labels (used for scan dedup and queue repair). */
+export function resolveAlertingCategoryFromLabels(prLabels: string[]): string | null {
+  const labels = new Set(prLabels.map((l) => l.toLowerCase()));
+  if (labels.has('feature:alertingv2')) return 'Kibana - Alerting v2';
+  if (labels.has('feature:alerting')) return 'Kibana - Alerting v1';
+  const rnaV2 =
+    labels.has('team:rna-project') ||
+    labels.has('closes:rna') ||
+    labels.has('author:actionable-obs');
+  if (rnaV2) return 'Kibana - Alerting v2';
+  return null;
+}
+
+/** Re-label queued items that were filed under the wrong alerting category. */
+export function fixAlertingQueueItem(item: QueueItem): QueueItem {
+  const resolved = resolveAlertingCategoryFromLabels(item.prs.flatMap((p) => p.labels ?? []));
+  if (!resolved || item.category === resolved) return item;
+  if (!item.category.startsWith('Kibana - Alerting')) return item;
+  const previous = item.category;
+  const also = new Set(item.alsoAppliesTo ?? []);
+  if (previous !== resolved) also.add(previous);
+  return {
+    ...item,
+    category: resolved,
+    alsoAppliesTo: also.size > 0 ? [...also] : undefined,
+  };
+}
+
+export function fixAlertingQueue(items: QueueItem[]): QueueItem[] {
+  return items.map(fixAlertingQueueItem);
+}
+
+/** Drop queue items whose PRs match configured repo-group exclusions. */
+export function filterExcludedQueueItems(
+  items: QueueItem[],
+  groups: RepoGroup[],
+  defaultRepoId?: string
+): QueueItem[] {
+  const groupById = new Map(groups.map((g) => [g.id, g]));
+  return items.filter((item) => {
+    const group = groupById.get(item.repoId ?? defaultRepoId ?? '');
+    if (!group) return true;
+    return !item.prs.some((pr) => shouldExcludePullRequest(pr, group));
+  });
+}
+
+/** When one PR matches multiple categories, pick the best primary category. */
+export function pickPreferredCategoryItem(a: QueueItem, b: QueueItem): QueueItem {
+  const labels = a.prs.flatMap((p) => p.labels);
+  const preferred = resolveAlertingCategoryFromLabels(labels);
+
+  if (preferred) {
+    if (a.category === preferred && b.category !== preferred) return a;
+    if (b.category === preferred && a.category !== preferred) return b;
+  }
+
+  return a;
+}
+
 function deduplicateAcrossCategories(items: QueueItem[]): QueueItem[] {
   const seen = new Map<string, QueueItem>();
 
@@ -531,10 +597,13 @@ function deduplicateAcrossCategories(items: QueueItem[]): QueueItem[] {
     const key = itemKey(item.repoId, item.prs);
     const existing = seen.get(key);
     if (existing) {
-      if (!existing.alsoAppliesTo) existing.alsoAppliesTo = [];
-      if (!existing.alsoAppliesTo.includes(item.category)) {
-        existing.alsoAppliesTo.push(item.category);
+      const keeper = pickPreferredCategoryItem(existing, item);
+      const other = keeper === existing ? item : existing;
+      if (!keeper.alsoAppliesTo) keeper.alsoAppliesTo = [];
+      if (!keeper.alsoAppliesTo.includes(other.category)) {
+        keeper.alsoAppliesTo.push(other.category);
       }
+      seen.set(key, keeper);
     } else {
       seen.set(key, item);
     }

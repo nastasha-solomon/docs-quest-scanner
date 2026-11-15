@@ -19,7 +19,7 @@ import {
 } from '../config.js';
 import { getOctokit, createIssue, addToMetaIssue, findMetaIssue, setProjectFields } from '../github.js';
 import { resolveMetaTitle } from '../fiscal-quarter.js';
-import { runScan } from '../scanner.js';
+import { runScan, fixAlertingQueue, filterExcludedQueueItems } from '../scanner.js';
 import { renderIssueBody, clearTemplateCache } from '../template.js';
 import type { HistoryEntry, QueueItem } from '../types.js';
 
@@ -57,8 +57,18 @@ apiRouter.put('/config', (req, res) => {
 // ── Queue ───────────────────────────────────────────────
 
 apiRouter.get('/queue', (_req, res) => {
-  const queue = loadQueue();
+  const loaded = loadQueue();
   const config = loadNormalizedConfig();
+  const defaultRepoId = config.repos[0]?.id;
+  let storedItems = fixAlertingQueue(loaded.items);
+  storedItems = filterExcludedQueueItems(storedItems, config.repos, defaultRepoId);
+  if (
+    storedItems.length !== loaded.items.length ||
+    storedItems.some((item, i) => item.category !== loaded.items[i]?.category)
+  ) {
+    saveQueue({ ...loaded, items: storedItems });
+  }
+  const queue = { ...loaded, items: storedItems };
   const groupById = new Map(config.repos.map((g) => [g.id, g]));
 
   // Union of every selectable target repo across groups (target + cross-ref repos),

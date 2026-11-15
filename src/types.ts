@@ -373,6 +373,13 @@ export interface RepoGroup {
   maxMergeAgeMonths?: number;
   /** Deterministic stage-1 pre-filter (see prefilter.ts). Defaults to true. */
   prefilter?: boolean;
+  /**
+   * PRs with any of these labels are omitted from every category scan (exact or
+   * trailing-prefix wildcards, same rules as release note labels).
+   */
+  excludeLabels?: string[];
+  /** PR titles matching any of these regexes are omitted from every category scan. */
+  excludeTitlePatterns?: string[];
   /** Repos to scan for existing cross-referenced docs issues. Defaults to [target, `${target}-internal`]. */
   crossRefRepos?: string[];
   /** Regex to extract a product-side issue URL from PR bodies. Defaults to the source repo's issues URL. */
@@ -411,6 +418,10 @@ export interface Config {
   maxMergeAgeMonths?: number;
   /** Deterministic stage-1 pre-filter (see prefilter.ts). Default: true. */
   prefilter?: boolean;
+  /** Dropped from all category scans when present on a PR (see RepoGroup.excludeLabels). */
+  excludeLabels?: string[];
+  /** Dropped when the PR title matches (see RepoGroup.excludeTitlePatterns). */
+  excludeTitlePatterns?: string[];
   issueLabels?: string[];
   /**
    * @deprecated Legacy global meta issue (object form). Superseded by the named

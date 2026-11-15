@@ -87,6 +87,34 @@ export async function searchMergedPRs(
   return [...seen.values()];
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Retry GitHub search when the search API rate limit (30/min) is hit. */
+async function searchWithRetry(
+  ok: Octokit,
+  params: Parameters<Octokit['search']['issuesAndPullRequests']>[0],
+  maxRetries = 8
+): ReturnType<Octokit['search']['issuesAndPullRequests']> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await ok.search.issuesAndPullRequests(params);
+    } catch (err: unknown) {
+      const e = err as { status?: number; message?: string; response?: { headers?: Record<string, string> } };
+      const isRateLimit = e?.status === 403 && /rate limit/i.test(String(e?.message ?? ''));
+      if (!isRateLimit || attempt >= maxRetries) throw err;
+      const resetHeader = e?.response?.headers?.['x-ratelimit-reset'];
+      const resetMs = resetHeader ? Number(resetHeader) * 1000 : NaN;
+      const waitMs = Math.max((Number.isFinite(resetMs) ? resetMs - Date.now() : 60_000) + 2000, 2000);
+      console.log(
+        `    (Search API rate limit — waiting ${Math.ceil(waitMs / 1000)}s before retrying...)`
+      );
+      await sleep(waitMs);
+    }
+  }
+}
+
 /**
  * Paginate through all pages of a GitHub search query and return PullRequest objects.
  * GitHub exposes at most 1,000 results for any one search query, so searches
@@ -125,7 +153,7 @@ async function fetchSearchPage(
   totalCount: number;
   items: Awaited<ReturnType<Octokit['search']['issuesAndPullRequests']>>['data']['items'];
 }> {
-  const result = await ok.search.issuesAndPullRequests({
+  const result = await searchWithRetry(ok, {
     q: query,
     per_page: SEARCH_PAGE_SIZE,
     page,
