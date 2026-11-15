@@ -119,12 +119,235 @@ const QUEST_ANIMALS = [
     svg: `<svg class="quest-animal" viewBox="0 0 20 20"><path d="M10,2 Q4,2 4,8 L2,14 L6,12 L6,16 L10,18 L14,16 L14,12 L18,14 L16,8 Q16,2 10,2 M7,7 A1.5,1.5 0 1,0 7,10 A1.5,1.5 0 1,0 7,7 M13,7 A1.5,1.5 0 1,0 13,10 A1.5,1.5 0 1,0 13,7 M9,11 L10,12 L11,11"/></svg>`,
     tooltips: ['Wise as an owl — sees what others miss', 'The owl of the docs team: watchful, wise, wonderful', 'Night owl energy: gets it done when it matters'],
   },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 24 18"><path d="M6,14 Q12,6 18,14 M8,14 V17 M16,14 V17 M9,9 A1.2,1.2 0 1,0 9,11.4 A1.2,1.2 0 1,0 9,9 M15,9 A1.2,1.2 0 1,0 15,11.4 A1.2,1.2 0 1,0 15,9 M12,12 Q10,13 12,14 Q14,13 12,12"/></svg>`,
+    tooltips: ['Leaps between PRs like a frog between lily pads', 'Ribbit-level focus on what needs docs', 'Pond-clear judgment — splashy when it counts'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 24 16"><path d="M5,13 Q12,4 19,13 M7,13 V16 M17,13 V16 M8,8 A1,1 0 1,0 8,10 A1,1 0 1,0 8,8 M16,8 A1,1 0 1,0 16,10 A1,1 0 1,0 16,8 M10,11 H14 M11,10 L10,11 M14,10 L15,11 M6,7 L7,6 M18,7 L17,6"/></svg>`,
+    tooltips: ['Toad ally of the backlog — warty wisdom, solid landings', 'Squats on ambiguity until it resolves', 'Garden-witch energy: patient, terrestrial, thorough'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 26 18"><path d="M8,9 L4,7 L2,9 L6,10 M18,9 L22,7 L24,9 L20,10 M13,9 V15 M11,15 H15 M13,7 L11,5 M13,7 L15,5 M10,6 A1,1 0 1,0 10,8 A1,1 0 1,0 10,6"/></svg>`,
+    tooltips: ['Nevermore gaps — the raven remembers every broken link', 'Croaks once per missed release note', 'Dark-feathered scribe of the merge queue'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 24 24"><path d="M12,12 L12,4 M12,12 L6,7 M12,12 L18,7 M12,12 L5,14 M12,12 L19,14 M12,12 L7,19 M12,12 L17,19 M12,12 L12,20 M10,11 A1.2,1.2 0 1,0 14,11 A1.2,1.2 0 1,0 10,11"/></svg>`,
+    tooltips: ['Weaves threads of triage across the web', 'Eight legs, zero missed cross-references', 'Patient spider — catches scope creep in the silk'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 24 22"><path d="M12,3 L9,6 L8,2 M12,3 L15,6 L16,2 M12,8 Q8,10 7,15 M12,8 Q16,10 17,15 M7,15 V19 M17,15 V19 M9,19 V21 M15,19 V21 M11,15 L12,12 L13,15"/></svg>`,
+    tooltips: ['Gentle steps through dense release forests', 'Antlers high — navigates doc debt with grace', 'Forest-quiet reviewer; hears every rustle in the diff'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 26 14"><path d="M3,10 Q8,4 13,8 Q18,12 23,6 M20,6 L23,5 M23,6 L22,9 M6,9 A0.8,0.8 0 1,0 6,10.6 A0.8,0.8 0 1,0 6,9"/></svg>`,
+    tooltips: ['Slides through nested bullets without friction', 'Serpent-smooth prose fixes', 'Coils around confusing API text until it clarifies'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 28 12"><path d="M2,8 Q7,5 12,7 Q17,9 22,6 Q25,4 26,6 M24,6 L26,5 M24,6 L25,8"/></svg>`,
+    tooltips: ['Eel in the data stream — finds the doc gap in the dark', 'Slippery edges, sharp eye', 'Current-powered triage at depth'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 24 22"><path d="M12,6 A4,4 0 1,0 12,14 A4,4 0 1,0 12,6 M8,14 Q6,17 5,20 M10,14 Q9,18 8,21 M12,14 V21 M14,14 Q15,18 16,21 M16,14 Q18,17 19,20 M10,8 A0.8,0.8 0 1,0 10,9.6 A0.8,0.8 0 1,0 10,8 M14,8 A0.8,0.8 0 1,0 14,9.6 A0.8,0.8 0 1,0 14,8"/></svg>`,
+    tooltips: ['Many arms, one coherent issue body', 'Inky reach across the repo', 'Octo-triage: holds the template, the PR, and your coffee'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 22 16"><path d="M11,4 L7,6 L6,10 L11,12 L16,10 L15,6 Z M6,8 L3,9 M16,8 L19,9 M8,12 L7,15 M14,12 L15,15 M11,4 V2 M11,2 L10,1 M11,2 L12,1"/></svg>`,
+    tooltips: ['Armored against nitpicks — beetle resilience', 'Small, shiny, impossible to ignore in the changelog', 'Scuttles straight to the root cause'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 26 14"><path d="M4,9 Q8,6 12,8 Q16,10 20,8 M6,8 L5,7 M20,8 L21,7 M8,8 V10 M18,8 V10 M6,10 L4,12 M20,10 L22,12 M12,8 L12,5 M10,5 L12,4 L14,5"/></svg>`,
+    tooltips: ['Amphibian patience for damp, half-finished drafts', 'Tail of fire, heart of editor', 'Lives in both water and words — adapts fast'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 22 22"><path d="M11,4 L8,7 L8,3 M11,4 L14,7 L14,3 M6,9 Q11,6 16,9 M8,9 A1.2,1.2 0 1,0 8,11.4 A1.2,1.2 0 1,0 8,9 M14,9 A1.2,1.2 0 1,0 14,11.4 A1.2,1.2 0 1,0 14,9 M11,11 L9,14 L11,18 L13,14 Z"/></svg>`,
+    tooltips: ['Ear-tufted owl — hears typos in the dark', 'Perches on release branches; hunts at GA', 'Twilight reviewer with talons for vague release notes'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 20 18"><path d="M10,3 Q5,3 5,8 Q5,11 10,11 Q15,11 15,8 Q15,3 10,3 M10,11 V15 M7,15 H13 M10,8 A1,1 0 1,0 10,10 A1,1 0 1,0 10,8 M8,6 L7,5 M12,6 L13,5"/></svg>`,
+    tooltips: ['Mushroom muse — grows docs in shady corners', 'Spore-spreader of clear explanations', 'Forest-floor finder of undocumented behavior'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 24 20"><path d="M8,12 Q12,4 16,12 M6,12 Q12,8 18,12 M12,12 V16 M9,16 H15 M12,7 A1,1 0 1,0 12,9 A1,1 0 1,0 12,7"/></svg>`,
+    tooltips: ['Cluster of clarity — many caps, one mycelial mind', 'Fruiting body of the triage ritual', 'Pops up after rain and merged PRs'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 26 18"><path d="M4,14 Q8,12 12,14 Q16,12 20,14 M6,14 Q12,8 18,14 M12,8 Q10,6 12,4 Q14,6 12,8 M8,10 L6,9 M16,10 L18,9"/></svg>`,
+    tooltips: ['Mycelium mapper — connects pages under the soil', 'Invisible threads, visible doc gaps', 'Network fungus; routes issues like nutrient paths'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 24 16"><path d="M4,12 L4,8 Q8,6 12,8 Q16,6 20,8 L20,12 M6,10 L5,9 M18,10 L19,9 M12,8 V5 M10,5 H14"/></svg>`,
+    tooltips: ['Bracket on the trunk — slow, structural fixes', 'Shelf fungus patience for tech debt', 'Clings to legacy docs until updated'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 22 16"><path d="M11,14 V8 M8,14 V10 M14,14 V10 M11,8 Q11,4 8,3 M11,8 Q11,4 14,3 M6,14 H16"/></svg>`,
+    tooltips: ['Lichen logic — symbiosis of accuracy and style', 'Crusty, colorful, surprisingly resilient', 'Grows on stone docs until they breathe again'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 22 24"><path d="M11,4 Q7,8 7,14 Q7,18 11,20 Q15,18 15,14 Q15,8 11,4 M11,20 V22 M8,10 Q11,12 14,10 M6,14 L4,16 M16,14 L18,16"/></svg>`,
+    tooltips: ['Oak-deep roots — docs that outlast releases', 'Canopy shade for writers in a heatwave of PRs', 'Rings of wisdom in every changelog year'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 20 24"><path d="M10,4 L8,8 M10,4 L12,8 M10,4 V2 M10,8 Q6,12 6,18 M10,8 Q14,12 14,18 M6,18 L6,22 M14,18 L14,22 M8,12 L7,11 M12,12 L13,11"/></svg>`,
+    tooltips: ['Pine straight and evergreen — procedures that stay true', 'Needle-sharp attention to version strings', 'Resin-scent of fresh issue templates'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 20 22"><path d="M10,3 Q6,8 6,14 Q6,19 10,21 Q14,19 14,14 Q14,8 10,3 M10,21 V22 M7,12 L6,10 M13,12 L14,10 M5,16 Q10,14 15,16"/></svg>`,
+    tooltips: ['Birch-bright bark — easy to spot what changed', 'Paper-white clarity in the opening paragraph', 'Slender tree, sturdy structure'],
+  },
+  {
+    svg: `<svg class="quest-animal" viewBox="0 0 26 22"><path d="M13,4 Q8,10 7,16 Q6,20 13,20 Q20,20 19,16 Q18,10 13,4 M13,20 V21 M9,14 Q13,12 17,14 M11,9 L10,8 M15,9 L16,8"/></svg>`,
+    tooltips: ['Old-growth gravitas — triage with deep time', 'Twisted branches, straight narratives', 'The grove remembers every deprecated setting'],
+  },
 ];
 
 function randomAnimal() {
   const animal = QUEST_ANIMALS[Math.floor(Math.random() * QUEST_ANIMALS.length)];
   const tooltip = animal.tooltips[Math.floor(Math.random() * animal.tooltips.length)];
   return `<span class="quest-animal-wrap" data-tooltip="${tooltip}">${animal.svg}</span>`;
+}
+
+const QUEST_WITCH = {
+  svg: `<svg class="quest-animal quest-animal--witch" viewBox="0 0 24 22" aria-hidden="true">
+    <path d="M12 3 L19 11 H5 Z" />
+    <path d="M9 11 H15 V12 Q15 14 12 14 Q9 14 9 12 Z" />
+    <path d="M7 16 Q12 13 17 16" />
+    <path d="M18 20 L19.5 14 M19 17 L21 15.5" />
+  </svg>`,
+  tooltips: [
+    'The documentation witch — triage by candlelight',
+    'Warlock of the release notes: knowledge demands clarity',
+    'Shadow, script, and changelog',
+    'Keeper of the warded queue',
+    'Hex the backlog, bless the merge',
+    'Scrying the PR runes since dawn',
+    'Moon-priestess of the triage circle',
+    'Your familiar naps; you do not',
+    'Salt, sage, and semantic versioning',
+    'The athame chooses the worthy page',
+  ],
+};
+
+const WARLOCK_GREETINGS = [
+  'By shadow and script',
+  'The grimoire stirs',
+  'As the coven wills it',
+  'Candle high — the queue calls',
+  'The ritual of triage begins',
+  'By starlight and changelog',
+  'The veil thins',
+  'Hear the familiar scratch at the ledger',
+  'Salt the threshold — work awaits',
+  'The athame points to unfinished lore',
+  'Mercury is in retrograde and so is this queue',
+  'From my tower I see your summons',
+  'The bones have spoken',
+  'Ash and ink, witch',
+  'By the old words and the new releases',
+  'The circle is cast',
+  'Mind the ward — spirits of scope creep linger',
+  'The cauldron bubbles with merged PRs',
+  'As above in Kibana, so below in the docs',
+  'Thirteen tabs open, one truth to write',
+  'The moon is waxing; so is the backlog',
+  'Fetch your focus — the ritual wants it',
+  'By herb and hyperlink',
+  'The tarot turned up “needs docs”',
+  'Whispered once, filed twice',
+  'Patience, power, and patch releases',
+  'The runes are fresh off the scanner',
+  'Sight unclouded, quill uncapped',
+  'What is written in shadow must be published in light',
+  'By bell, book, and broken cross-link',
+];
+
+/**
+ * @param {string} mark
+ * @param {string} greeting
+ * @param {string} n
+ * @param {number} count
+ * @param {string} q
+ * @param {boolean} singular
+ */
+function witchQuestLines(mark, greeting, n, count, q, singular) {
+  const r = singular ? 'requires' : 'require';
+  const a = singular ? 'awaits' : 'await';
+  const h = singular ? 'has' : 'have';
+  const d = singular ? 'demands' : 'demand';
+  const rem = singular ? 'remains' : 'remain';
+  return [
+    `${mark}${greeting}, ${n}! The spellbook lists ${count} ${q} that ${r} your judgment.`,
+    `${mark}${greeting}, ${n}! ${count} ${q} ${a} resolution by moonlight.`,
+    `${mark}${greeting}, ${n}! The coven whispers of ${count} ${q} still loose in the queue.`,
+    `${mark}${greeting}, ${n}! ${count} ${q} ${d} ink, nerve, and a steady hand.`,
+    `${mark}${greeting}, ${n}! ${count} urgent ${q} ${h} surfaced from the shadows.`,
+    `${mark}${greeting}, ${n}! ${count} thread${singular ? '' : 's'} of fate ${rem} for you to weave.`,
+    `${mark}${greeting}, ${n}! The scrying bowl shows ${count} ${q} not yet bound to issues.`,
+    `${mark}${greeting}, ${n}! ${count} sigil${singular ? '' : 's'} on the ward pulse for your touch.`,
+    `${mark}${greeting}, ${n}! The familiars report ${count} ${q} circling the backlog.`,
+    `${mark}${greeting}, ${n}! ${count} page${singular ? '' : 's'} of prophecy ${a} your red ink.`,
+    `${mark}${greeting}, ${n}! Through smoke and semver: ${count} ${q} call your name.`,
+    `${mark}${greeting}, ${n}! The crystals warmed — ${count} ${q} ${h} entered the circle.`,
+    `${mark}${greeting}, ${n}! A charm upon you: ${count} ${q} to set right before dawn.`,
+    `${mark}${greeting}, ${n}! The herb bundle dries; ${count} ${q} do not.`,
+    `${mark}${greeting}, ${n}! Stars align on ${count} ${q} — the ritual chooses you.`,
+    `${mark}${greeting}, ${n}! ${count} whisper${singular ? '' : 's'} in the stack ${a} documentation.`,
+    `${mark}${greeting}, ${n}! Burn the sage: ${count} ${q} still hungry for clarity.`,
+    `${mark}${greeting}, ${n}! The tower bell tolls ${count} — ${q} at the gate.`,
+    `${mark}${greeting}, ${n}! Your grimoire gains ${count} new line${singular ? '' : 's'} of unfinished work.`,
+    `${mark}${greeting}, ${n}! The veil parts on ${count} ${q} ripe for binding.`,
+    `${mark}${greeting}, ${n}! Salt, bell, and quill — ${count} ${q} ${d} the ritual.`,
+    `${mark}${greeting}, ${n}! Even the ravens gossip: ${count} ${q} need a witch's eye.`,
+    `${mark}${greeting}, ${n}! Moonwater cools; ${count} hot ${q} ${rem}.`,
+    `${mark}${greeting}, ${n}! The tarot dealt ${count} card${singular ? '' : 's'} — each an omen still unfiled.`,
+  ];
+}
+
+/** @param {string} mark @param {string} n */
+function witchRestLines(mark, n) {
+  return [
+    `${mark}The cauldron rests, ${n}. No quests on the ward.`,
+    `${mark}All rites complete, ${n}. Close the grimoire and breathe.`,
+    `${mark}Your queue is clear, ${n}. Even warlocks need quiet hours.`,
+    `${mark}No new summons, ${n}. Let the candles gutter out.`,
+    `${mark}The circle fades, ${n}. Only moonlight on an empty backlog.`,
+    `${mark}Silence in the tower, ${n}. The familiars finally sleep.`,
+    `${mark}The inkwell is still, ${n}. No runes demand you tonight.`,
+    `${mark}Rest your athame, ${n}. The queue sleeps beneath salt and ash.`,
+    `${mark}The scrying glass shows nothing, ${n}. A rare peace.`,
+    `${mark}No whispers from the merge train, ${n}. Steep the tea.`,
+    `${mark}Your ward holds, ${n}. Nothing breaches the empty log.`,
+    `${mark}Stars wheel on without errand, ${n}. Enjoy the hush.`,
+    `${mark}The spell is complete, ${n}. Till the next scan stirs the leaves.`,
+    `${mark}Bone dice show blanks, ${n}. Take the night.`,
+    `${mark}Even the changelog is quiet, ${n}. Curl up with something that isn't YAML.`,
+    `${mark}The broom leans idle, ${n}. No chase through the PR forest.`,
+    `${mark}Smoke clears; no new omens, ${n}. The coven releases you.`,
+    `${mark}Crystal cooled, ${n}. No futures left to file tonight.`,
+  ];
+}
+
+/** Personal mascot + tone for fork maintainer; everyone else keeps random quest animals. */
+function isWitchQueueUser(user) {
+  if (!user) return false;
+  const login = (user.login ?? '').toLowerCase();
+  const first = (user.name ?? '').trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+  return login === 'nastasha-solomon' || first === 'nastasha';
+}
+
+function questMascotForUser(user) {
+  if (isWitchQueueUser(user)) {
+    const tooltip = QUEST_WITCH.tooltips[Math.floor(Math.random() * QUEST_WITCH.tooltips.length)];
+    return `<span class="quest-animal-wrap quest-animal-wrap--witch" data-tooltip="${tooltip}">${QUEST_WITCH.svg}</span>`;
+  }
+  return randomAnimal();
+}
+
+function randomGreeting(user) {
+  if (isWitchQueueUser(user)) {
+    return WARLOCK_GREETINGS[Math.floor(Math.random() * WARLOCK_GREETINGS.length)];
+  }
+  return Math.random() < 0.5 ? 'For the Light' : "Lok'tar ogar";
 }
 
 function renderHeroGreeting() {
@@ -142,7 +365,8 @@ function renderHeroGreeting() {
   }
 
   const queueCount = state.queue?.items?.length ?? 0;
-  const animal = randomAnimal();
+  const animal = questMascotForUser(user);
+  const witch = isWitchQueueUser(user);
 
   iconEl.style.display = 'none';
 
@@ -150,9 +374,11 @@ function renderHeroGreeting() {
     const mark = '<span class="quest-mark">!</span> ';
     const s = queueCount === 1;
     const q = s ? 'quest' : 'quests';
-    const greeting = Math.random() < 0.5 ? 'For the Light' : "Lok'tar ogar";
+    const greeting = randomGreeting(user);
     const n = `<strong>${esc(displayName)}</strong>${animal}`;
-    const questLines = [
+    const questLines = witch
+    ? witchQuestLines(mark, greeting, n, queueCount, q, s)
+    : [
       `${mark}${greeting}, ${n}! I have ${queueCount} ${q} that ${s ? 'requires' : 'require'} your attention.`,
       `${mark}${greeting}, ${n}! ${queueCount} ${q} ${s ? 'awaits' : 'await'} your judgment.`,
       `${mark}${greeting}, ${n}! The war effort needs you. ${queueCount} ${q} ${s ? 'remains' : 'remain'}.`,
@@ -160,18 +386,18 @@ function renderHeroGreeting() {
       `${mark}${greeting}, ${n}! ${queueCount} urgent ${q} ${s ? 'has' : 'have'} arrived.`,
     ];
     textEl.innerHTML = questLines[Math.floor(Math.random() * questLines.length)];
-    el.className = 'hero-greeting hero-quests';
+    el.className = witch ? 'hero-greeting hero-quests hero-quests--witch' : 'hero-greeting hero-quests';
   } else {
     const mark = '<span class="quest-mark quest-mark--done">?</span> ';
     const n = `<strong>${esc(displayName)}</strong>${animal}`;
-    const restLines = [
-      `${mark}Rest well, ${n}. You have no quests. The realm is at peace.`,
-      `${mark}All quests complete, ${n}. Return to the inn and rest.`,
-      `${mark}Your quest log is empty, ${n}. A rare moment of peace in Azeroth.`,
-      `${mark}No new orders, ${n}. Even heroes need to rest at the hearthstone.`,
-    ];
+    const restLines = witch ? witchRestLines(mark, n) : [
+        `${mark}Rest well, ${n}. You have no quests. The realm is at peace.`,
+        `${mark}All quests complete, ${n}. Return to the inn and rest.`,
+        `${mark}Your quest log is empty, ${n}. A rare moment of peace in Azeroth.`,
+        `${mark}No new orders, ${n}. Even heroes need to rest at the hearthstone.`,
+      ];
     textEl.innerHTML = restLines[Math.floor(Math.random() * restLines.length)];
-    el.className = 'hero-greeting hero-rest';
+    el.className = witch ? 'hero-greeting hero-rest hero-rest--witch' : 'hero-greeting hero-rest';
   }
 
   el.style.display = '';

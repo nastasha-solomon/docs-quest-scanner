@@ -1820,6 +1820,18 @@ dialog::backdrop {
   pointer-events: none;
 }
 
+.quest-animal--witch {
+  width: 22px;
+  height: 20px;
+  stroke: #8b5cf6;
+  fill: #a78bfa22;
+}
+
+.hero-quests--witch .quest-mark {
+  color: #a371f7;
+  text-shadow: 0 0 8px rgba(163, 113, 247, 0.45);
+}
+
 .hero-icon {
   line-height: 1;
 }
