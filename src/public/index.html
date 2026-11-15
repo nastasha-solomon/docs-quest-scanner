@@ -67,6 +67,29 @@
 
     <!-- Queue tab -->
     <div id="tab-queue" class="tab-content">
+      <div class="d-flex flex-items-center flex-wrap gap-2 mb-3" id="queue-toolbar">
+        <label for="queue-filter" class="text-small color-fg-muted mb-0">Assessment</label>
+        <select id="queue-filter" class="form-select form-select-sm queue-filter-select">
+          <option value="all">All</option>
+          <option value="yes">Needs docs</option>
+          <option value="check">Check</option>
+          <option value="no">No docs needed</option>
+          <option value="yes,check">Needs docs + Check</option>
+        </select>
+        <label for="queue-version-filter" class="text-small color-fg-muted mb-0 ml-2">Stack release</label>
+        <select id="queue-version-filter" class="form-select form-select-sm queue-filter-select">
+          <option value="all">All versions</option>
+        </select>
+        <label for="queue-doc-work-filter" class="text-small color-fg-muted mb-0 ml-2">Doc work</label>
+        <select id="queue-doc-work-filter" class="form-select form-select-sm queue-filter-select">
+          <option value="all">All</option>
+          <option value="new">New content</option>
+          <option value="update">Update existing</option>
+          <option value="api-update">API reference only</option>
+          <option value="unknown">Not classified yet</option>
+        </select>
+        <span class="text-small color-fg-muted" id="queue-filter-hint"></span>
+      </div>
       <div id="queue-container"></div>
       <div id="queue-empty" class="blankslate" style="display:none">
         <h3 class="blankslate-heading" id="queue-empty-heading">Your quest log is empty</h3>

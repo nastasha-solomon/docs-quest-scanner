@@ -20,6 +20,9 @@ import {
 import { getOctokit, createIssue, addToMetaIssue, findMetaIssue, setProjectFields } from '../github.js';
 import { resolveMetaTitle } from '../fiscal-quarter.js';
 import { runScan, fixAlertingQueue, filterExcludedQueueItems } from '../scanner.js';
+import { deriveDocWorkKind, releaseNoteLabelsFromPrLabels } from '../doc-work-kind.js';
+import { deriveDocSurface } from '../doc-surface.js';
+import { collectItemStackMinors } from '../release-version.js';
 import { renderIssueBody, clearTemplateCache } from '../template.js';
 import type { HistoryEntry, QueueItem } from '../types.js';
 
@@ -85,6 +88,9 @@ apiRouter.get('/queue', (_req, res) => {
 
   // Re-render bodies and attach each item's resolved routing (transient — not persisted)
   // so the UI can show source/target/project without reading the legacy config shape.
+  const versionPattern =
+    config.repos[0]?.versionLabelPattern ?? loadConfig().versionLabelPattern ?? '^v\\d+\\.\\d+\\.\\d+$';
+
   const items = queue.items.map((item) => {
     let suggestedBody: string;
     try {
@@ -96,16 +102,32 @@ apiRouter.get('/queue', (_req, res) => {
     const routing = group
       ? resolveRouting(group, group.categories.find((c) => c.name === item.category))
       : undefined;
+    const prLabels = item.prs.flatMap((p) => p.labels ?? []);
+    const docWork = deriveDocWorkKind(item.assessment, releaseNoteLabelsFromPrLabels(prLabels));
+    const docSurface = deriveDocSurface(item.assessment, item.prs);
     return {
       ...item,
       suggestedBody,
       resolvedTarget: routing ? `${routing.target.owner}/${routing.target.repo}` : undefined,
       repoLabel: group?.label ?? group?.id,
       projectNumber: routing?.project?.number,
+      stackMinors: collectItemStackMinors(item, versionPattern),
+      docWorkKind: docWork.kind,
+      docWorkKindSource: docWork.source,
+      docSurface: docSurface.surface,
+      docSurfaceSource: docSurface.source,
     };
   });
 
-  res.json({ ...queue, items, targetOptions });
+  res.json({
+    ...queue,
+    items,
+    targetOptions,
+    filterMeta: {
+      focusStackReleases: loadConfig().focusStackReleases ?? [],
+      versionLabelPattern: versionPattern,
+    },
+  });
 });
 
 /** Update user edits for a queue item */

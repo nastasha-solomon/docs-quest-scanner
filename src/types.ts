@@ -422,6 +422,11 @@ export interface Config {
   excludeLabels?: string[];
   /** Dropped when the PR title matches (see RepoGroup.excludeTitlePatterns). */
   excludeTitlePatterns?: string[];
+  /**
+   * Stack releases (major.minor, e.g. `9.6`) highlighted in the queue UI filter.
+   * Does not affect scanning — triage convenience only.
+   */
+  focusStackReleases?: string[];
   issueLabels?: string[];
   /**
    * @deprecated Legacy global meta issue (object form). Superseded by the named

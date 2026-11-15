@@ -1,6 +1,6 @@
 ---
 name: docs-quest-scanner
-version: 3.14.0
+version: 3.15.0
 description: Triage PRs for documentation impact. Scans merged PRs by team label and release note label, assesses doc needs, and opens a review UI to create or dismiss doc issues. Use when doing weekly docs triage, checking what's new in a Kibana release, or when asked to scan PRs for doc impact.
 allowed-tools: Bash, Read, Grep, Glob, Agent, WebFetch, mcp__github__search_pull_requests, mcp__github__pull_request_read, mcp__github__issue_read, mcp__github__issue_write, mcp__github__add_issue_comment, mcp__elastic-docs__search_docs, mcp__elastic-docs__find_related_docs, mcp__elastic-docs__get_document_by_url, mcp__elastic-docs__check_docs_coherence
 sources:
@@ -80,11 +80,10 @@ For the items that do need enrichment, **use parallel Agent calls** to process t
 
 Read the PR body, changed files, and release note text. Then do two things before any doc search:
 
-**API-only early exit:** Check the changed file paths for these patterns:
-- All changes in `*/server/routes/`, `*/server/schemas/`, `*/server/saved_objects/`, `*/common/types/` with nothing in `*/public/`
-- Only `*.test.ts`, `*.mock.ts`, `index.ts` re-exports, CI config, dependency bumps
-
-If the file pattern is purely server-side with zero `*/public/` or UI component files, and the PR body contains no mention of new UI elements, settings, or user-facing behavior — mark `needsDocs: "no"`, `confidence: 0.9`, write a one-sentence `reasoning`, and **stop**. Do not run the doc search.
+**Server-only triage — internal vs public API:** Check changed file paths before doc search:
+- Only `*.test.ts`, `*.mock.ts`, `index.ts` re-exports, CI config, dependency bumps → mark `needsDocs: "no"`, `confidence: 0.9`, one-sentence `reasoning`, **stop** (no doc search).
+- Purely internal server refactors (no HTTP route/schema contract change, no `*/public/` UI files, PR body silent on new settings or UI) → same early exit: `needsDocs: "no"`, **stop**.
+- **Public HTTP API change** (new/changed `*/server/routes/*`, request/response schemas, OpenAPI examples, breaking validation on `/api/...` routes) with **no** meaningful `*/public/` UI change → **do not stop**. Run the **API reference analysis** in step 2b (below) instead of the broad narrative-doc search. Skip hunting guide pages unless the PR body or diff clearly adds user-facing workflow/UI behavior.
 
 **UI signal detection:** Before proceeding to doc analysis, look for concrete signals in the changed files:
 - i18n strings: `i18n.translate(`, `.defaultMessage:` — strong signal of user-visible text change
@@ -157,6 +156,33 @@ For any gap that would affect navigation, section structure, or create a need fo
 - `"create-overview"` — new concept or reference page (confirmed by both assembly stages)
 - `"review-only"` — page may be affected but evidence is too weak to prescribe a specific change; drop this entry unless the gap is high confidence
 
+**API reference analysis (OpenAPI / REST)** — required for server-only public API PRs; also add API gaps when a mixed PR changes both UI and routes.
+
+The review UI **Doc work → API reference only** filter uses your `docsGap` URLs and `gap` text to separate OpenAPI work from narrative guides. To classify correctly:
+
+1. **Find the operation page(s)** — `mcp__elastic-docs__search_docs` with `sectionFilter: "api"`, query on route path, operation id, or resource name (e.g. `alerting v2 rules bulk create`, `POST /api/alerting/v2/rules/_bulk_create`). Published REST reference lives under `https://www.elastic.co/docs/api/doc/...` (operation URLs contain `/operation/`).
+2. **One `docsGap` entry per affected operation or API overview page** when writer-facing work exists. Set `pageUrl` to the **API reference URL** (`/docs/api/...`), not a guide URL.
+3. **`actionType`** on API gaps: almost always `"update-existing"` (parameter, request body, response, deprecation, permissions, limits). Use `"review-only"` only when you cannot locate the operation page but the contract clearly changed.
+4. **`gap` text must say it's API reference work** — include at least one phrase the tool recognizes: `API reference`, `OpenAPI`, `operation page`, or `generated from the OpenAPI`. Describe what changed on the wire (route, field, status code, breaking limit). End with the usual availability note.
+5. **Auto-generated reference** — when the PR already regenerates OpenAPI and the only “doc” outcome is the published API reference updating from codegen (no hand-written narrative page):
+   - If nothing is missing or wrong after merge: `needsDocs: "no"`, high confidence, `reasoning` explains that reference is OpenAPI-driven; you may omit `docsGap` or add a single `"review-only"` entry stating *"API reference and CLI pages are generated from the OpenAPI output this PR regenerates; no manual edit."*
+   - If the breaking-changes catalog or a non-generated reference page still needs a human entry, add a normal `docsGap` on that page with the same API-reference phrasing.
+6. **Mixed PR (API + guides)** — include both API `pageUrl`s and guide `pageUrl`s in `docsGap`. Never imply API-only when any gap points at `explore-analyze`, `solutions`, or other narrative paths.
+7. **`effortTag`** when gaps are API-only updates: `"update"` (or `"quick-fix"` for a one-field correction). Set `reasoning` prefix when appropriate: `API reference only — …`
+
+Example API-only gap:
+
+```json
+{
+  "pageUrl": "https://www.elastic.co/docs/api/doc/kibana/operation/operation-post-alerting-v2-rules-bulk-create",
+  "pageTitle": "Bulk create rules",
+  "section": "Request body",
+  "currentContent": "…",
+  "gap": "API reference: document the new bulk create operation and its partial-success response shape. Applies from 9.6.0 and in serverless.",
+  "actionType": "update-existing"
+}
+```
+
 Each entry:
 ```json
 {
@@ -202,11 +228,11 @@ For non-{{kib}} repos (for example {{es}}), there is no `serverless.yml` plugin 
 - Assign `confidence`: 0.0–1.0 — then apply the premise accuracy adjustment from step 2a. Calibration matters: `needsDocs: "no"` at confidence ≥ 0.8 is **auto-dismissed** after enrichment (step 2i), so reserve ≥ 0.8 for verdicts verified against the diff or the published docs, and stay below 0.8 when hedging (feature-flagged, screenshot-only, "not documented yet").
 - Assign `premiseAccuracy` from step 2a
 
-**For all items — including `needsDocs: "no"`** — always run the full doc analysis from step 2b. Produce a populated `docsGap` unless the API-only early exit applies or complete same-PR external docs qualify for `dismissReason: "owned by dev"`.
+**For all items — including `needsDocs: "no"`** — always run the full doc analysis from step 2b (or the focused API reference pass from 2b when step 2a routed you there). Produce a populated `docsGap` unless the **internal server-only early exit** applies, reference is fully OpenAPI-generated with nothing to verify, or complete same-PR external docs qualify for `dismissReason: "owned by dev"`.
 
 - If the analysis finds a real gap (a page that currently says something the PR changes), upgrade `needsDocs` to `"check"` and note in `reasoning` that the initial assessment was revised.
 - If the feature isn't strictly missing from the docs but a writer *could* add coverage, still populate `docsGap` — frame each entry's `gap` field as "what you'd need to add if you chose to document this", including surrounding context: what the feature is, how it fits the existing section, what a writer would need to know to add it. This gives the user a proper analysis to act on even when the AI verdict is "no".
-- The API-only early exit and verified complete same-PR external docs are the only cases where `docsGap` may be left empty. For every other item, `docsGap` must have at least one entry.
+- The internal server-only early exit, OpenAPI-only reference with no writer gap, and verified complete same-PR external docs are the only cases where `docsGap` may be left empty. For every other item, `docsGap` must have at least one entry.
 - Never leave `docsGap` empty just because `needsDocs` is `"no"` — a bare `existingDocs` list with no analysis is not useful to the user.
 
 #### 2d. Write the issue title
@@ -328,6 +354,8 @@ Tell the user: "The triage review UI is running at http://localhost:3847 — ope
 
 Each card header shows the PR's `release_note:*` label(s) as colored chips next to the assessment badge, so the team's own marking (breaking/deprecation/feature/enhancement/fix/skip) is visible at a glance.
 
+**Queue filters (post-enrichment):** The toolbar supports **Assessment**, **Stack release** (`focusStackReleases` in config highlights e.g. `9.6`), and **Doc work** (new vs update existing vs **API reference only** vs not classified). API-only classification depends on enrichment setting `docsGap[].pageUrl` under `/docs/api/` and API-reference phrasing in `gap` — follow step 2b API reference analysis so filtered triage is accurate.
+
 ### Step 4: If asked to create issues directly
 
 If the user asks you to create issues without the UI (e.g., for a specific PR or queue item), use the GitHub MCP tools:
@@ -409,8 +437,8 @@ Treat `release_note:fix` and `release_note:skip` as manual-review signals. A fix
 - Deprecations and removals
 - GA promotions (status badge updates on existing doc pages)
 
-**Things that do NOT need docs:**
-- **Pure API-level changes with no UI impact**: new routes, added request/response parameters, changed HTTP methods or status codes, new saved object types, schema changes — unless there is a corresponding change in the Kibana UI that users interact with. API-only changes are consumed by developers, not end-user docs readers. Mark these as `needsDocs: "no"`. Use the file pattern check in step 2a to detect these early.
+**Things that do NOT need narrative (guide) docs:**
+- **Public API changes with no UI impact** do not need new how-tos or explore-analyze updates, but they may still need **API reference** tracking: run step 2b API reference analysis. Mark `needsDocs: "no"` only when OpenAPI/codegen fully covers the reference or the contract is unchanged; mark `yes` or `check` when the breaking-changes catalog, permissions text, or a non-generated reference page needs a writer. Use step 2a to skip **internal** server-only refactors, not public route changes.
 - Test fixes, CI changes
 - Internal refactors that don't change behavior
 - Dependency bumps

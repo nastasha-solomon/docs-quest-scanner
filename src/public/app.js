@@ -17,6 +17,12 @@ let state = {
   lastRun: { lastRunDate: null, lastRunVersion: null },
   user: null,
   activeTab: 'queue',
+  /** @type {'all' | 'yes' | 'check' | 'no' | 'yes,check'} */
+  queueFilter: 'all',
+  /** @type {string} */
+  queueVersionFilter: 'all',
+  /** @type {'all' | 'new' | 'update' | 'api-update' | 'unknown'} */
+  queueDocWorkFilter: 'all',
 };
 
 // ── API helpers ─────────────────────────────────────────
@@ -37,6 +43,17 @@ async function api(path, options = {}) {
 // ── Init ────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
+  for (const [key, field, storageKey] of [
+    ['queue-filter', 'queueFilter', 'queue-filter'],
+    ['queue-version-filter', 'queueVersionFilter', 'queue-version-filter'],
+    ['queue-doc-work-filter', 'queueDocWorkFilter', 'queue-doc-work-filter'],
+  ]) {
+    const saved = sessionStorage.getItem(storageKey);
+    if (!saved) continue;
+    state[field] = saved;
+    const sel = document.getElementById(key);
+    if (sel && [...sel.options].some((o) => o.value === saved)) sel.value = saved;
+  }
   await refreshAll();
   bindEvents();
   loadUserAvatar();
@@ -165,6 +182,7 @@ async function refreshAll() {
     state.history = history;
     state.config = config;
     state.lastRun = lastRun;
+    populateQueueVersionFilterOptions();
     render();
     renderHeroGreeting();
   } catch (err) {
@@ -260,6 +278,124 @@ function renderScanContext() {
   `;
 }
 
+/** @param {QueueItem[]} items */
+function filterQueueItemsByAssessment(items) {
+  if (state.queueFilter === 'all') return items;
+  const allowed = new Set(state.queueFilter.split(','));
+  return items.filter((i) => allowed.has(i.assessment?.needsDocs ?? 'check'));
+}
+
+/** @param {string} a @param {string} b */
+function compareStackMinors(a, b) {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 2; i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+/** @param {QueueItem} item */
+function itemStackMinors(item) {
+  if (item.stackMinors?.length) return item.stackMinors;
+  return allVersions(item).map((v) => {
+    const m = v.match(/^v?(\d+)\.(\d+)/i);
+    return m ? `${m[1]}.${m[2]}` : null;
+  }).filter(Boolean);
+}
+
+/** @param {QueueItem[]} items */
+function filterQueueItemsByVersion(items) {
+  const vf = state.queueVersionFilter;
+  if (vf === 'all') return items;
+  const focus = state.queue.filterMeta?.focusStackReleases ?? state.config?.focusStackReleases ?? [];
+  if (vf === 'focus') {
+    const focusSet = new Set(focus);
+    return items.filter((i) => itemStackMinors(i).some((mm) => focusSet.has(mm)));
+  }
+  return items.filter((i) => itemStackMinors(i).includes(vf));
+}
+
+/** @param {QueueItem[]} items */
+function filterQueueItemsByDocWork(items) {
+  if (state.queueDocWorkFilter === 'all') return items;
+  if (state.queueDocWorkFilter === 'api-update') {
+    return items.filter((i) => {
+      if (i.docSurface !== 'api-only') return false;
+      const kind = i.docWorkKind ?? 'unknown';
+      return kind === 'update' || kind === 'unknown';
+    });
+  }
+  return items.filter((i) => (i.docWorkKind ?? 'unknown') === state.queueDocWorkFilter);
+}
+
+/** @param {QueueItem[]} items */
+function applyQueueFilters(items) {
+  return filterQueueItemsByDocWork(filterQueueItemsByVersion(filterQueueItemsByAssessment(items)));
+}
+
+function activeQueueFiltersCount() {
+  let n = 0;
+  if (state.queueFilter !== 'all') n++;
+  if (state.queueVersionFilter !== 'all') n++;
+  if (state.queueDocWorkFilter !== 'all') n++;
+  return n;
+}
+
+function populateQueueVersionFilterOptions() {
+  const sel = document.getElementById('queue-version-filter');
+  if (!sel) return;
+  const prev = state.queueVersionFilter;
+  const minors = new Set();
+  for (const item of state.queue.items ?? []) {
+    for (const mm of itemStackMinors(item)) minors.add(mm);
+  }
+  const sorted = [...minors].sort(compareStackMinors).reverse();
+  const focus = state.queue.filterMeta?.focusStackReleases ?? state.config?.focusStackReleases ?? [];
+  const focusSorted = [...new Set(focus)].sort(compareStackMinors).reverse();
+
+  let html = '<option value="all">All versions</option>';
+  if (focusSorted.length) {
+    const label = focusSorted.length === 1
+      ? `Focus: ${focusSorted[0]} (config)`
+      : `Focus: ${focusSorted.join(', ')} (config)`;
+    html += `<option value="focus">${esc(label)}</option>`;
+  }
+  for (const mm of sorted) {
+    const isFocus = focus.includes(mm);
+    html += `<option value="${esc(mm)}">${esc(mm)}${isFocus ? ' ★' : ''}</option>`;
+  }
+  sel.innerHTML = html;
+  if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  else if (focusSorted.length && prev === 'focus') sel.value = 'focus';
+  else {
+    state.queueVersionFilter = 'all';
+    sel.value = 'all';
+  }
+}
+
+function docWorkBadge(item) {
+  const parts = [];
+  if (item.docSurface === 'api-only') {
+    const est = item.docSurfaceSource === 'heuristic' ? ' (estimate)' : '';
+    const cls = item.docSurfaceSource === 'heuristic' ? ' doc-work-badge--heuristic' : '';
+    parts.push(
+      `<span class="doc-work-badge doc-work-badge--api${cls}" title="Doc gaps target API reference (OpenAPI), not guides">API ref${esc(est)}</span>`
+    );
+  }
+  const kind = item.docWorkKind;
+  if (kind && kind !== 'unknown') {
+    const labels = { new: 'New content', update: 'Update existing' };
+    const hint = item.docWorkKindSource === 'heuristic' ? ' (estimate)' : '';
+    const cls = item.docWorkKindSource === 'heuristic' ? ' doc-work-badge--heuristic' : '';
+    parts.push(
+      `<span class="doc-work-badge${cls}" title="${item.docWorkKindSource === 'heuristic' ? 'From release-note heuristic until enrichment' : 'From enrichment (docsGap / effortTag)'}">${esc(labels[kind] ?? kind)}${esc(hint)}</span>`
+    );
+  }
+  return parts.join('');
+}
+
 function renderTabCounts() {
   const items = state.queue.items;
   const yes = items.filter((i) => i.assessment.needsDocs === 'yes').length;
@@ -279,9 +415,20 @@ function renderTabCounts() {
 function renderQueue() {
   const container = document.getElementById('queue-container');
   const empty = document.getElementById('queue-empty');
+  const filterHint = document.getElementById('queue-filter-hint');
+  const visibleItems = applyQueueFilters(state.queue.items);
 
   const footer = document.getElementById('complete-scan-footer');
   const hasActiveScan = !!state.queue.scannedAt;
+
+  if (filterHint) {
+    const n = activeQueueFiltersCount();
+    if (n === 0 || state.queue.items.length === 0) {
+      filterHint.textContent = '';
+    } else {
+      filterHint.textContent = `Showing ${visibleItems.length} of ${state.queue.items.length} items`;
+    }
+  }
 
   if (state.queue.items.length === 0) {
     container.innerHTML = '';
@@ -299,11 +446,22 @@ function renderQueue() {
     return;
   }
 
+  if (visibleItems.length === 0) {
+    container.innerHTML = `
+      <div class="blankslate">
+        <h3 class="blankslate-heading">No items match this filter</h3>
+        <p class="color-fg-muted text-small">Relax the <strong>Assessment</strong>, <strong>Stack release</strong>, or <strong>Doc work</strong> filters, or run enrichment for finer doc-work labels.</p>
+      </div>`;
+    empty.style.display = 'none';
+    if (footer) footer.style.display = 'none';
+    return;
+  }
+
   empty.style.display = 'none';
   if (footer) footer.style.display = 'none';
 
   // Group by category
-  const grouped = groupByCategory(state.queue.items);
+  const grouped = groupByCategory(visibleItems);
   let html = '';
 
   for (const [category, items] of grouped) {
@@ -418,6 +576,7 @@ function renderCard(item) {
           <span class="docs-badge ${badge}">${badgeLabel}<span class="docs-badge-conf">${confStr}</span></span>
           ${releaseNoteBadges(item)}
           ${avail ? `<span class="avail-badge">${esc(avail)}</span>` : ''}
+          ${docWorkBadge(item)}
           ${effortBadge(item.assessment.effortTag)}
           ${item.assessment.trackedIn?.length ? `<span class="tracked-badge">Already tracked</span>` : ''}
         </div>
@@ -692,6 +851,20 @@ function bindEvents() {
 
   // History filter
   document.getElementById('history-filter').addEventListener('change', renderHistory);
+
+  for (const [id, field, storageKey] of [
+    ['queue-filter', 'queueFilter', 'queue-filter'],
+    ['queue-version-filter', 'queueVersionFilter', 'queue-version-filter'],
+    ['queue-doc-work-filter', 'queueDocWorkFilter', 'queue-doc-work-filter'],
+  ]) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    el.addEventListener('change', () => {
+      state[field] = el.value;
+      sessionStorage.setItem(storageKey, el.value);
+      renderQueue();
+    });
+  }
 
 }
 
