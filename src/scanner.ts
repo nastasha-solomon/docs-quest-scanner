@@ -531,6 +531,55 @@ function buildSummary(prs: PullRequest[]): string {
  * with both Team:esql and Team:dataDiscovery), keep the first occurrence
  * and add the other categories to `alsoAppliesTo`.
  */
+const SECURITY_CASES_CATEGORY = 'Security - Cases';
+const SECURITY_CASES_REASSIGN_FROM = new Set([
+  'Security - One Workflow',
+  'Security - Threat Hunting',
+]);
+
+function titleIndicatesSecurityCases(title: string): boolean {
+  if (/\[Cases\]/i.test(title)) return true;
+  if (/\bcases\.[a-z]/i.test(title)) return true;
+  return false;
+}
+
+/**
+ * Cases + One Workflow PRs often carry both team labels; prefer Security - Cases
+ * when Cases ownership is clear from labels or title (scan order otherwise wins One Workflow).
+ */
+export function resolveSecurityCasesCategoryFromLabels(
+  prLabels: string[],
+  title?: string
+): string | null {
+  const labels = new Set(prLabels.map((l) => l.toLowerCase()));
+  const hasCases = labels.has('team:cases');
+  const hasWorkflow = labels.has('team:one workflow');
+  const hasInvestigations = labels.has('team:security investigations');
+
+  if (hasCases) return SECURITY_CASES_CATEGORY;
+  if (title && titleIndicatesSecurityCases(title)) return SECURITY_CASES_CATEGORY;
+  if (hasWorkflow && hasInvestigations) return SECURITY_CASES_CATEGORY;
+  return null;
+}
+
+/** Re-label queue items filed under One Workflow / Threat Hunting instead of Cases. */
+export function fixSecurityCasesQueueItem(item: QueueItem): QueueItem {
+  const labels = item.prs.flatMap((p) => p.labels ?? []);
+  const title = item.prs[0]?.title ?? '';
+  const resolved = resolveSecurityCasesCategoryFromLabels(labels, title);
+  if (!resolved || item.category === resolved) return item;
+  if (!SECURITY_CASES_REASSIGN_FROM.has(item.category)) return item;
+
+  const previous = item.category;
+  const also = new Set(item.alsoAppliesTo ?? []);
+  if (previous !== resolved) also.add(previous);
+  return {
+    ...item,
+    category: resolved,
+    alsoAppliesTo: also.size > 0 ? [...also] : undefined,
+  };
+}
+
 /** Choose v1 vs v2 from PR labels (used for scan dedup and queue repair). */
 export function resolveAlertingCategoryFromLabels(prLabels: string[]): string | null {
   const labels = new Set(prLabels.map((l) => l.toLowerCase()));
@@ -560,7 +609,7 @@ export function fixAlertingQueueItem(item: QueueItem): QueueItem {
 }
 
 export function fixAlertingQueue(items: QueueItem[]): QueueItem[] {
-  return items.map(fixAlertingQueueItem);
+  return items.map((item) => fixSecurityCasesQueueItem(fixAlertingQueueItem(item)));
 }
 
 /** Drop queue items whose PRs match configured repo-group exclusions. */
@@ -579,12 +628,19 @@ export function filterExcludedQueueItems(
 
 /** When one PR matches multiple categories, pick the best primary category. */
 export function pickPreferredCategoryItem(a: QueueItem, b: QueueItem): QueueItem {
-  const labels = a.prs.flatMap((p) => p.labels);
-  const preferred = resolveAlertingCategoryFromLabels(labels);
+  const labels = a.prs.flatMap((p) => p.labels ?? []);
+  const title = a.prs[0]?.title;
+  const preferredAlerting = resolveAlertingCategoryFromLabels(labels);
+  const preferredCases = resolveSecurityCasesCategoryFromLabels(labels, title);
 
-  if (preferred) {
-    if (a.category === preferred && b.category !== preferred) return a;
-    if (b.category === preferred && a.category !== preferred) return b;
+  if (preferredAlerting) {
+    if (a.category === preferredAlerting && b.category !== preferredAlerting) return a;
+    if (b.category === preferredAlerting && a.category !== preferredAlerting) return b;
+  }
+
+  if (preferredCases) {
+    if (a.category === preferredCases && b.category !== preferredCases) return a;
+    if (b.category === preferredCases && a.category !== preferredCases) return b;
   }
 
   return a;
