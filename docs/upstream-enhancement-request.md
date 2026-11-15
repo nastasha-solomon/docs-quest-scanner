@@ -13,7 +13,7 @@
 | `3c34d45` | `autoFocusStackReleases`, this upstream doc (initial) |
 | `0d460da` | Category + priority filters, internal-route `docSurface`, collapsible scan scope, toolbar layout, `triagePriority` |
 | `45fb090` | Sample `data/enrichments-batch-*.json` for split enrichment merge workflow |
-| `a5c366f` | Bulk create, category/priority filter fixes, create-from-queue refactor |
+| `770d604` | Bulk create, category/priority filter fixes, `create-from-queue` refactor |
 
 ---
 
