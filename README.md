@@ -64,6 +64,11 @@ Edit `data/config.json` after setup. Key settings:
 | `issueLabels` | Labels added to created issues | `["Team:Docs"]` |
 | `metaIssues` | Named release-checklist patterns, referenced by name | See below |
 | `project` | GitHub Project board integration | See below |
+| `excludeLabels` / `excludeTitlePatterns` | Drop PRs from every category scan (exact or `*` suffix, like release notes) | `["Feature:Synthetics"]`, `["^\\[Synthetics\\]"]` |
+| `focusStackReleases` | Stack minors highlighted in the **Stack release** filter | `["9.6", "9.7"]` |
+| `autoFocusStackReleases` | Auto-pick the newest 1–2 minors in the queue for the Focus release filter | `true` |
+| `focusCategories` | Category names highlighted with ★ and a **Focus** filter option | `["Security - Detection Engine"]` |
+| `defaultQueueFilters` | Session defaults when filter `sessionStorage` is empty (assessment, version, merge, category, doc work, priority) | See [Queue filters](#queue-filters) |
 
 To scan more than one source repo in a single run, use the `repos[]` array (see [Multiple source repositories](#multiple-source-repositories)); the top-level `sourceRepo`/`targetRepo`/`categories` form is the single-repo shorthand.
 
@@ -288,13 +293,56 @@ yarn deploy        # Sync repo changes to the skill install (~/.claude/skills/do
 
 ## How the review UI works
 
-- **Queue tab**: Cards for each PR needing triage, with AI summary, availability info, and a suggested issue
-- **Already tracked badge**: If the scan detected an existing docs issue that references a PR (via GitHub cross-reference events), the card shows a green "Already tracked" badge and links to the issue — so you can skip without wasting time re-reading the PR
-- **Accept quest**: Creates the issue, optionally adds it to the meta tracking issue, sets project fields
-- **Skip – no docs**: Dismisses a change that doesn't need documentation.
-- **Skip – already tracked**: Dismisses documentation work tracked in another issue or checklist.
-- **Skip – owned by dev**: Dismisses documentation work owned by the development team.
-- **Mark scan complete**: Advances the scan timestamp so the next run only picks up new PRs
+### Queue tab
+
+- Cards for each PR needing triage, with AI summary, availability info, suggested issue body, and badges for doc work kind, API-only surface, and triage priority (P0–P3).
+- **Already tracked**: If the scan detected an existing docs issue that references a PR (via GitHub cross-reference events), the card shows a green badge and link so you can skip without re-reading the PR.
+- **Collapsible scan scope**: Summary row above the queue lists source repo, scan window, and label count; expand to see team and release-note labels.
+- **Filters** (combinable, persisted in `sessionStorage`; optional defaults from `defaultQueueFilters` in config): Assessment, Stack release, **Merged** (merge date), Doc work, Category, Priority. Active filters show “Showing X of Y items.”
+- **Selection & bulk actions**: Checkbox per card and per category section; **Select visible**, **Bulk action** dropdown + **Apply**, **Clear**. Bulk actions operate on the current filter slice.
+
+### Per-card actions
+
+- **Accept quest and create issue**: Creates the GitHub issue, optional meta-issue link, project fields, and **good first issue** when checked.
+- **Skip** buttons dismiss the item and record a reason in `history.json` (also listed under **Skipped** at the bottom of the queue for the current scan period, with **Restore**):
+
+| UI label | Stored `reason` |
+|----------|-----------------|
+| Skip – no docs | `no docs needed` |
+| Skip – already tracked | `already tracked` |
+| Skip – owned by dev | `owned by dev` |
+| Skip – release notes only | `release notes only` |
+| Skip – not my area | `not my area` |
+
+### Bulk actions
+
+Same outcomes for all **selected** visible items:
+
+| Bulk action | Effect |
+|-------------|--------|
+| Accept quest | `POST /create-issues` (confirm dialog; sequential create) |
+| Skip – … | Same `reason` values as the per-card skip buttons (`POST /dismiss` per item) |
+
+### Mark scan complete
+
+When the queue is empty, the green **Mark scan complete** control advances `last_run.json` so the next scan only searches for PRs merged after that point. It is not a bulk-action option.
+
+### Queue filters
+
+| Filter | Values |
+|--------|--------|
+| **Assessment** | All, needs docs, check, no, needs docs + check |
+| **Stack release** | All, **Focus** (auto or `focusStackReleases`), single minor (e.g. `9.6`) |
+| **Merged** | All dates, last 7 / 30 / 90 days, **Since last scan**, custom From/To (latest PR `mergedAt` in the item) |
+| **Doc work** | All, new, update, **API reference only**, not classified |
+| **Category** | All, **Focus** (`focusCategories`), one category (includes `alsoAppliesTo`) |
+| **Priority** | All, P0+P1, P0–P3, unrated |
+
+`GET /queue` adds transient fields for filtering (`docWorkKind`, `docSurface`, `triagePriorityLevel`, `stackMinors`, `filterMeta.lastScanAt`, etc.) without rewriting `queue.json`.
+
+### History tab
+
+Grouped by scan session; created issues link to GitHub; dismissed rows show the skip `reason`.
 
 ### Same-PR documentation coverage
 
@@ -327,8 +375,13 @@ The template is at `templates/issue-template.md` (Handlebars syntax) and can be 
 
 - Each scan picks up PRs merged since the last completed scan
 - Already-processed PRs (in history) are filtered out
-- The scan date only advances when you click "Mark scan complete"
+- The scan date only advances when you click **Mark scan complete**
 - Re-scanning re-fetches the same date range, merging with the existing queue and preserving your edits
+- On queue load, **category repair** runs for known mis-routings (e.g. Alerting v1/v2, Security Cases vs One Workflow when Cases/investigations labels apply) and **excludes** PRs matching `excludeLabels` / `excludeTitlePatterns`
+
+## Fork enhancements
+
+This repository may include triage features ahead of [upstream](https://github.com/florent-leborgne/docs-quest-scanner). See [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) for the full upstream proposal (filters, merge date, bulk create, `docSurface`, category repair, skip reasons).
 
 ## License
 

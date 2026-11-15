@@ -712,12 +712,22 @@ function pruneQueueSelection() {
   }
 }
 
+/** @type {Record<string, { reason?: string }>} */
+const BULK_ACTIONS = {
+  accept: {},
+  'skip-no-docs': { reason: 'no docs needed' },
+  'skip-already-tracked': { reason: 'already tracked' },
+  'skip-owned-by-dev': { reason: 'owned by dev' },
+  'skip-release-notes-only': { reason: 'release notes only' },
+  'skip-not-my-area': { reason: 'not my area' },
+};
+
 function updateBulkBar() {
   const countEl = document.getElementById('queue-bulk-count');
-  const createBtn = document.getElementById('btn-bulk-create');
+  const applyBtn = document.getElementById('btn-bulk-apply');
   const n = state.selectedQueueIds.size;
   if (countEl) countEl.textContent = n === 1 ? '1 selected' : `${n} selected`;
-  if (createBtn) createBtn.disabled = n === 0;
+  if (applyBtn) applyBtn.disabled = n === 0;
 }
 
 function setItemSelected(itemId, selected) {
@@ -756,7 +766,7 @@ function toggleCategoryGroupSelection(itemIds, selected) {
 function bindBulkActions() {
   document.getElementById('btn-bulk-select-visible')?.addEventListener('click', selectAllVisibleQueueItems);
   document.getElementById('btn-bulk-clear')?.addEventListener('click', clearQueueSelection);
-  document.getElementById('btn-bulk-create')?.addEventListener('click', createBulkIssues);
+  document.getElementById('btn-bulk-apply')?.addEventListener('click', () => void runBulkAction());
 }
 
 function applyQueueFilters(items) {
@@ -1213,7 +1223,7 @@ function renderCard(item) {
   return `
     <div class="triage-card" data-id="${item.id}">
       <div class="triage-card-header" data-action="toggle">
-        <input type="checkbox" class="triage-select" data-item="${item.id}" aria-label="Select for bulk create"${selected ? ' checked' : ''} />
+        <input type="checkbox" class="triage-select" data-item="${item.id}" aria-label="Select for bulk action"${selected ? ' checked' : ''} />
         <svg class="triage-card-chevron octicon" viewBox="0 0 16 16" width="16" height="16">
           <path fill="currentColor" d="m6.427 4.427 3.396 3.396a.25.25 0 0 1 0 .354l-3.396 3.396A.25.25 0 0 1 6 11.396V4.604a.25.25 0 0 1 .427-.177Z"/>
         </svg>
@@ -1686,8 +1696,21 @@ async function saveFieldEdit(itemId, field, value) {
   }
 }
 
-async function createBulkIssues() {
+async function runBulkAction() {
+  const action = document.getElementById('bulk-action-select')?.value ?? 'accept';
   const ids = [...state.selectedQueueIds];
+  if (!ids.length) return;
+
+  if (action === 'accept') {
+    await createBulkIssues(ids);
+    return;
+  }
+
+  const reason = BULK_ACTIONS[action]?.reason;
+  if (reason) await bulkDismissIssues(ids, reason);
+}
+
+async function createBulkIssues(ids = [...state.selectedQueueIds]) {
   if (!ids.length) return;
 
   const titles = ids
@@ -1708,11 +1731,11 @@ async function createBulkIssues() {
     return;
   }
 
-  const btn = document.getElementById('btn-bulk-create');
+  const btn = document.getElementById('btn-bulk-apply');
   const prevLabel = btn?.textContent;
   if (btn) {
     btn.disabled = true;
-    btn.textContent = 'Creating…';
+    btn.textContent = 'Working…';
   }
 
   try {
@@ -1734,8 +1757,67 @@ async function createBulkIssues() {
     showToast(`Bulk create failed: ${err.message}`, 'error');
   } finally {
     if (btn) {
-      btn.disabled = state.selectedQueueIds.size === 0;
-      btn.textContent = prevLabel ?? 'Create issues';
+      updateBulkBar();
+      btn.textContent = prevLabel ?? 'Apply';
+    }
+  }
+}
+
+async function bulkDismissIssues(ids, reason) {
+  const titles = ids
+    .map((id) => state.queue.items.find((i) => i.id === id))
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((i) => i.userEdits?.title ?? i.suggestedTitle);
+  const preview =
+    titles.length >= ids.length
+      ? titles.map((t) => `• ${t}`).join('\n')
+      : `${titles.map((t) => `• ${t}`).join('\n')}\n• …and ${ids.length - titles.length} more`;
+
+  if (
+    !confirm(
+      `Skip ${ids.length} item${ids.length === 1 ? '' : 's'} as "${reason}"?\n\n${preview}`
+    )
+  ) {
+    return;
+  }
+
+  const btn = document.getElementById('btn-bulk-apply');
+  const prevLabel = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Working…';
+  }
+
+  let ok = 0;
+  let bad = 0;
+  /** @type {string | null} */
+  let firstErr = null;
+
+  try {
+    for (const queueItemId of ids) {
+      try {
+        await api('/dismiss', { method: 'POST', body: { queueItemId, reason } });
+        ok += 1;
+      } catch (err) {
+        bad += 1;
+        if (!firstErr) firstErr = err.message;
+      }
+    }
+    state.selectedQueueIds.clear();
+    if (bad === 0) {
+      showToast(`Skipped ${ok} item${ok === 1 ? '' : 's'} (${reason}).`, 'success');
+    } else {
+      showToast(
+        `Skipped ${ok}, failed ${bad}. First error: ${firstErr ?? 'unknown error'}`,
+        bad === ids.length ? 'error' : 'success'
+      );
+    }
+    await refreshAll();
+  } finally {
+    if (btn) {
+      updateBulkBar();
+      btn.textContent = prevLabel ?? 'Apply';
     }
   }
 }

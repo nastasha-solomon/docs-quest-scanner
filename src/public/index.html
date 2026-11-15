@@ -143,7 +143,18 @@
       <div class="queue-bulk-bar mb-2" id="queue-bulk-bar">
         <span class="queue-bulk-count text-small" id="queue-bulk-count">0 selected</span>
         <button type="button" class="btn btn-sm" id="btn-bulk-select-visible">Select visible</button>
-        <button type="button" class="btn btn-sm btn-primary" id="btn-bulk-create" disabled>Create issues</button>
+        <div class="queue-filter-field">
+          <label for="bulk-action-select">Bulk action</label>
+          <select id="bulk-action-select" class="form-select form-select-sm queue-filter-select">
+            <option value="accept">Accept quest</option>
+            <option value="skip-no-docs">Skip – no docs</option>
+            <option value="skip-already-tracked">Skip – already tracked</option>
+            <option value="skip-owned-by-dev">Skip – owned by dev</option>
+            <option value="skip-release-notes-only">Skip – release notes only</option>
+            <option value="skip-not-my-area">Skip – not my area</option>
+          </select>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary" id="btn-bulk-apply" disabled>Apply</button>
         <button type="button" class="btn btn-sm btn-outline" id="btn-bulk-clear">Clear</button>
       </div>
       <div id="queue-container"></div>

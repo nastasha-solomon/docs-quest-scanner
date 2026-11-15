@@ -129,11 +129,14 @@ body {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 0.75rem;
-  padding: 6px 10px;
-  border: 1px dashed var(--borderColor-default, #d0d7de);
-  border-radius: 8px;
-  background: var(--bgColor-default, #ffffff);
+  gap: 0.35rem 0.45rem;
+  padding: 0 0 6px;
+  margin-top: -2px;
+}
+
+#bulk-action-select.queue-filter-select {
+  min-width: 9rem;
+  max-width: 14rem;
 }
 
 .queue-bulk-count {
