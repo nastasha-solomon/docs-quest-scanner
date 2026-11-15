@@ -17,6 +17,7 @@
 | `e847654` | Security - Cases vs One Workflow category repair |
 | `c5c62a0` | **Merged** date filter, compact filter toolbar, extra skip reasons (`release notes only`, `not my area`) |
 | `a1b0b7b` | **Bulk action** dropdown (accept + skip reasons), README triage UI refresh |
+| `873325e` | Bulk **progress bar** on accept/skip; UI uses sequential `POST /create-issue` |
 
 ---
 
