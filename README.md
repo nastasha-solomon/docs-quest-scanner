@@ -64,11 +64,12 @@ Edit `data/config.json` after setup. Key settings:
 | `issueLabels` | Labels added to created issues | `["Team:Docs"]` |
 | `metaIssues` | Named release-checklist patterns, referenced by name | See below |
 | `project` | GitHub Project board integration | See below |
-| `excludeLabels` / `excludeTitlePatterns` | Drop PRs from every category scan (exact or `*` suffix, like release notes) | `["Feature:Synthetics"]`, `["^\\[Synthetics\\]"]` |
-| `focusStackReleases` | Stack minors highlighted in the **Stack release** filter | `["9.6", "9.7"]` |
-| `autoFocusStackReleases` | Auto-pick the newest 1–2 minors in the queue for the Focus release filter | `true` |
-| `focusCategories` | Category names highlighted with ★ and a **Focus** filter option | `["Security - Detection Engine"]` |
-| `defaultQueueFilters` | Session defaults when filter `sessionStorage` is empty (assessment, version, merge, category, doc work, priority) | See [Queue filters](#queue-filters) |
+| `excludeLabels` | PR labels to drop from every scan. Exact match, or a trailing `*` like release note labels. | `["Feature:Synthetics"]` |
+| `excludeTitlePatterns` | Regexes; PRs whose titles match are dropped from every scan | `["^\\[Synthetics\\]"]` |
+| `focusStackReleases` | Minors for the **Focus** option in the Stack release filter | `["9.6", "9.7"]` |
+| `autoFocusStackReleases` | Use the newest one or two minors in the queue for **Focus** instead of `focusStackReleases` | `true` |
+| `focusCategories` | Categories for the **Focus** option in the Category filter (marked ★) | `["Security - Detection Engine"]` |
+| `defaultQueueFilters` | Starting filter values for a new browser session | See [Queue filters](#queue-filters) |
 
 To scan more than one source repo in a single run, use the `repos[]` array (see [Multiple source repositories](#multiple-source-repositories)); the top-level `sourceRepo`/`targetRepo`/`categories` form is the single-repo shorthand.
 
@@ -295,56 +296,64 @@ yarn deploy        # Sync repo changes to the skill install (~/.claude/skills/do
 
 ### Queue tab
 
-- Cards for each PR needing triage, with AI summary, availability info, suggested issue body, and badges for doc work kind, API-only surface, and triage priority (P0–P3).
-- **Already tracked**: If the scan detected an existing docs issue that references a PR (via GitHub cross-reference events), the card shows a green badge and link so you can skip without re-reading the PR.
-- **Collapsible scan scope**: Summary row above the queue lists source repo, scan window, and label count; expand to see team and release-note labels.
-- **Filters** (combinable, persisted in `sessionStorage`; optional defaults from `defaultQueueFilters` in config): Assessment, Stack release, **Merged** (merge date), Doc work, Category, Priority. Active filters show “Showing X of Y items.”
-- **Selection & bulk actions**: Checkbox per card and per category section; **Select visible**, **Bulk action** dropdown + **Apply**, **Clear**. While a bulk run is in progress, a progress bar shows `Creating issues…` or `Skipping…` with a `completed / total` count; bulk controls are disabled until it finishes. Bulk actions operate on the current filter slice.
+Each card is a PR that needs triage. It shows the AI summary, availability, the suggested issue body, and badges for doc work type, API reference work, and priority (P0–P3). Dashed badges are estimates that enrichment hasn't confirmed.
 
-### Per-card actions
+- **Already tracked:** If the scan found an existing docs issue that references the PR (through GitHub cross-reference events), the card shows a green badge and a link, so you can skip it without re-reading the PR.
+- **Scan scope:** The collapsed row above the queue shows the source repo, scan dates, and label count. Expand it to see the team and release-note labels.
 
-- **Accept quest and create issue**: Creates the GitHub issue, optional meta-issue link, project fields, and **good first issue** when checked.
-- **Skip** buttons dismiss the item and record a reason in `history.json` (also listed under **Skipped** at the bottom of the queue for the current scan period, with **Restore**):
+#### Queue filters
 
-| UI label | Stored `reason` |
-|----------|-----------------|
+Filters combine, and each choice is kept for the browser session. When any filter is active, the toolbar shows "Showing X of Y items."
+
+| Filter | Options |
+|--------|---------|
+| **Assessment** | All, Needs docs, Check, No docs needed, Needs docs + Check |
+| **Stack release** | All versions, **Focus** (from `autoFocusStackReleases` or `focusStackReleases`), or one minor such as `9.6` |
+| **Merged** | All dates, Last 7 / 30 / 90 days, **Since last scan**, or a custom From/To range. Uses the latest merge date among the item's PRs. |
+| **Doc work** | All, New content, Update existing, **API reference only**, Not classified yet |
+| **Category** | All categories, **Focus** (from `focusCategories`), or one category (also matches `alsoAppliesTo`) |
+| **Priority** | All, P0 + P1, P0, P1, P2, P3, Unrated |
+
+To start every new session with the same filters, set `defaultQueueFilters` in `data/config.json`. It accepts `assessment`, `version`, `mergeRange`, `mergeFrom`, `mergeTo`, `docWork`, `category`, and `priority` (allowed values are in `src/types.ts`):
+
+```json
+"defaultQueueFilters": { "assessment": "yes,check", "version": "focus", "priority": "p0,p1" }
+```
+
+`GET /queue` computes the fields these filters use (`docWorkKind`, `docSurface`, `triagePriorityLevel`, `stackMinors`, `filterMeta.lastScanAt`) on each request. They aren't saved to `queue.json`.
+
+#### Card actions
+
+- **Accept quest and create issue:** Creates the GitHub issue, links it in the meta issue if one is configured, sets project fields, and adds **good first issue** if checked.
+- **Skip** buttons remove the item from the queue and record the reason in `history.json`:
+
+| Button | Stored `reason` |
+|--------|-----------------|
 | Skip – no docs | `no docs needed` |
 | Skip – already tracked | `already tracked` |
 | Skip – owned by dev | `owned by dev` |
 | Skip – release notes only | `release notes only` |
 | Skip – not my area | `not my area` |
 
-### Bulk actions
+Items skipped since the current scan are listed under **Skipped** at the bottom of the queue, where you can **Restore** them.
 
-Same outcomes for all **selected** visible items:
+#### Bulk actions
 
-| Bulk action | Effect |
-|-------------|--------|
-| Accept quest | Confirm dialog; then `POST /create-issue` per selected item (sequential, with progress) |
-| Skip – … | Same `reason` values as the per-card skip buttons (`POST /dismiss` per item, with progress) |
+1. Select cards with their checkboxes, a category header checkbox, or **Select visible** (everything the current filters show).
+2. Choose a **Bulk action**: **Accept quest** or any skip reason.
+3. Click **Apply** and confirm.
 
-The server also exposes `POST /create-issues` for a one-request batch create; the review UI uses single-item calls so the progress bar can update after each issue.
+A progress bar counts items as they're processed one at a time (for example, `Creating issues… 3 / 8`). When it finishes, a message reports how many succeeded and the first error, if any. Failed items stay in the queue. **Good first issue** isn't applied in bulk. **Clear** deselects everything.
 
-### Mark scan complete
+The UI calls `POST /create-issue` or `POST /dismiss` once per item. `POST /create-issues` is also available for scripted batch creates.
 
-When the queue is empty, the green **Mark scan complete** control advances `last_run.json` so the next scan only searches for PRs merged after that point. It is not a bulk-action option.
+#### Mark scan complete
 
-### Queue filters
-
-| Filter | Values |
-|--------|--------|
-| **Assessment** | All, needs docs, check, no, needs docs + check |
-| **Stack release** | All, **Focus** (auto or `focusStackReleases`), single minor (e.g. `9.6`) |
-| **Merged** | All dates, last 7 / 30 / 90 days, **Since last scan**, custom From/To (latest PR `mergedAt` in the item) |
-| **Doc work** | All, new, update, **API reference only**, not classified |
-| **Category** | All, **Focus** (`focusCategories`), one category (includes `alsoAppliesTo`) |
-| **Priority** | All, P0+P1, P0–P3, unrated |
-
-`GET /queue` adds transient fields for filtering (`docWorkKind`, `docSurface`, `triagePriorityLevel`, `stackMinors`, `filterMeta.lastScanAt`, etc.) without rewriting `queue.json`.
+When the queue is empty, **Mark scan complete** records the scan in `last_run.json`, so the next scan only looks at PRs merged after that point. See [Re-scan behavior](#re-scan-behavior).
 
 ### History tab
 
-Grouped by scan session; created issues link to GitHub; dismissed rows show the skip `reason`.
+Shows past decisions grouped by scan session. Created issues link to GitHub, and skipped items show their reason.
 
 ### Same-PR documentation coverage
 
@@ -379,11 +388,11 @@ The template is at `templates/issue-template.md` (Handlebars syntax) and can be 
 - Already-processed PRs (in history) are filtered out
 - The scan date only advances when you click **Mark scan complete**
 - Re-scanning re-fetches the same date range, merging with the existing queue and preserving your edits
-- On queue load, **category repair** runs for known mis-routings (e.g. Alerting v1/v2, Security Cases vs One Workflow when Cases/investigations labels apply) and **excludes** PRs matching `excludeLabels` / `excludeTitlePatterns`
+- When the queue loads, known category mistakes are fixed (for example, Alerting v1 vs v2, and Security Cases vs One Workflow), and PRs matching `excludeLabels` or `excludeTitlePatterns` are removed
 
 ## Fork enhancements
 
-This repository may include triage features ahead of [upstream](https://github.com/florent-leborgne/docs-quest-scanner). See [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) for the full upstream proposal (filters, merge date, bulk actions, bulk progress bar, `docSurface`, category repair, skip reasons).
+This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream.
 
 ## License
 

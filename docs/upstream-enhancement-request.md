@@ -1,64 +1,90 @@
-# Enhancement request — queue filters, enrichment, and triage UI (for upstream)
+# Enhancement request: Queue filters, bulk actions, and triage UI
 
 **Author:** Nastasha Solomon  
-**Fork / branch:** https://github.com/nastasha-solomon/docs-quest-scanner (`main`)  
-**Upstream:** https://github.com/florent-leborgne/docs-quest-scanner  
-
-**Commits of note (fork `main`):**
-
-| Commit | What |
-|--------|------|
-| `42070fe` | Alerting v1/v2 queue repair, `excludeLabels` / `excludeTitlePatterns`, GitHub search retry |
-| `76cfb38` | Assessment / stack / doc-work filters, `docWorkKind` + `docSurface`, skill **3.15.0** |
-| `3c34d45` | `autoFocusStackReleases`, this upstream doc (initial) |
-| `0d460da` | Category + priority filters, internal-route `docSurface`, collapsible scan scope, toolbar layout, `triagePriority` |
-| `45fb090` | Sample `data/enrichments-batch-*.json` for split enrichment merge workflow |
-| `770d604` | Bulk create, category/priority filter fixes, `create-from-queue` refactor |
-| `e847654` | Security - Cases vs One Workflow category repair |
-| `c5c62a0` | **Merged** date filter, compact filter toolbar, extra skip reasons (`release notes only`, `not my area`) |
-| `a1b0b7b` | **Bulk action** dropdown (accept + skip reasons), README triage UI refresh |
-| `873325e` | Bulk **progress bar** on accept/skip; UI uses sequential `POST /create-issue` |
-
----
+**Fork:** [nastasha-solomon/docs-quest-scanner](https://github.com/nastasha-solomon/docs-quest-scanner) (`main`)  
+**Upstream:** [florent-leborgne/docs-quest-scanner](https://github.com/florent-leborgne/docs-quest-scanner)
 
 ## Summary
 
-For Security / Alerting / Observability triage, the post-scan queue is large. Writers need to narrow it by **stack minor**, **merge date**, **team category**, **assessment**, **doc work type** (including **API reference only**), and **priority**—without mis-tagging internal server routes as public API work.
+After a scan, the Security, Alerting, and Observability queue is too large to work through card by card. Writers need to narrow it to one release, team, or time window, and then act on many items at once. The **API reference only** view also needs to leave out internal server routes that aren't in the public API yet.
 
-This proposal adds:
+| Change | What it does | Details |
+|--------|--------------|---------|
+| Queue filters | Filter by assessment, stack release, merge date, doc work, category, and priority | [Section 1](#1-queue-filters) |
+| Config options | Set focus releases and categories, and starting filter values | [Section 2](#2-config-options) |
+| Queue classification | Work out doc work type, API surface, and priority for each item when the queue loads | [Section 3](#3-queue-classification) |
+| Enrichment updates | Skill guidance so AI enrichment keeps that classification accurate | [Section 4](#4-enrichment-and-skill-updates) |
+| Card badges | Show doc work type and priority on each card | [Section 5](#5-card-badges) |
+| Collapsible scan scope | Hide the long label list above the queue by default | [Section 6](#6-collapsible-scan-scope) |
+| Skip reasons | Add **release notes only** and **not my area** | [Section 7](#7-skip-reasons) |
+| Bulk actions | Accept or skip all selected items at once, with a progress bar | [Section 8](#8-bulk-actions) |
 
-- **Combinable queue filters** (persisted in `sessionStorage`, optional session defaults from config).
-- **Transient classification on `GET /queue`** (`docWorkKind`, `docSurface`, `triagePriorityLevel`, stack minors).
-- **Enrichment fields and skill guidance** so filters stay accurate after AI triage.
-- **Review UI** improvements: collapsible scan-label strip, grouped filter controls, card badges, priority sort within categories.
-- **Bulk actions** — select filtered queue rows and **Apply** accept or skip in one pass (same `reason` values as per-card buttons).
-- **Bulk progress bar** — while accept or skip runs, a full-width bar under the bulk row shows per-item progress (`Creating issues… 3 / 8`, `Skipping… 5 / 8`) and disables bulk controls until the run finishes (see §7).
-- **Merged date filter** — client-side window on latest PR merge (`mergedAt`), orthogonal to stack minor / version labels.
-- **Additional skip reasons** on triage cards for release-note-only scope and out-of-area items (same history shape as existing dismiss actions).
+## Example: weekly triage pass
 
-Related fork work (unchanged here): Alerting queue repair, scan excludes, search retry, Security Cases category repair.
+Filters combine in any order. A typical Security and Alerting pass:
+
+1. **Stack release:** Focus (for example, 9.7 and 9.6)
+2. **Category:** Focus (for example, Alerting v2 and Detection Engine)
+3. **Assessment:** Needs docs + Check
+4. **Merged:** Last 30 days, or **Since last scan** when catching up
+5. **Doc work:** API reference only, when doing an API pass
+6. **Priority:** P0 + P1
+
+Then **Select visible** and apply a bulk action to the results. The config for this pass is in [Section 2](#2-config-options).
 
 ---
 
-## Typical weekly triage slice
+## Proposed changes
 
-Filters compose in any order; a common Security / Alerting pass:
+### 1. Queue filters
 
-1. **Stack release** — Focus (auto or config), e.g. 9.7 + 9.6  
-2. **Category** — Focus (`focusCategories`), e.g. Alerting v2 + Detection Engine  
-3. **Assessment** — Needs docs + Check  
-4. **Merged** — Last 30 days or **Since last scan** when catching up after enrichment  
-5. **Doc work** — API reference only (when doing an API pass; not defaulted)  
-6. **Priority** — P0 + P1 (enriched `triagePriority` or release-note heuristics)
+All filters combine. Each filter's value is kept in `sessionStorage` for the browser tab.
 
-Example config defaults (applied once per browser tab when filter `sessionStorage` keys are unset):
+| Filter | Options |
+|--------|---------|
+| **Assessment** | All, Needs docs, Check, No docs needed, Needs docs + Check |
+| **Stack release** | All versions, **Focus** ([Section 2](#2-config-options)), or one minor. Patch labels map to their minor (`v9.6.1` → `9.6`). |
+| **Merged** | All dates, Last 7 / 30 / 90 days, **Since last scan**, Custom range |
+| **Doc work** | All, New content, Update existing, **API reference only**, Not classified yet |
+| **Category** | All categories, **Focus** ([Section 2](#2-config-options)), or one category. Matches the item's `category` or `alsoAppliesTo`. |
+| **Priority** | All, P0 + P1, P0, P1, P2, P3, Unrated |
+
+- When any filter is active, the toolbar shows **Showing X of Y items**.
+- A **★** in a dropdown marks focus releases and focus categories.
+- Within each category group, cards sort by priority (P0 first), then by confidence.
+
+#### Merged filter
+
+Filters by when PRs merged, independent of the version labels that **Stack release** uses. It only filters the loaded queue. It doesn't change what a scan fetches (unlike `maxMergeAgeMonths`).
+
+- **Date used:** For items that group several PRs, the latest `mergedAt` (the same rule as serverless week estimates).
+- **Presets:** 7, 30, and 90 days count back from now. **Since last scan** uses `filterMeta.lastScanAt` from `GET /queue`.
+- **Custom range:** Choosing **Custom range…** shows **From** and **To** date fields. Both are inclusive local days. Set only one for an open-ended range. **Clear range** resets them.
+- **Counts:** Each option shows how many items in the full queue match, ignoring other filters.
+- **No merge date:** Items without `mergedAt` are hidden when any option other than **All dates** is selected.
+- **Storage:** `sessionStorage` keys `queue-merge-filter`, `queue-merge-from`, and `queue-merge-to`.
+- **Code:** `src/public/queue-merge-filter.js`, tested in `test/queue-merge-filter.test.ts`. `applyQueueFilters()` runs it after the assessment and stack release filters.
+
+#### Toolbar layout
+
+Each filter is a label and dropdown inside one bordered pill (`.queue-filter-field`). The filter row stays on one line and scrolls horizontally on narrow screens. Dropdowns size to their content (`field-sizing: content` where supported), and `.app-container` uses tighter side padding so more of the queue fits.
+
+### 2. Config options
+
+All four keys are optional. They only affect the review UI, not scanning or category assignment.
+
+| Key | What it does |
+|-----|--------------|
+| `focusStackReleases` | Minors for the **Stack release → Focus** option, for example `["9.6", "9.7"]` |
+| `autoFocusStackReleases` | When `true`, Focus uses the newest one or two minors found in the queue's PR version labels, and `focusStackReleases` is ignored. The UI shows **Focus: 9.7, 9.6 (auto)**. There's no release-calendar lookup. |
+| `focusCategories` | Categories for the **Category → Focus** option |
+| `defaultQueueFilters` | Starting filter values for a new browser session. Applies only to filters the user hasn't set yet in that session. Keys: `assessment`, `version`, `mergeRange`, `mergeFrom`, `mergeTo`, `docWork`, `category`, `priority`. |
+
+Config for the weekly pass above:
 
 ```json
 "autoFocusStackReleases": true,
-"focusCategories": [
-  "Kibana - Alerting v2",
-  "Security - Detection Engine"
-],
+"focusCategories": ["Kibana - Alerting v2", "Security - Detection Engine"],
 "defaultQueueFilters": {
   "assessment": "yes,check",
   "version": "focus",
@@ -67,222 +93,174 @@ Example config defaults (applied once per browser tab when filter `sessionStorag
 }
 ```
 
----
+### 3. Queue classification
 
-## Proposed behavior
+`GET /queue` adds these fields to each item on every request. They aren't saved to `queue.json`.
 
-### 1. Review UI filters (combinable, `sessionStorage`)
+| Field | How it's set |
+|-------|--------------|
+| `stackMinors` | From the PR version labels |
+| `docWorkKind`, `docWorkKindSource` | From `effortTag`, `docsGap.actionType`, or release-note labels (`src/doc-work-kind.ts`) |
+| `docSurface`, `docSurfaceSource` | Whether the work is API reference only, guides, or both (`src/doc-surface.ts`) |
+| `triagePriorityLevel`, `triagePriorityLabel`, `triagePrioritySource` | From `assessment.triagePriority`, or estimated by `deriveTriagePriority` (`src/triage-priority.ts`) |
 
-| Filter | Purpose |
-|--------|---------|
-| **Assessment** | All / needs docs / check / no / needs docs + check |
-| **Stack release** | All / **Focus** (newest 1–2 minors or `focusStackReleases`) / single minor (`v9.6.0` → **9.6**) |
-| **Merged** | All dates / **Last 7 / 30 / 90 days** / **Since last scan** / **Custom range** (From / To) |
-| **Doc work** | New / update / **API reference only** / not classified |
-| **Category** | All / **Focus** (`focusCategories`) / one category (matches `category` or `alsoAppliesTo`) |
-| **Priority** | All / P0+P1 / P0–P3 / unrated |
+The response also includes `filterMeta`:
 
-- **Showing X of Y items** when any filter is active.
-- **★** in dropdowns marks entries in `focusStackReleases` or `focusCategories`.
-- **Default filters:** `defaultQueueFilters` in `data/config.json` — only applied when the user has not yet set that filter in `sessionStorage` this session.
-- **Sort:** Within each category group, cards sort by `triagePriorityLevel` (P0 first), then confidence.
+- `focusStackReleases` and `focusAuto`: the current stack focus and whether it's automatic
+- `focusCategories`: from config
+- `lastScanAt`: `queue.scannedAt`, or `lastRun.lastRunDate` if that's unset. Used by **Since last scan**.
 
-#### Merged date filter (client-side)
+The **API reference only** filter matches items where `docSurface` is `api-only` and doc work is update or not classified. Net-new guides don't match.
 
-- **Purpose:** Narrow by **when PRs merged**, independent of **stack release** (version labels on the PR).
-- **Date rule:** For grouped queue items, use the **latest** `mergedAt` among PRs in the item (same rule as serverless week estimates).
-- **Presets:** `7d`, `30d`, `90d` (rolling from “now”); **Since last scan** uses `filterMeta.lastScanAt` (`queue.scannedAt` or `lastRun.lastRunDate` on `GET /queue`).
-- **Custom:** Optional **From** / **To** calendar fields (inclusive local days); open-ended if only one bound is set. Selecting **Custom range…** reveals a second row; **Clear range** resets dates.
-- **Counts:** Dropdown options show how many queue items match each preset (full queue, not other filters).
-- **Persistence:** `sessionStorage` keys `queue-merge-filter`, `queue-merge-from`, `queue-merge-to`; optional defaults via `defaultQueueFilters.mergeRange`, `mergeFrom`, `mergeTo`.
-- **Implementation:** `src/public/queue-merge-filter.js` (shared logic, unit-tested); filter step in `applyQueueFilters()` after assessment and stack release.
-- **Items without `mergedAt`:** Excluded when any merge preset is active (not when **All dates**).
-- **Does not change scanning** — only filters the loaded queue (unlike `maxMergeAgeMonths` on scan).
+#### Keeping internal routes out of API reference only
 
-#### Filter toolbar layout
+Some PRs change HTTP routes that aren't in the public OpenAPI spec yet. These shouldn't match **API reference only** or get the dashed **API ref (estimate)** badge. `deriveDocSurface` handles this in two ways:
 
-Each control is a **label + select** in one bordered pill (`.queue-filter-field`). The filter row stays on **one line** with horizontal scroll on narrow viewports (`flex-wrap: nowrap`). Selects use content-sized width (`field-sizing: content` where supported). Main content uses tighter horizontal padding (`.app-container`) so more of the queue fits on screen.
+- **Before enrichment:** It doesn't return `api-only` when the PR text says the route is internal, for example `access: 'internal'`, "not public yet", "routes are internal", or "internal for now". This applies even when the PR body mentions `POST /api/...` and only `server/` files changed.
+- **After enrichment:** When every `docsGap` entry is `review-only` and the gap text says the route is internal, not public, needs no action now, or isn't in the public API reference, it returns `unknown`. Older operation URLs in those gaps are treated as context only.
 
-### 2. Config: release and category focus
+Example: [elastic/kibana#291814](https://github.com/elastic/kibana/pull/291814) adds an internal write path. [#294886](https://github.com/elastic/kibana/pull/294886) is the public OpenAPI follow-up.
 
-**Stack — manual (optional):**
-
-```json
-"focusStackReleases": ["9.6", "9.7"]
-```
-
-**Stack — automatic (optional):**
-
-```json
-"autoFocusStackReleases": true
-```
-
-On each queue load, auto focus = **newest one or two majors.minor present in the queue** (from PR version labels). UI: **Focus: 9.7, 9.6 (auto)**. When `autoFocusStackReleases` is true, manual `focusStackReleases` is ignored. Patches map to major.minor only (`v9.6.1` → `9.6`). No calendar integration.
-
-**Category focus (optional):**
-
-```json
-"focusCategories": ["Kibana - Alerting v2", "Security - Detection Engine"]
-```
-
-Adds **Focus: … (config)** in the Category filter. Does not affect scanning or category assignment—triage convenience only.
-
-### 3. Scan scope bar (collapsible)
-
-The strip above the queue that lists source repo, team labels, release-note filter labels, and scan date range is **collapsed by default** inside a `<details>` element:
-
-- **Summary:** `Scan scope: elastic/kibana · {date range} · N labels` + “Show scan labels”
-- **Expanded:** Team labels and release-note labels in labeled rows  
-- Open/closed state persisted in `sessionStorage` (`scan-context-open`)
-
-Reduces visual noise when the configured label list is long.
-
-### 4. Server-side fields on `GET /queue` (transient, not persisted)
-
-| Field | Source |
-|-------|--------|
-| `stackMinors` | PR version labels per item |
-| `docWorkKind` / `docWorkKindSource` | `effortTag`, `docsGap.actionType`, release-note heuristics (`src/doc-work-kind.ts`) |
-| `docSurface` / `docSurfaceSource` | API-only vs guides vs mixed (`src/doc-surface.ts`) |
-| `triagePriorityLevel` / `triagePriorityLabel` / `triagePrioritySource` | `assessment.triagePriority` or `deriveTriagePriority` (`src/triage-priority.ts`) |
-| `filterMeta.focusStackReleases` / `focusAuto` | Manual or auto stack focus |
-| `filterMeta.focusCategories` | From config |
-| `filterMeta.lastScanAt` | Anchor for **Since last scan** merge filter |
-
-**Doc work “API reference only” filter** matches `docSurface === 'api-only'` and doc work update/unknown (not net-new guides only).
-
-#### `docSurface` — avoid false “API reference only” on internal routes
-
-The **API reference only** filter and dashed **API ref (estimate)** badge must not fire on server work that changes HTTP paths but is **not** on the public OpenAPI surface yet.
-
-`deriveDocSurface`:
-
-1. **Heuristic (pre-enrichment):** No `api-only` when the PR text has `access: 'internal'`, “not public yet”, “routes are internal”, “internal for now” — even if the body mentions `POST /api/...` and files are `server/`-only.
-2. **Enriched:** When every `docsGap` entry is `review-only` and gap text cites internal / not public / **no action now** / absent from public API reference → `docSurface: unknown`. Legacy operation URLs in gaps are context only.
-
-**Example:** [elastic/kibana#291814](https://github.com/elastic/kibana/pull/291814) (internal write path) vs public OpenAPI follow-up [#294886](https://github.com/elastic/kibana/pull/294886).
-
-#### `triagePriority`
+#### Priority
 
 | Source | Behavior |
 |--------|----------|
-| **Enriched** | `assessment.triagePriority` — exact GitHub Projects Priority string (e.g. `P1: High`) |
-| **Heuristic** | From `release_note:*` + `needsDocs` + `effortTag` → P0–P3; card badge shows level with dashed **(estimate)** |
-| **None** | `needsDocs: no` with no gaps → unrated for priority filter |
+| Enrichment | `assessment.triagePriority`, using the exact GitHub Projects Priority value (for example, `P1: High`) |
+| Estimate | Derived from `release_note:*`, `needsDocs`, and `effortTag` as P0–P3. The card badge is dashed and marked **(estimate)**. |
+| None | Items with `needsDocs: "no"` and no gaps are **Unrated**. |
 
-On **Create issue**, project **Priority** = `triagePriority` → heuristic label → `project.defaultPriority`.
+When an issue is created, the project **Priority** field uses `triagePriority` first, then the estimate, then `project.defaultPriority`.
 
-### 5. Skill enrichment (template **3.15.0+**)
+### 4. Enrichment and skill updates
 
-**Filters (agents):** Document Assessment, Stack release (`autoFocusStackReleases` / `focusStackReleases`), **Merged** (presets / since last scan / custom), Doc work, Category (`focusCategories`), Priority (`triagePriority`).
+Changes to `templates/skill.md.template` (version 3.15.0) so enriched data keeps the filters accurate:
 
-**`docsGap` / API reference:**
+- **API reference gaps:** For public routes, `docsGap` entries include the OpenAPI operation URL and say "API reference". For internal routes, they use `actionType: review-only` and say the route is internal or not in the public OpenAPI spec, so `docSurface` stays `unknown`.
+- **Public routes still get API analysis:** Step 2a skips API analysis only for purely internal server refactors. Public `/api/...` changes are analyzed even when `needsDocs` is `"no"` (for example, OpenAPI code generation).
+- **`triagePriority`:** Optional. Set it when severity is clear, such as P0 or P1 for breaking changes or major features with `needsDocs: "yes"`. Leave it out when `needsDocs` is `"no"`. Use the same values as the target GitHub Project.
+- **Split enrichment batches:** Batches such as `data/enrichments-batch-a.json` can be merged with `scripts/merge-enrichments.mjs`, which accepts `triagePriority`.
+- **UI reference:** The skill describes the new filters, skip reasons, and bulk actions so agents can explain them.
 
-- Public routes: OpenAPI operation URLs and “API reference” phrasing for **API reference only** filter.
-- Internal routes: `actionType: review-only`, gap text states internal / not in public OpenAPI → `docSurface` stays `unknown`.
+### 5. Card badges
 
-**`triagePriority` (optional on assessment):** Set when severity is clear — e.g. P0/P1 for breaking or major feature gaps with `needsDocs: yes`; omit for `needsDocs: "no"`. Use the same strings as the target GitHub Project.
+In addition to the existing assessment and release-note chips, each card can show:
 
-**Merge workflow:** Enrichment batches can be split (e.g. `data/enrichments-batch-a.json`) and merged with `scripts/merge-enrichments.mjs`, which accepts `triagePriority` alongside other assessment fields.
+- **API ref**, **New content**, or **Update existing**, from `docWorkKind` and `docSurface`
+- **P0** to **P3**, from `triagePriorityLevel`
 
-**Internal vs public API:** Step 2a early exit only for purely internal server refactors; public `/api/...` still gets API reference analysis even when `needsDocs: "no"` (OpenAPI-codegen cases).
+Badges are dashed when the value is an estimate. The effort tag badge is unchanged.
 
-### 6. Card header badges (UI)
+### 6. Collapsible scan scope
 
-Existing assessment + release-note chips, plus:
+The strip above the queue lists the source repo, team labels, release-note labels, and scan dates. Because the label list can be long, it's now collapsed by default in a `<details>` element.
 
-- **API ref** / **New content** / **Update existing** — from `docWorkKind` / `docSurface` (dashed when heuristic).
-- **P0–P3** — from `triagePriorityLevel` (dashed when heuristic).
-- Effort tag badge unchanged when `effortTag` is set.
+- **Collapsed:** `Scan scope: elastic/kibana · {date range} · N labels`, with a **Show scan labels** toggle
+- **Expanded:** Team labels and release-note labels in separate rows
+- **Storage:** Open or closed state is kept in `sessionStorage` (`scan-context-open`).
 
-### 7. Bulk actions
+### 7. Skip reasons
 
-When a category slice is ready (for example after filters + enrichment), writers can act on many queue items without opening each card.
+Each card has five **Skip** buttons. Each one calls `POST /dismiss` with a `reason`, removes the item from the queue, and adds a `dismissed` entry to `data/history.json`. The last two are new.
 
-**UI**
-
-- Checkbox on each triage card; **Select all** checkbox on each category header (visible items only).
-- Bar below filters: **Select visible** (current filter results), **Bulk action** (same pill style as other queue filters), **Apply**, **Clear**.
-- **Bulk progress bar** (`#queue-bulk-progress`): Shown only while **Apply** is running. Full-width track under the bulk control row; label shows verb + `completed / total` (e.g. `Creating issues… 3 / 8`, `Skipping… 5 / 8`). **Select visible**, **Bulk action**, **Apply**, and **Clear** stay disabled until the run ends. The review UI calls `POST /create-issue` or `POST /dismiss` once per selected item so the bar can advance after each round trip (see **API**).
-- **Apply** is disabled until at least one item is selected.
-- **Bulk action** dropdown options (each applies to all selected items):
-
-| Bulk action | Effect |
-|-------------|--------|
-| Accept quest | Create GitHub issues (see **API** below) |
-| Skip – no docs | Dismiss with `no docs needed` |
-| Skip – already tracked | Dismiss with `already tracked` |
-| Skip – owned by dev | Dismiss with `owned by dev` |
-| Skip – release notes only | Dismiss with `release notes only` |
-| Skip – not my area | Dismiss with `not my area` |
-
-- **Accept quest:** confirmation dialog lists a sample of titles. **Good first issue** is not bulk-applied (per-card checkbox still applies to single create).
-- **Skip – …:** confirmation dialog lists titles and the chosen `reason` (same strings as §8).
-- **Mark scan complete** is intentionally **not** in the bulk dropdown — it remains the empty-queue control only.
-
-**API**
-
-- **Accept quest (review UI):** `POST /create-issue` once per selected `queueItemId` so the progress bar can update after each success or failure. **Batch API:** `POST /create-issues` with `{ queueItemIds: string[], goodFirstIssue?: boolean }` still processes items **sequentially** in one request and returns `{ created: [...], failed: [...] }`. Each success uses `createDocsIssueFromQueueItem` in `src/create-from-queue.ts`.
-- **Skip – …:** client calls `POST /dismiss` once per selected `queueItemId` with `{ queueItemId, reason }` (sequential; failures collected like bulk create). No batch dismiss endpoint in the fork.
-
-### 8. Skip / dismiss reasons (triage card actions)
-
-Each **Skip** button calls `POST /dismiss` with a `reason` string; the item is removed from the queue and appended to `data/history.json` with `decision: "dismissed"`.
-
-| UI label | `reason` stored in history |
-|----------|---------------------------|
+| Button | Stored `reason` |
+|--------|-----------------|
 | Skip – no docs | `no docs needed` |
 | Skip – already tracked | `already tracked` |
 | Skip – owned by dev | `owned by dev` |
 | Skip – release notes only | `release notes only` |
 | Skip – not my area | `not my area` |
 
-**UI surfaces:** **History** tab (per-row `reason`, grouped by `session`); **Queue** tab **Skipped** collapsible (dismissals since current `queue.scannedAt`) with **Restore** (`POST /undo-dismiss`). No new API fields—only additional allowed `reason` values. Auto-dismiss after enrichment may still use suffixed strings (e.g. `no docs needed (auto, …)`).
+The reason shows in the **History** tab and in the **Skipped** list at the bottom of the queue (items skipped since the current scan), which has **Restore** (`POST /undo-dismiss`). No API fields change; only the set of allowed `reason` values grows. Auto-dismiss can still add a suffix, for example `no docs needed (auto, …)`.
 
-`test/skip-options.test.ts` asserts all five manual skip buttons are present on each card. The **Bulk action** dropdown (§7) uses the same five skip `reason` values plus **Accept quest**.
+`test/skip-options.test.ts` checks that every card has all five buttons.
 
-### 9. Related fork work (same triage use case)
+### 8. Bulk actions
+
+Lets writers act on a filtered slice of the queue without opening each card.
+
+**Selecting items**
+
+- Each card has a checkbox. Each category header has a checkbox that selects the visible items in that category.
+- The bar below the filters has **Select visible** (everything the current filters show), **Bulk action**, **Apply**, and **Clear**. **Bulk action** uses the same pill style as the filters.
+- **Apply** is disabled until at least one item is selected.
+
+**Actions**
+
+The **Bulk action** dropdown offers **Accept quest** and the five skip reasons from [Section 7](#7-skip-reasons). Every action asks for confirmation first and lists a sample of the selected titles.
+
+- **Accept quest** creates a GitHub issue for each item. **Good first issue** isn't applied in bulk; use the per-card checkbox.
+- **Skip** actions dismiss each item with the matching `reason`.
+- **Mark scan complete** isn't a bulk action. It stays the button shown when the queue is empty.
+
+**Progress bar**
+
+While a bulk action runs, a bar appears under the bulk row (`#queue-bulk-progress`) with a running count, for example `Creating issues… 3 / 8` or `Skipping… 5 / 8`. The bulk controls stay disabled until it finishes. At the end, a message reports how many items succeeded and shows the first error, if any. Failed items stay in the queue.
+
+**API**
+
+The UI processes items one at a time so the progress bar can update after each one:
+
+- **Accept quest:** `POST /create-issue` for each item
+- **Skip:** `POST /dismiss` for each item, with `{ queueItemId, reason }`. There's no batch dismiss endpoint.
+
+The fork also adds `POST /create-issues` (`{ queueItemIds: string[], goodFirstIssue?: boolean }`). It creates issues one after another in a single request and returns `{ created: [...], failed: [...] }`. The UI doesn't call it. Both endpoints share `createDocsIssueFromQueueItem` in `src/create-from-queue.ts`.
+
+### 9. Related fork changes
+
+These came from the same triage work and are in the fork. They're listed for context and aren't described in detail here.
 
 - Alerting v1/v2 queue repair (`fixAlertingQueue`)
-- Security - Cases vs One Workflow (`resolveSecurityCasesCategoryFromLabels`, `fixSecurityCasesQueueItem`)
-- Configurable `excludeLabels` / `excludeTitlePatterns`
-- GitHub Search API retry on rate limits
+- Security - Cases vs One Workflow category repair (`resolveSecurityCasesCategoryFromLabels`, `fixSecurityCasesQueueItem`)
+- `excludeLabels` and `excludeTitlePatterns` config
+- Retry on GitHub Search API rate limits
 
 ---
 
 ## Why upstream
 
-- Release- and **team-focused** triage without forking scan logic.
-- API-only lane is visible; **internal** route work stays out until public OpenAPI lands.
-- **Priority** surfaces breaking/feature work first; writers can still override via enrichment.
-- Auto stack focus and **category focus** reduce repetitive config edits each train.
-- Collapsible scan scope and clearer filter grouping make large queues usable on laptop-width viewports.
-- **Bulk actions** support category-based accept or skip after enrichment without repetitive single-card clicks; a **progress bar** makes multi-item GitHub calls observable on slow runs (SSO, rate limits, meta-issue linking).
-- **Merged** filter supports “what landed recently” and “since I last scanned” without conflating merge time with version labels.
-- Extra **skip reasons** record writer intent in history for slice hygiene (release-note-only, not my area).
+- Writers can triage by release and team without forking scan logic.
+- API reference work gets its own view, and internal routes stay out of it until they're public.
+- Priority puts breaking changes and features first, and enrichment can override the estimate.
+- Focus options cut down on config edits each release.
+- The merge date filter answers "what landed recently" and "what's new since my last scan" without relying on version labels.
+- Bulk actions remove repetitive clicks after enrichment. The progress bar shows how a long run is going when GitHub calls are slow (SSO, rate limits, meta-issue linking).
+- The new skip reasons record why an item was skipped, which keeps history useful.
+- The collapsible scan scope and one-line toolbar make large queues workable on a laptop screen.
 
----
+## Merge notes
 
-## Suggested merge notes
-
-- README: document all filter keys, `focusStackReleases`, `autoFocusStackReleases`, `focusCategories`, `defaultQueueFilters` (including optional `mergeRange`, `mergeFrom`, `mergeTo`), manual skip `reason` values, **bulk actions** (accept + skip), and the bulk **progress bar**.
-- Skill **Skip reasons** and **Queue filters** sections: list `release notes only` and `not my area`; document **Merged** filter, bulk **Bulk action** + **Apply** bar, and per-item progress during bulk runs.
-- Default `autoFocusStackReleases: false` and omit `defaultQueueFilters` for backward compatibility.
-- Policy choice: whether manual `focusStackReleases` should override auto when both are set (fork: auto wins).
-- Install / bump skill from `templates/skill.md.template` after merge (`./scripts/setup.sh`).
-
----
+- **Docs:** The fork's `README.md` and `templates/skill.md.template` already describe these changes. Take them with the code, minus the README's **Fork enhancements** section. Then run `./scripts/setup.sh` to reinstall the skill.
+- **Backward compatibility:** Default `autoFocusStackReleases` to `false` and leave `defaultQueueFilters` unset.
+- **Decisions for upstream:**
+  - When both `focusStackReleases` and `autoFocusStackReleases` are set, which wins? The fork lets auto win.
+  - Keep `POST /create-issues`? The UI no longer calls it.
 
 ## Test plan
 
-1. **Stack:** Queue with `v9.6.x` and `v9.7.x` — auto focus shows up to two newest minors; Focus filter matches.
-2. **Category:** `focusCategories` — Focus option and ★ on named categories; filter includes `alsoAppliesTo`.
-3. **Assessment + defaults:** Fresh session with `defaultQueueFilters` — toolbar matches config once; `sessionStorage` overrides thereafter.
-4. **Doc work:** Public server route + enriched `/docs/api/` gap → **API ref** + **API reference only** filter.
-5. **Internal routes:** `access: 'internal'` — no API ref estimate; review-only internal gaps → not in API-only filter (`test/doc-surface.test.ts`).
-6. **Priority:** Breaking + `needsDocs: yes` → P0 heuristic; enriched `triagePriority` on card and on issue create (`test/triage-priority.test.ts`).
-7. **UI:** Scan scope collapses/expands and remembers state; filter row stays on one line with horizontal scroll; **Bulk action** uses the same `.queue-filter-field` pill as other filters.
-8. **Bulk actions:** Filter to one category → Select visible → **Accept quest** — progress bar advances item by item; partial create failures leave failed rows in queue; history records successes. **Skip – not my area** (or any skip) — confirm, dismiss all selected with progress; history rows show `reason`; **Apply** disabled with zero selection.
-9. **Merged:** Presets 7d / 30d / 90d match latest-`mergedAt` counts; **Since last scan** uses `filterMeta.lastScanAt`; custom From/To inclusive; custom row clears with **Clear range** (`test/queue-merge-filter.test.ts`).
-10. **Skip reasons:** Card shows five skip buttons; dismiss stores exact `reason`; History and Skipped list display it; `test/skip-options.test.ts`.
-11. **Regression:** `fixAlertingQueue`, excludes, `GET /queue` consumers, existing enrichment merge script, single `POST /create-issue` unchanged behavior.
+1. **Default filters:** In a fresh session with `defaultQueueFilters` set, the toolbar starts with those values. After you change a filter, your choice persists for the session.
+2. **Stack focus:** With `v9.6.x` and `v9.7.x` items in the queue, auto focus picks up to the two newest minors, and Focus filters to them.
+3. **Category focus:** Categories in `focusCategories` show ★ and appear under Focus. The filter also matches `alsoAppliesTo`.
+4. **Merged:** 7, 30, and 90-day counts match the latest `mergedAt`. **Since last scan** uses `filterMeta.lastScanAt`. Custom From and To are inclusive, and **Clear range** resets them (`test/queue-merge-filter.test.ts`).
+5. **API reference only:** A public server route with an enriched `/docs/api/` gap shows **API ref** and matches the filter.
+6. **Internal routes:** A PR with `access: 'internal'` gets no API ref estimate, and review-only internal gaps don't match the filter (`test/doc-surface.test.ts`).
+7. **Priority:** A breaking change with `needsDocs: "yes"` is estimated P0. An enriched `triagePriority` shows on the card and is set on the created issue (`test/triage-priority.test.ts`).
+8. **Layout:** Scan scope collapses, expands, and remembers its state. The filter row stays on one line and scrolls horizontally. **Bulk action** uses the filter pill style.
+9. **Skip reasons:** Each card has five skip buttons. Each stores its exact `reason`, which shows in History and in the Skipped list (`test/skip-options.test.ts`).
+10. **Bulk accept:** Filter to one category, click **Select visible**, and apply **Accept quest**. The progress bar advances per item. Failed items stay in the queue, and successes are recorded in history.
+11. **Bulk skip:** Select items, apply any skip reason, and confirm. The progress bar advances, and history shows the `reason`. **Apply** is disabled when nothing is selected.
+12. **Regression:** `fixAlertingQueue`, excludes, other `GET /queue` consumers, the enrichment merge script, and single-card `POST /create-issue` behave as before.
+
+## Fork commits
+
+| Commit | Changes |
+|--------|---------|
+| `42070fe` | Alerting v1/v2 queue repair, `excludeLabels` / `excludeTitlePatterns`, GitHub search retry |
+| `76cfb38` | Assessment, stack release, and doc work filters; `docWorkKind` and `docSurface`; skill 3.15.0 |
+| `3c34d45` | `autoFocusStackReleases`; first version of this document |
+| `0d460da` | Category and priority filters, internal-route `docSurface`, collapsible scan scope, toolbar layout, `triagePriority` |
+| `45fb090` | Sample `data/enrichments-batch-*.json` files for split enrichment |
+| `770d604` | Bulk issue creation, category and priority filter fixes, `create-from-queue` refactor |
+| `e847654` | Security - Cases vs One Workflow category repair |
+| `c5c62a0` | Merged filter, compact toolbar, two new skip reasons |
+| `a1b0b7b` | Bulk action dropdown (accept and skip), README update |
+| `873325e` | Bulk progress bar; UI creates issues one request at a time |
