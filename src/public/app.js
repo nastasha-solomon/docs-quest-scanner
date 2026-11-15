@@ -64,9 +64,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   bindScanContextCollapse();
   bindBulkActions();
-  await refreshAll();
   bindEvents();
-  loadUserAvatar();
+  await loadUserAvatar();
+  await refreshAll();
 });
 
 async function loadUserAvatar() {
@@ -80,7 +80,6 @@ async function loadUserAvatar() {
       img.title = user.login;
       img.style.display = '';
     }
-    renderHeroGreeting();
   } catch {
     // Silently ignore — avatar is non-essential
   }
@@ -201,10 +200,14 @@ const QUEST_ANIMALS = [
   },
 ];
 
-function randomAnimal() {
-  const animal = QUEST_ANIMALS[Math.floor(Math.random() * QUEST_ANIMALS.length)];
+/** @param {{ includeWitch?: boolean }} [opts] */
+function randomQuestMascot(opts = {}) {
+  const pool = opts.includeWitch ? [...QUEST_ANIMALS, QUEST_WITCH] : QUEST_ANIMALS;
+  const animal = pool[Math.floor(Math.random() * pool.length)];
   const tooltip = animal.tooltips[Math.floor(Math.random() * animal.tooltips.length)];
-  return `<span class="quest-animal-wrap" data-tooltip="${tooltip}">${animal.svg}</span>`;
+  const witchMascot = animal === QUEST_WITCH;
+  const wrapClass = witchMascot ? 'quest-animal-wrap quest-animal-wrap--witch' : 'quest-animal-wrap';
+  return `<span class="${wrapClass}" data-tooltip="${tooltip}">${animal.svg}</span>`;
 }
 
 const QUEST_WITCH = {
@@ -336,11 +339,7 @@ function isWitchQueueUser(user) {
 }
 
 function questMascotForUser(user) {
-  if (isWitchQueueUser(user)) {
-    const tooltip = QUEST_WITCH.tooltips[Math.floor(Math.random() * QUEST_WITCH.tooltips.length)];
-    return `<span class="quest-animal-wrap quest-animal-wrap--witch" data-tooltip="${tooltip}">${QUEST_WITCH.svg}</span>`;
-  }
-  return randomAnimal();
+  return randomQuestMascot({ includeWitch: isWitchQueueUser(user) });
 }
 
 function randomGreeting(user) {
