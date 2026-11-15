@@ -125,13 +125,85 @@ body {
   letter-spacing: -0.01em;
 }
 
-.queue-filter-select {
-  width: auto;
-  min-width: 9rem;
+.queue-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.5rem 0.625rem;
 }
 
-#queue-toolbar {
-  row-gap: 0.5rem;
+.queue-filter-field {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 4px 8px 4px 10px;
+  border: 1px solid var(--borderColor-default, #d0d7de);
+  border-radius: 8px;
+  background: var(--bgColor-muted, #f6f8fa);
+}
+
+.queue-filter-field label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fgColor-muted, #656d76);
+  margin: 0;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+
+.queue-filter-field .queue-filter-select {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 0;
+  max-width: 15rem;
+  padding-left: 6px;
+  padding-right: 1.75rem;
+  field-sizing: content;
+  border: 0;
+  box-shadow: none;
+  background-color: transparent;
+  background-position: right 2px center;
+}
+
+.queue-filter-field .queue-filter-select:hover {
+  background-color: var(--bgColor-default, #ffffff);
+}
+
+.queue-filter-field .queue-filter-select:focus {
+  box-shadow: none;
+  outline: 2px solid var(--focus-outlineColor, #0969da);
+  outline-offset: -1px;
+  background-color: var(--bgColor-default, #ffffff);
+}
+
+#queue-category-filter.queue-filter-select {
+  max-width: 20rem;
+}
+
+@supports not (field-sizing: content) {
+  .queue-filter-field .queue-filter-select {
+    min-width: 5.5rem;
+  }
+  #queue-version-filter {
+    min-width: 7.5rem;
+  }
+  #queue-category-filter {
+    min-width: 9rem;
+  }
+}
+
+.queue-filter-hint {
+  flex: 1 1 100%;
+  margin-top: 0.15rem;
+}
+
+@media (min-width: 900px) {
+  .queue-filter-hint {
+    flex: 0 1 auto;
+    margin-top: 0;
+    margin-left: 0.25rem;
+  }
 }
 
 .doc-work-badge {
@@ -150,6 +222,23 @@ body {
 .doc-work-badge--api {
   border-color: #0969da;
   color: #0969da;
+}
+
+.priority-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid #bc4c00;
+  color: #bc4c00;
+  white-space: nowrap;
+}
+
+.priority-badge--heuristic {
+  border-style: dashed;
+  font-weight: 500;
+  color: #656d76;
+  border-color: #d0d7de;
 }
 
 .category-pills {
@@ -1505,16 +1594,82 @@ dialog::backdrop {
 
 /* ── Scan context bar ─────────────────────────────────── */
 
-.scan-context {
+.scan-context-wrap {
+  margin-bottom: 12px;
+  border-bottom: 1px solid #f0f2f4;
+}
+
+.scan-context-details {
+  font-size: 12px;
+  color: #656d76;
+}
+
+.scan-context-summary {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  padding: 6px 0 8px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.scan-context-summary::-webkit-details-marker {
+  display: none;
+}
+
+.scan-context-summary::before {
+  content: '';
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid #8b949e;
+  margin-right: 2px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.scan-context-details[open] > .scan-context-summary::before {
+  transform: rotate(90deg);
+}
+
+.scan-context-summary-text {
+  font-weight: 600;
+  color: #424a53;
+}
+
+.scan-context-summary-hint {
+  font-size: 11px;
+}
+
+.scan-context-body {
+  padding: 0 0 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scan-context-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 6px;
-  padding: 8px 0;
-  margin-bottom: 16px;
-  font-size: 12px;
-  color: #656d76;
-  border-bottom: 1px solid #f0f2f4;
+}
+
+.scan-context-row-label {
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+  font-weight: 600;
+  font-size: 11px;
+  color: #8b949e;
+  padding-top: 2px;
+}
+
+.scan-context-labels {
+  flex: 1 1 12rem;
 }
 
 .scan-context-item {

@@ -70,6 +70,11 @@ export interface Assessment {
   /** Effort estimate: quick-fix (change a word/value), update (rewrite a section), new-content (new section or page) */
   effortTag?: 'quick-fix' | 'update' | 'new-content';
   /**
+   * GitHub Projects Priority value (e.g. "P1: High"). When set by enrichment,
+   * drives queue priority filter and issue create; otherwise heuristics apply.
+   */
+  triagePriority?: string;
+  /**
    * Whether the PR diff actually supports the stated change — used internally
    * to calibrate confidence and reasoning; not rendered in the issue template.
    */
@@ -433,6 +438,21 @@ export interface Config {
    * in the current queue (no manual list). Default: false.
    */
   autoFocusStackReleases?: boolean;
+  /**
+   * Category names highlighted in the queue UI (e.g. weekly team slice).
+   * Does not affect scanning.
+   */
+  focusCategories?: string[];
+  /**
+   * Applied once per browser session when queue filter sessionStorage keys are unset.
+   */
+  defaultQueueFilters?: {
+    assessment?: 'all' | 'yes' | 'check' | 'no' | 'yes,check';
+    version?: 'all' | 'focus' | string;
+    category?: 'all' | 'focus' | string;
+    docWork?: 'all' | 'new' | 'update' | 'api-update' | 'unknown';
+    priority?: 'all' | 'p0,p1' | 'p0' | 'p1' | 'p2' | 'p3' | 'unrated';
+  };
   issueLabels?: string[];
   /**
    * @deprecated Legacy global meta issue (object form). Superseded by the named

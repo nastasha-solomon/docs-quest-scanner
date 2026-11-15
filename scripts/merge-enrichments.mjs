@@ -17,7 +17,7 @@ const assessmentFields = new Set([
   'needsDocs', 'confidence', 'premiseAccuracy', 'summary', 'reasoning',
   'existingDocs', 'docsGap', 'effortTag', 'featureStatus', 'featureFlags',
   'featureFlag', 'productIssue', 'screenshots',
-  'serverlessApplies', 'serverlessEstimate', 'dismissReason'
+  'serverlessApplies', 'serverlessEstimate', 'dismissReason', 'triagePriority'
 ]);
 for (const [id, raw] of Object.entries(rawEnrichments)) {
   const flat = { ...raw };
@@ -58,6 +58,8 @@ for (const item of queue.items) {
   }
   if (e.effortTag) item.assessment.effortTag = e.effortTag;
   else if (e.effortTag === null) delete item.assessment.effortTag;
+  if (e.triagePriority) item.assessment.triagePriority = e.triagePriority;
+  else if (e.triagePriority === null) delete item.assessment.triagePriority;
   if (e.featureStatus) item.assessment.featureStatus = e.featureStatus;
   else if (e.featureStatus === null) delete item.assessment.featureStatus;
   // Serverless applicability gates the availability cell ('no' → "N/A").

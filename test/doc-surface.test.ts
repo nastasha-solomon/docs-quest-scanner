@@ -58,6 +58,42 @@ test('mixed when api and guide gaps', () => {
   assert.equal(deriveDocSurface(assessment, [pr({})]).surface, 'mixed');
 });
 
+test('internal API PR does not get heuristic api-only', () => {
+  const assessment: Assessment = {
+    needsDocs: 'yes',
+    confidence: 0.9,
+    summary: '',
+    reasoning: '',
+  };
+  const r = deriveDocSurface(assessment, [
+    pr({
+      title: 'Unified attachments write',
+      body: "Routes are `access: 'internal'`. Not public yet.\nPOST /api/cases/foo/attachments",
+      changedFiles: ['x-pack/foo/server/routes/post_attachment.ts'],
+    }),
+  ]);
+  assert.equal(r.surface, 'unknown');
+  assert.equal(r.source, 'none');
+});
+
+test('review-only internal gaps do not surface as api-only', () => {
+  const assessment: Assessment = {
+    needsDocs: 'no',
+    confidence: 0.9,
+    summary: '',
+    reasoning: '',
+    docsGap: [
+      {
+        pageUrl: 'https://www.elastic.co/docs/api/doc/kibana/operation/operation-addcasecommentdefaultspace',
+        pageTitle: 'Add comment',
+        gap: 'No action now: routes are internal and absent from the public API reference.',
+        actionType: 'review-only',
+      },
+    ],
+  };
+  assert.equal(deriveDocSurface(assessment, [pr({})]).surface, 'unknown');
+});
+
 test('heuristic api-only for server route PR without public UI', () => {
   const assessment: Assessment = {
     needsDocs: 'check',

@@ -36,6 +36,28 @@ function hasPublicUiChange(prs: PullRequest[]): boolean {
   return files.some((f) => PUBLIC_RE.test(f));
 }
 
+/** PR body says new HTTP routes are internal / not public yet (no published API ref to update). */
+function prDescribesInternalApi(prs: PullRequest[]): boolean {
+  const text = prs.map((p) => `${p.title}\n${p.body}`).join('\n');
+  return (
+    /access:\s*['"]internal['"]/i.test(text) ||
+    /\bnot public yet\b/i.test(text) ||
+    /\broutes are internal\b/i.test(text) ||
+    /\binternal for now\b/i.test(text)
+  );
+}
+
+/** Enrichment marked review-only gaps with no writer action because routes are still internal. */
+function gapsAreInternalApiPending(assessment: Assessment): boolean {
+  const gaps = assessment.docsGap ?? [];
+  if (!gaps.length) return false;
+  return gaps.every(
+    (g) =>
+      g.actionType === 'review-only' &&
+      /\b(internal|not public|no action now|absent from the public)\b/i.test(g.gap)
+  );
+}
+
 function prLooksApiRouteOnly(prs: PullRequest[]): boolean {
   const text = prs.map((p) => `${p.title}\n${p.body}`).join('\n');
   const hasRoute = /\b(?:GET|POST|PUT|PATCH|DELETE)\s+\/api\//i.test(text) || /\/api\/[\w/_-]+/i.test(text);
@@ -54,6 +76,10 @@ export function deriveDocSurface(assessment: Assessment, prs: PullRequest[]): {
   surface: DocSurface;
   source: DocSurfaceSource;
 } {
+  if (gapsAreInternalApiPending(assessment)) {
+    return { surface: 'unknown', source: 'none' };
+  }
+
   const gaps = assessment.docsGap ?? [];
   const docUrls = [
     ...gaps.map((g) => g.pageUrl).filter(Boolean),
@@ -93,7 +119,12 @@ export function deriveDocSurface(assessment: Assessment, prs: PullRequest[]): {
     return { surface: 'unknown', source: 'none' };
   }
 
-  if (prs.length && prLooksApiRouteOnly(prs) && !hasPublicUiChange(prs)) {
+  if (
+    prs.length &&
+    prLooksApiRouteOnly(prs) &&
+    !hasPublicUiChange(prs) &&
+    !prDescribesInternalApi(prs)
+  ) {
     if (assessment.needsDocs === 'yes' || assessment.needsDocs === 'check') {
       return { surface: 'api-only', source: 'heuristic' };
     }

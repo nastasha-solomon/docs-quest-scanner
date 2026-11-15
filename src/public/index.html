@@ -62,33 +62,65 @@
       </div>
     </div>
 
-    <!-- Scan context bar -->
-    <div id="scan-context" class="scan-context" style="display:none"></div>
+    <!-- Scan context bar (collapsible label list) -->
+    <div id="scan-context" class="scan-context-wrap" style="display:none">
+      <details class="scan-context-details" id="scan-context-details">
+        <summary class="scan-context-summary">
+          <span id="scan-context-summary-text" class="scan-context-summary-text"></span>
+          <span class="scan-context-summary-hint color-fg-muted">Show scan labels</span>
+        </summary>
+        <div class="scan-context-body" id="scan-context-body"></div>
+      </details>
+    </div>
 
     <!-- Queue tab -->
     <div id="tab-queue" class="tab-content">
-      <div class="d-flex flex-items-center flex-wrap gap-2 mb-3" id="queue-toolbar">
-        <label for="queue-filter" class="text-small color-fg-muted mb-0">Assessment</label>
-        <select id="queue-filter" class="form-select form-select-sm queue-filter-select">
-          <option value="all">All</option>
-          <option value="yes">Needs docs</option>
-          <option value="check">Check</option>
-          <option value="no">No docs needed</option>
-          <option value="yes,check">Needs docs + Check</option>
-        </select>
-        <label for="queue-version-filter" class="text-small color-fg-muted mb-0 ml-2">Stack release</label>
-        <select id="queue-version-filter" class="form-select form-select-sm queue-filter-select">
-          <option value="all">All versions</option>
-        </select>
-        <label for="queue-doc-work-filter" class="text-small color-fg-muted mb-0 ml-2">Doc work</label>
-        <select id="queue-doc-work-filter" class="form-select form-select-sm queue-filter-select">
-          <option value="all">All</option>
-          <option value="new">New content</option>
-          <option value="update">Update existing</option>
-          <option value="api-update">API reference only</option>
-          <option value="unknown">Not classified yet</option>
-        </select>
-        <span class="text-small color-fg-muted" id="queue-filter-hint"></span>
+      <div class="queue-toolbar mb-3" id="queue-toolbar">
+        <div class="queue-filter-field">
+          <label for="queue-filter">Assessment</label>
+          <select id="queue-filter" class="form-select form-select-sm queue-filter-select">
+            <option value="all">All</option>
+            <option value="yes">Needs docs</option>
+            <option value="check">Check</option>
+            <option value="no">No docs needed</option>
+            <option value="yes,check">Needs docs + Check</option>
+          </select>
+        </div>
+        <div class="queue-filter-field">
+          <label for="queue-version-filter">Stack release</label>
+          <select id="queue-version-filter" class="form-select form-select-sm queue-filter-select">
+            <option value="all">All versions</option>
+          </select>
+        </div>
+        <div class="queue-filter-field">
+          <label for="queue-doc-work-filter">Doc work</label>
+          <select id="queue-doc-work-filter" class="form-select form-select-sm queue-filter-select">
+            <option value="all">All</option>
+            <option value="new">New content</option>
+            <option value="update">Update existing</option>
+            <option value="api-update">API reference only</option>
+            <option value="unknown">Not classified yet</option>
+          </select>
+        </div>
+        <div class="queue-filter-field">
+          <label for="queue-category-filter">Category</label>
+          <select id="queue-category-filter" class="form-select form-select-sm queue-filter-select">
+            <option value="all">All categories</option>
+          </select>
+        </div>
+        <div class="queue-filter-field">
+          <label for="queue-priority-filter">Priority</label>
+          <select id="queue-priority-filter" class="form-select form-select-sm queue-filter-select">
+            <option value="all">All</option>
+            <option value="p0,p1">P0 + P1</option>
+            <option value="p0">P0</option>
+            <option value="p1">P1</option>
+            <option value="p2">P2</option>
+            <option value="p3">P3</option>
+            <option value="unrated">Unrated</option>
+          </select>
+        </div>
+        <span class="queue-filter-hint text-small color-fg-muted" id="queue-filter-hint"></span>
       </div>
       <div id="queue-container"></div>
       <div id="queue-empty" class="blankslate" style="display:none">

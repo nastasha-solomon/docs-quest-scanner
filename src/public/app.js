@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sel = document.getElementById(key);
     if (sel && [...sel.options].some((o) => o.value === saved)) sel.value = saved;
   }
+  bindScanContextCollapse();
   await refreshAll();
   bindEvents();
   loadUserAvatar();
@@ -227,9 +228,14 @@ function renderStatusBar() {
 }
 
 function renderScanContext() {
-  const el = document.getElementById('scan-context');
+  const wrap = document.getElementById('scan-context');
+  const summaryEl = document.getElementById('scan-context-summary-text');
+  const bodyEl = document.getElementById('scan-context-body');
   const config = state.config;
-  if (!config) { el.style.display = 'none'; return; }
+  if (!config || !wrap || !summaryEl || !bodyEl) {
+    if (wrap) wrap.style.display = 'none';
+    return;
+  }
 
   // Support both the legacy flat shape and the multi-repo repos[] shape.
   const groups = Array.isArray(config.repos) && config.repos.length
@@ -240,7 +246,7 @@ function renderScanContext() {
     .map((g) => (g.source ? `${g.source.owner}/${g.source.repo}` : ''))
     .filter(Boolean)
     .join(', ');
-  const teamLabels = groups.flatMap((g) => (g.categories ?? []).flatMap((c) => c.labels));
+  const teamLabels = [...new Set(groups.flatMap((g) => (g.categories ?? []).flatMap((c) => c.labels)))];
   const releaseLabels = [
     ...new Set(groups.flatMap((g) => g.releaseNoteLabels ?? config.releaseNoteLabels ?? [])),
   ];
@@ -255,27 +261,53 @@ function renderScanContext() {
         ? `Up to ${until}`
         : 'Not scanned yet';
 
-  el.style.display = '';
-  el.innerHTML = `
-    <span class="scan-context-item">
-      <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z"/></svg>
-      ${esc(sourceLabel)}
-    </span>
-    <span class="scan-context-sep">·</span>
-    <span class="scan-context-item">
-      <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M7.75 0a.75.75 0 0 1 .75.75V3h3.634c.414 0 .814.147 1.13.414l2.07 1.75a1.75 1.75 0 0 1 0 2.672l-2.07 1.75a1.75 1.75 0 0 1-1.13.414H8.5v5.25a.75.75 0 0 1-1.5 0V10H2.75A1.75 1.75 0 0 1 1 8.25v-3.5C1 3.784 1.784 3 2.75 3H7V.75A.75.75 0 0 1 7.75 0Zm4.384 4.5H8.5v4h3.634a.25.25 0 0 0 .161-.059l2.07-1.75a.25.25 0 0 0 0-.382l-2.07-1.75a.25.25 0 0 0-.161-.059ZM7 4.5H2.75a.25.25 0 0 0-.25.25v3.5c0 .138.112.25.25.25H7Z"/></svg>
-      ${teamLabels.map((l) => `<span class="scan-context-label">${esc(l)}</span>`).join(' ')}
-    </span>
-    <span class="scan-context-sep">·</span>
-    <span class="scan-context-item">
-      ${releaseLabels.map((l) => `<span class="scan-context-label scan-context-label--release">${esc(l.replace('release_note:', ''))}</span>`).join(' ')}
-    </span>
-    <span class="scan-context-sep">·</span>
-    <span class="scan-context-item">
-      <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.75-4H2.75a.25.25 0 0 0-.25.25V6h11V3.75a.25.25 0 0 0-.25-.25Z"/></svg>
-      ${esc(dateRange)}
-    </span>
+  const labelCount = teamLabels.length + releaseLabels.length;
+  summaryEl.textContent = `Scan scope: ${sourceLabel || '—'} · ${dateRange} · ${labelCount} labels`;
+
+  wrap.style.display = '';
+  bodyEl.innerHTML = `
+    <div class="scan-context-row">
+      <span class="scan-context-item">
+        <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z"/></svg>
+        ${esc(sourceLabel)}
+      </span>
+    </div>
+    <div class="scan-context-row">
+      <span class="scan-context-row-label">Team labels</span>
+      <span class="scan-context-item scan-context-labels">
+        ${teamLabels.map((l) => `<span class="scan-context-label">${esc(l)}</span>`).join(' ')}
+      </span>
+    </div>
+    <div class="scan-context-row">
+      <span class="scan-context-row-label">Release notes</span>
+      <span class="scan-context-item scan-context-labels">
+        ${releaseLabels.map((l) => `<span class="scan-context-label scan-context-label--release">${esc(l.replace('release_note:', ''))}</span>`).join(' ')}
+      </span>
+    </div>
+    <div class="scan-context-row">
+      <span class="scan-context-item">
+        <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.75-4H2.75a.25.25 0 0 0-.25.25V6h11V3.75a.25.25 0 0 0-.25-.25Z"/></svg>
+        ${esc(dateRange)}
+      </span>
+    </div>
   `;
+}
+
+function bindScanContextCollapse() {
+  const details = document.getElementById('scan-context-details');
+  if (!details || details.dataset.bound) return;
+  details.dataset.bound = '1';
+  const saved = sessionStorage.getItem('scan-context-open');
+  details.open = saved === '1';
+  details.addEventListener('toggle', () => {
+    sessionStorage.setItem('scan-context-open', details.open ? '1' : '0');
+    const hint = details.querySelector('.scan-context-summary-hint');
+    if (hint) {
+      hint.textContent = details.open ? 'Hide scan labels' : 'Show scan labels';
+    }
+  });
+  const hint = details.querySelector('.scan-context-summary-hint');
+  if (hint) hint.textContent = details.open ? 'Hide scan labels' : 'Show scan labels';
 }
 
 /** @param {QueueItem[]} items */

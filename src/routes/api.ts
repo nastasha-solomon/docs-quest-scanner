@@ -22,6 +22,7 @@ import { resolveMetaTitle } from '../fiscal-quarter.js';
 import { runScan, fixAlertingQueue, filterExcludedQueueItems } from '../scanner.js';
 import { deriveDocWorkKind, releaseNoteLabelsFromPrLabels } from '../doc-work-kind.js';
 import { deriveDocSurface } from '../doc-surface.js';
+import { deriveTriagePriority } from '../triage-priority.js';
 import { collectItemStackMinors, uniqueStackMinorsFromItems } from '../release-version.js';
 import { renderIssueBody, clearTemplateCache } from '../template.js';
 import type { HistoryEntry, QueueItem } from '../types.js';
@@ -103,8 +104,10 @@ apiRouter.get('/queue', (_req, res) => {
       ? resolveRouting(group, group.categories.find((c) => c.name === item.category))
       : undefined;
     const prLabels = item.prs.flatMap((p) => p.labels ?? []);
-    const docWork = deriveDocWorkKind(item.assessment, releaseNoteLabelsFromPrLabels(prLabels));
+    const releaseNotes = releaseNoteLabelsFromPrLabels(prLabels);
+    const docWork = deriveDocWorkKind(item.assessment, releaseNotes);
     const docSurface = deriveDocSurface(item.assessment, item.prs);
+    const triagePriority = deriveTriagePriority(item.assessment, releaseNotes);
     return {
       ...item,
       suggestedBody,
@@ -116,6 +119,9 @@ apiRouter.get('/queue', (_req, res) => {
       docWorkKindSource: docWork.source,
       docSurface: docSurface.surface,
       docSurfaceSource: docSurface.source,
+      triagePriorityLevel: triagePriority.level,
+      triagePriorityLabel: triagePriority.label,
+      triagePrioritySource: triagePriority.source,
     };
   });
 
@@ -136,6 +142,7 @@ apiRouter.get('/queue', (_req, res) => {
     filterMeta: {
       focusStackReleases,
       focusAuto,
+      focusCategories: rawConfig.focusCategories ?? [],
       versionLabelPattern: versionPattern,
     },
   });
@@ -287,7 +294,11 @@ apiRouter.post('/create-issue', async (req, res) => {
         {
           release: versionMatch ? versionMatch[1] : undefined,
           size: p.sizeMap?.[item.assessment.effortTag ?? ''] ?? undefined,
-          priority: p.defaultPriority ?? undefined,
+          priority:
+            item.assessment.triagePriority ??
+            deriveTriagePriority(item.assessment, releaseNoteLabelsFromPrLabels(prLabels)).label ??
+            p.defaultPriority ??
+            undefined,
           requester: p.defaultRequester ?? undefined,
           area: resolveArea(primaryCategory, prLabels, p.defaultArea),
           feature,

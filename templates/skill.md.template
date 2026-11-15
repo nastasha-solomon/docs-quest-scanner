@@ -354,7 +354,9 @@ Tell the user: "The triage review UI is running at http://localhost:3847 — ope
 
 Each card header shows the PR's `release_note:*` label(s) as colored chips next to the assessment badge, so the team's own marking (breaking/deprecation/feature/enhancement/fix/skip) is visible at a glance.
 
-**Queue filters (post-enrichment):** The toolbar supports **Assessment**, **Stack release** (`focusStackReleases` in config highlights e.g. `9.6`), and **Doc work** (new vs update existing vs **API reference only** vs not classified). API-only classification depends on enrichment setting `docsGap[].pageUrl` under `/docs/api/` and API-reference phrasing in `gap` — follow step 2b API reference analysis so filtered triage is accurate.
+**Queue filters (post-enrichment):** The toolbar supports **Assessment**, **Stack release** (`autoFocusStackReleases` / `focusStackReleases`), **Doc work** (new vs update vs **API reference only**), **Category** (`focusCategories` in config for a multi-team slice; matches primary category or `alsoAppliesTo`), and **Priority** (P0–P3; set `triagePriority` to the exact Projects Priority string when confident, e.g. `"P1: High"`, otherwise heuristics from release-note labels apply and show as dashed **estimate**). API-only classification depends on enrichment `docsGap` URLs under `/docs/api/` — follow step 2b API reference analysis.
+
+**`triagePriority`:** Optional on `assessment`. Use when release-note severity or breaking user impact clearly exceeds defaults — `P0: Critical` for breaking doc gaps, `P1: High` for major features with `needsDocs: yes`, `P2 (Important)` for routine updates, `P3: Low` for minor check items. Omit when `needsDocs: "no"`.
 
 ### Step 4: If asked to create issues directly
 
