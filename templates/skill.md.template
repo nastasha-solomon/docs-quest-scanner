@@ -354,7 +354,9 @@ Tell the user: "The triage review UI is running at http://localhost:3847 — ope
 
 Each card header shows the PR's `release_note:*` label(s) as colored chips next to the assessment badge, so the team's own marking (breaking/deprecation/feature/enhancement/fix/skip) is visible at a glance.
 
-**Queue filters (post-enrichment):** The toolbar supports **Assessment**, **Stack release** (`autoFocusStackReleases` / `focusStackReleases`), **Doc work** (new vs update vs **API reference only**), **Category** (`focusCategories` in config for a multi-team slice; matches primary category or `alsoAppliesTo`), and **Priority** (P0–P3; set `triagePriority` to the exact Projects Priority string when confident, e.g. `"P1: High"`, otherwise heuristics from release-note labels apply and show as dashed **estimate**). API-only classification depends on enrichment `docsGap` URLs under `/docs/api/` — follow step 2b API reference analysis.
+**Queue filters (post-enrichment):** The toolbar supports **Assessment**, **Stack release** (`autoFocusStackReleases` / `focusStackReleases`), **Merged** (7/30/90 days, since last scan, or custom From/To on latest PR `mergedAt`), **Doc work** (new vs update vs **API reference only**), **Category** (`focusCategories` in config for a multi-team slice; matches primary category or `alsoAppliesTo`), and **Priority** (P0–P3; set `triagePriority` to the exact Projects Priority string when confident, e.g. `"P1: High"`, otherwise heuristics from release-note labels apply and show as dashed **estimate**). Optional `defaultQueueFilters` in `data/config.json` seeds a fresh browser session. API-only classification depends on enrichment `docsGap` URLs under `/docs/api/` — follow step 2b API reference analysis.
+
+**Bulk actions:** After filtering, the user can **Select visible**, choose **Bulk action** (accept quest or any skip reason), and **Apply** to all selected cards. Good first issue applies only to per-card **Accept quest**.
 
 **`triagePriority`:** Optional on `assessment`. Use when release-note severity or breaking user impact clearly exceeds defaults — `P0: Critical` for breaking doc gaps, `P1: High` for major features with `needsDocs: yes`, `P2 (Important)` for routine updates, `P3: Low` for minor check items. Omit when `needsDocs: "no"`.
 
@@ -515,12 +517,14 @@ Docs serve all active versions. When a feature changes behavior, don't suggest r
 
 ## Skip reasons
 
-The UI offers three skip actions to build signal over time:
-- **"Skip – no docs"**: the change genuinely doesn't need documentation (internal, cosmetic, bug fix, etc.)
-- **"Skip – already tracked"**: the change needs docs but is already tracked elsewhere (existing issue, another team's checklist, etc.)
-- **"Skip – owned by dev"**: the change needs docs, but the development team owns the required docs work
+The UI offers five skip actions on each card (and the same five in the **Bulk action** dropdown) to build signal over time:
+- **"Skip – no docs"** (`no docs needed`): the change genuinely doesn't need documentation (internal, cosmetic, bug fix, etc.)
+- **"Skip – already tracked"** (`already tracked`): the change needs docs but is already tracked elsewhere (existing issue, another team's checklist, etc.)
+- **"Skip – owned by dev"** (`owned by dev`): the change needs docs, but the development team owns the required docs work
+- **"Skip – release notes only"** (`release notes only`): release-note / condensed-notes work only, not a full docs pass for this writer
+- **"Skip – not my area"** (`not my area`): out of scope for this triage slice or team
 
-All three are stored in `data/history.json` with the `reason` field. Over time, reviewing the "no docs needed" history can help refine the assessment heuristics above — patterns of what gets dismissed suggest the AI enrichment should mark those as `needsDocs: "no"` more confidently.
+Each action is stored in `data/history.json` with `decision: "dismissed"` and the `reason` field. Over time, reviewing the "no docs needed" history can help refine the assessment heuristics above — patterns of what gets dismissed suggest the AI enrichment should mark those as `needsDocs: "no"` more confidently.
 
 ## Key technical notes
 

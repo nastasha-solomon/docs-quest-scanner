@@ -16,12 +16,13 @@
 | `770d604` | Bulk create, category/priority filter fixes, `create-from-queue` refactor |
 | `e847654` | Security - Cases vs One Workflow category repair |
 | `c5c62a0` | **Merged** date filter, compact filter toolbar, extra skip reasons (`release notes only`, `not my area`) |
+| `a1b0b7b` | **Bulk action** dropdown (accept + skip reasons), README triage UI refresh |
 
 ---
 
 ## Summary
 
-For Security / Alerting / Observability triage, the post-scan queue is large. Writers need to narrow it by **stack minor**, **team category**, **assessment**, **doc work type** (including **API reference only**), and **priority**—without mis-tagging internal server routes as public API work.
+For Security / Alerting / Observability triage, the post-scan queue is large. Writers need to narrow it by **stack minor**, **merge date**, **team category**, **assessment**, **doc work type** (including **API reference only**), and **priority**—without mis-tagging internal server routes as public API work.
 
 This proposal adds:
 
@@ -29,7 +30,7 @@ This proposal adds:
 - **Transient classification on `GET /queue`** (`docWorkKind`, `docSurface`, `triagePriorityLevel`, stack minors).
 - **Enrichment fields and skill guidance** so filters stay accurate after AI triage.
 - **Review UI** improvements: collapsible scan-label strip, grouped filter controls, card badges, priority sort within categories.
-- **Bulk create** — select filtered queue rows (per card or per category section) and file GitHub issues in one pass.
+- **Bulk actions** — select filtered queue rows and **Apply** accept or skip in one pass (same `reason` values as per-card buttons).
 - **Merged date filter** — client-side window on latest PR merge (`mergedAt`), orthogonal to stack minor / version labels.
 - **Additional skip reasons** on triage cards for release-note-only scope and out-of-area items (same history shape as existing dismiss actions).
 
@@ -192,22 +193,34 @@ Existing assessment + release-note chips, plus:
 - **P0–P3** — from `triagePriorityLevel` (dashed when heuristic).
 - Effort tag badge unchanged when `effortTag` is set.
 
-### 7. Bulk issue creation
+### 7. Bulk actions
 
-When a category slice is ready (for example after filters + enrichment), writers can file many docs issues without opening each card.
+When a category slice is ready (for example after filters + enrichment), writers can act on many queue items without opening each card.
 
 **UI**
 
 - Checkbox on each triage card; **Select all** checkbox on each category header (visible items only).
-- Toolbar: **Select visible** (current filter results), **Create issues**, **Clear**.
-- Confirmation dialog lists a sample of titles; **Good first issue** is not bulk-applied (per-card checkbox still applies to single create).
+- Bar below filters: **Select visible** (current filter results), **Bulk action** (same pill style as other queue filters), **Apply**, **Clear**.
+- **Apply** is disabled until at least one item is selected.
+- **Bulk action** dropdown options (each applies to all selected items):
+
+| Bulk action | Effect |
+|-------------|--------|
+| Accept quest | Create GitHub issues (see **API** below) |
+| Skip – no docs | Dismiss with `no docs needed` |
+| Skip – already tracked | Dismiss with `already tracked` |
+| Skip – owned by dev | Dismiss with `owned by dev` |
+| Skip – release notes only | Dismiss with `release notes only` |
+| Skip – not my area | Dismiss with `not my area` |
+
+- **Accept quest:** confirmation dialog lists a sample of titles. **Good first issue** is not bulk-applied (per-card checkbox still applies to single create).
+- **Skip – …:** confirmation dialog lists titles and the chosen `reason` (same strings as §8).
+- **Mark scan complete** is intentionally **not** in the bulk dropdown — it remains the empty-queue control only.
 
 **API**
 
-- `POST /create-issues` with `{ queueItemIds: string[], goodFirstIssue?: boolean }`.
-- Processes items **sequentially**; returns `{ created: [...], failed: [...] }`.
-- Each success uses the same path as `POST /create-issue` (project fields, meta-issue linking, history, queue removal).
-- Shared implementation: `src/create-from-queue.ts` (`createDocsIssueFromQueueItem`) so single and bulk stays in sync.
+- **Accept quest:** `POST /create-issues` with `{ queueItemIds: string[], goodFirstIssue?: boolean }`. Processes items **sequentially**; returns `{ created: [...], failed: [...] }`. Each success uses the same path as `POST /create-issue` (project fields, meta-issue linking, history, queue removal). Shared implementation: `src/create-from-queue.ts` (`createDocsIssueFromQueueItem`).
+- **Skip – …:** client calls `POST /dismiss` once per selected `queueItemId` with `{ queueItemId, reason }` (sequential; failures collected like bulk create). No batch dismiss endpoint in the fork.
 
 ### 8. Skip / dismiss reasons (triage card actions)
 
@@ -223,7 +236,7 @@ Each **Skip** button calls `POST /dismiss` with a `reason` string; the item is r
 
 **UI surfaces:** **History** tab (per-row `reason`, grouped by `session`); **Queue** tab **Skipped** collapsible (dismissals since current `queue.scannedAt`) with **Restore** (`POST /undo-dismiss`). No new API fields—only additional allowed `reason` values. Auto-dismiss after enrichment may still use suffixed strings (e.g. `no docs needed (auto, …)`).
 
-`test/skip-options.test.ts` asserts all five manual skip buttons are present on each card.
+`test/skip-options.test.ts` asserts all five manual skip buttons are present on each card. The **Bulk action** dropdown (§7) uses the same five skip `reason` values plus **Accept quest**.
 
 ### 9. Related fork work (same triage use case)
 
@@ -241,7 +254,7 @@ Each **Skip** button calls `POST /dismiss` with a `reason` string; the item is r
 - **Priority** surfaces breaking/feature work first; writers can still override via enrichment.
 - Auto stack focus and **category focus** reduce repetitive config edits each train.
 - Collapsible scan scope and clearer filter grouping make large queues usable on laptop-width viewports.
-- **Bulk create** supports category-based triage slices after enrichment without repetitive single-card clicks.
+- **Bulk actions** support category-based accept or skip after enrichment without repetitive single-card clicks.
 - **Merged** filter supports “what landed recently” and “since I last scanned” without conflating merge time with version labels.
 - Extra **skip reasons** record writer intent in history for slice hygiene (release-note-only, not my area).
 
@@ -249,8 +262,8 @@ Each **Skip** button calls `POST /dismiss` with a `reason` string; the item is r
 
 ## Suggested merge notes
 
-- README: document all filter keys, `focusStackReleases`, `autoFocusStackReleases`, `focusCategories`, `defaultQueueFilters` (including optional `mergeRange`, `mergeFrom`, `mergeTo`), and manual skip `reason` values.
-- Skill **Skip reasons** section: list `release notes only` and `not my area` alongside existing three reasons.
+- README: document all filter keys, `focusStackReleases`, `autoFocusStackReleases`, `focusCategories`, `defaultQueueFilters` (including optional `mergeRange`, `mergeFrom`, `mergeTo`), manual skip `reason` values, and **bulk actions** (accept + skip).
+- Skill **Skip reasons** and **Queue filters** sections: list `release notes only` and `not my area`; document **Merged** filter and bulk **Bulk action** + **Apply** bar.
 - Default `autoFocusStackReleases: false` and omit `defaultQueueFilters` for backward compatibility.
 - Policy choice: whether manual `focusStackReleases` should override auto when both are set (fork: auto wins).
 - Install / bump skill from `templates/skill.md.template` after merge (`./scripts/setup.sh`).
@@ -265,8 +278,8 @@ Each **Skip** button calls `POST /dismiss` with a `reason` string; the item is r
 4. **Doc work:** Public server route + enriched `/docs/api/` gap → **API ref** + **API reference only** filter.
 5. **Internal routes:** `access: 'internal'` — no API ref estimate; review-only internal gaps → not in API-only filter (`test/doc-surface.test.ts`).
 6. **Priority:** Breaking + `needsDocs: yes` → P0 heuristic; enriched `triagePriority` on card and on issue create (`test/triage-priority.test.ts`).
-7. **UI:** Scan scope collapses/expands and remembers state; filter pills keep label+select paired when wrapped.
-8. **Bulk create:** Filter to one category → Select visible → Create issues; partial failures leave failed rows in queue; history records successes.
+7. **UI:** Scan scope collapses/expands and remembers state; filter row stays on one line with horizontal scroll; **Bulk action** uses the same `.queue-filter-field` pill as other filters.
+8. **Bulk actions:** Filter to one category → Select visible → **Accept quest** — partial create failures leave failed rows in queue; history records successes. **Skip – not my area** (or any skip) — confirm, dismiss all selected, history rows show `reason`; **Apply** disabled with zero selection.
 9. **Merged:** Presets 7d / 30d / 90d match latest-`mergedAt` counts; **Since last scan** uses `filterMeta.lastScanAt`; custom From/To inclusive; custom row clears with **Clear range** (`test/queue-merge-filter.test.ts`).
 10. **Skip reasons:** Card shows five skip buttons; dismiss stores exact `reason`; History and Skipped list display it; `test/skip-options.test.ts`.
 11. **Regression:** `fixAlertingQueue`, excludes, `GET /queue` consumers, existing enrichment merge script, single `POST /create-issue` unchanged behavior.
