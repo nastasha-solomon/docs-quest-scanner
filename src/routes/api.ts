@@ -22,7 +22,7 @@ import { resolveMetaTitle } from '../fiscal-quarter.js';
 import { runScan, fixAlertingQueue, filterExcludedQueueItems } from '../scanner.js';
 import { deriveDocWorkKind, releaseNoteLabelsFromPrLabels } from '../doc-work-kind.js';
 import { deriveDocSurface } from '../doc-surface.js';
-import { collectItemStackMinors } from '../release-version.js';
+import { collectItemStackMinors, uniqueStackMinorsFromItems } from '../release-version.js';
 import { renderIssueBody, clearTemplateCache } from '../template.js';
 import type { HistoryEntry, QueueItem } from '../types.js';
 
@@ -119,12 +119,23 @@ apiRouter.get('/queue', (_req, res) => {
     };
   });
 
+  const rawConfig = loadConfig();
+  const manualFocus = rawConfig.focusStackReleases ?? [];
+  const queueMinors = uniqueStackMinorsFromItems(queue.items, versionPattern);
+  let focusStackReleases = manualFocus;
+  let focusAuto = false;
+  if (rawConfig.autoFocusStackReleases) {
+    focusStackReleases = queueMinors.slice(0, 2);
+    focusAuto = true;
+  }
+
   res.json({
     ...queue,
     items,
     targetOptions,
     filterMeta: {
-      focusStackReleases: loadConfig().focusStackReleases ?? [],
+      focusStackReleases,
+      focusAuto,
       versionLabelPattern: versionPattern,
     },
   });

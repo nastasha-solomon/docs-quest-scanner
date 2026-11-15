@@ -357,9 +357,11 @@ function populateQueueVersionFilterOptions() {
 
   let html = '<option value="all">All versions</option>';
   if (focusSorted.length) {
+    const auto = state.queue.filterMeta?.focusAuto;
+    const suffix = auto ? 'auto' : 'config';
     const label = focusSorted.length === 1
-      ? `Focus: ${focusSorted[0]} (config)`
-      : `Focus: ${focusSorted.join(', ')} (config)`;
+      ? `Focus: ${focusSorted[0]} (${suffix})`
+      : `Focus: ${focusSorted.join(', ')} (${suffix})`;
     html += `<option value="focus">${esc(label)}</option>`;
   }
   for (const mm of sorted) {

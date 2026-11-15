@@ -424,9 +424,15 @@ export interface Config {
   excludeTitlePatterns?: string[];
   /**
    * Stack releases (major.minor, e.g. `9.6`) highlighted in the queue UI filter.
-   * Does not affect scanning — triage convenience only.
+   * Does not affect scanning — triage convenience only. Ignored when
+   * `autoFocusStackReleases` is true (see below).
    */
   focusStackReleases?: string[];
+  /**
+   * When true, focus minors are the newest one or two stack minors that appear
+   * in the current queue (no manual list). Default: false.
+   */
+  autoFocusStackReleases?: boolean;
   issueLabels?: string[];
   /**
    * @deprecated Legacy global meta issue (object form). Superseded by the named
