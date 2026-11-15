@@ -383,7 +383,7 @@ The template is at `templates/issue-template.md` (Handlebars syntax) and can be 
 
 ## Fork enhancements
 
-This repository may include triage features ahead of [upstream](https://github.com/florent-leborgne/docs-quest-scanner). See [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) for the full upstream proposal (filters, merge date, bulk actions, `docSurface`, category repair, skip reasons).
+This repository may include triage features ahead of [upstream](https://github.com/florent-leborgne/docs-quest-scanner). See [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) for the full upstream proposal (filters, merge date, bulk actions, bulk progress bar, `docSurface`, category repair, skip reasons).
 
 ## License
 

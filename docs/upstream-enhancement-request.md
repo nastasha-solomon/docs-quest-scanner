@@ -32,6 +32,7 @@ This proposal adds:
 - **Enrichment fields and skill guidance** so filters stay accurate after AI triage.
 - **Review UI** improvements: collapsible scan-label strip, grouped filter controls, card badges, priority sort within categories.
 - **Bulk actions** — select filtered queue rows and **Apply** accept or skip in one pass (same `reason` values as per-card buttons).
+- **Bulk progress bar** — while accept or skip runs, a full-width bar under the bulk row shows per-item progress (`Creating issues… 3 / 8`, `Skipping… 5 / 8`) and disables bulk controls until the run finishes (see §7).
 - **Merged date filter** — client-side window on latest PR merge (`mergedAt`), orthogonal to stack minor / version labels.
 - **Additional skip reasons** on triage cards for release-note-only scope and out-of-area items (same history shape as existing dismiss actions).
 
@@ -202,7 +203,7 @@ When a category slice is ready (for example after filters + enrichment), writers
 
 - Checkbox on each triage card; **Select all** checkbox on each category header (visible items only).
 - Bar below filters: **Select visible** (current filter results), **Bulk action** (same pill style as other queue filters), **Apply**, **Clear**.
-- **Progress:** While **Apply** runs, a full-width bar under the bulk row advances per item (`Creating issues… 3 / 8` or `Skipping… 5 / 8`); other bulk controls stay disabled until the run ends.
+- **Bulk progress bar** (`#queue-bulk-progress`): Shown only while **Apply** is running. Full-width track under the bulk control row; label shows verb + `completed / total` (e.g. `Creating issues… 3 / 8`, `Skipping… 5 / 8`). **Select visible**, **Bulk action**, **Apply**, and **Clear** stay disabled until the run ends. The review UI calls `POST /create-issue` or `POST /dismiss` once per selected item so the bar can advance after each round trip (see **API**).
 - **Apply** is disabled until at least one item is selected.
 - **Bulk action** dropdown options (each applies to all selected items):
 
@@ -256,7 +257,7 @@ Each **Skip** button calls `POST /dismiss` with a `reason` string; the item is r
 - **Priority** surfaces breaking/feature work first; writers can still override via enrichment.
 - Auto stack focus and **category focus** reduce repetitive config edits each train.
 - Collapsible scan scope and clearer filter grouping make large queues usable on laptop-width viewports.
-- **Bulk actions** support category-based accept or skip after enrichment without repetitive single-card clicks.
+- **Bulk actions** support category-based accept or skip after enrichment without repetitive single-card clicks; a **progress bar** makes multi-item GitHub calls observable on slow runs (SSO, rate limits, meta-issue linking).
 - **Merged** filter supports “what landed recently” and “since I last scanned” without conflating merge time with version labels.
 - Extra **skip reasons** record writer intent in history for slice hygiene (release-note-only, not my area).
 
@@ -264,8 +265,8 @@ Each **Skip** button calls `POST /dismiss` with a `reason` string; the item is r
 
 ## Suggested merge notes
 
-- README: document all filter keys, `focusStackReleases`, `autoFocusStackReleases`, `focusCategories`, `defaultQueueFilters` (including optional `mergeRange`, `mergeFrom`, `mergeTo`), manual skip `reason` values, and **bulk actions** (accept + skip).
-- Skill **Skip reasons** and **Queue filters** sections: list `release notes only` and `not my area`; document **Merged** filter and bulk **Bulk action** + **Apply** bar.
+- README: document all filter keys, `focusStackReleases`, `autoFocusStackReleases`, `focusCategories`, `defaultQueueFilters` (including optional `mergeRange`, `mergeFrom`, `mergeTo`), manual skip `reason` values, **bulk actions** (accept + skip), and the bulk **progress bar**.
+- Skill **Skip reasons** and **Queue filters** sections: list `release notes only` and `not my area`; document **Merged** filter, bulk **Bulk action** + **Apply** bar, and per-item progress during bulk runs.
 - Default `autoFocusStackReleases: false` and omit `defaultQueueFilters` for backward compatibility.
 - Policy choice: whether manual `focusStackReleases` should override auto when both are set (fork: auto wins).
 - Install / bump skill from `templates/skill.md.template` after merge (`./scripts/setup.sh`).
