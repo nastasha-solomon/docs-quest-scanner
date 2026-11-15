@@ -15,7 +15,7 @@
 | `45fb090` | Sample `data/enrichments-batch-*.json` for split enrichment merge workflow |
 | `770d604` | Bulk create, category/priority filter fixes, `create-from-queue` refactor |
 | `e847654` | Security - Cases vs One Workflow category repair |
-| *(pending)* | **Merged** date filter, compact filter toolbar, extra skip reasons (`release notes only`, `not my area`) |
+| `c5c62a0` | **Merged** date filter, compact filter toolbar, extra skip reasons (`release notes only`, `not my area`) |
 
 ---
 
