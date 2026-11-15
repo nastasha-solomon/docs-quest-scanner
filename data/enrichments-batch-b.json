@@ -1,0 +1,159 @@
+{
+  "5ce596ed-3d5b-41dc-aa5a-bb18605ff703": {
+    "suggestedTitle": "Remove alerts, events, and other attachments from a case in the Attachments tab",
+    "needsDocs": "yes",
+    "confidence": 0.85,
+    "premiseAccuracy": "accurate",
+    "summary": "Users can now remove attachments from a case directly in the case Attachments tab. Each alerts table (Security, Observability, and stack alerts) gets a **Remove from case** bulk action and a per-row **Remove from case** action, and the related PRs add the same removal for events and saved-object attachments. The controls show only to users who can delete attachments, the confirmation and activity-log entry count the items removed (for example, \"Remove 3 alerts\"), and bulk removal is disabled when \"select all\" is used because that also matches alerts hidden by the table's time range. The EASE alerts table does not get removal.",
+    "reasoning": "New UI actions in the Attachments tab that change the documented case workflow, and the published Attach objects to cases page describes adding alerts but not removing them (already tracked in docs-content #9038).",
+    "existingDocs": [
+      "https://www.elastic.co/docs/explore-analyze/cases/attach-objects-to-cases",
+      "https://www.elastic.co/docs/explore-analyze/cases/manage-cases",
+      "https://www.elastic.co/docs/solutions/security/investigate/security-cases"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/explore-analyze/cases/attach-objects-to-cases",
+        "pageTitle": "Attach objects to cases",
+        "section": "Add alerts (and a new \"Remove attachments from a case\" section)",
+        "currentContent": "After adding alerts, you can review them under Alerts on the case's Attachments tab. Alerts are organized from oldest to newest, and you can select View details to inspect individual alerts. (Only observables mention removal: \"you can remove or edit it using the action menu\".)",
+        "gap": "Add a short section on removing attachments from the Attachments tab: select one or more alerts (or events and saved-object attachments) and use the **Remove from case** bulk action, or open a row's More actions menu and choose **Remove from case**. Cover that the controls appear only for users who can delete attachments (Cases `all` privilege), that the bulk action is disabled when \"select all\" is used, that the confirmation and activity entry count the removed items, and that the EASE alerts table doesn't support removal. This is the sibling page that already covers adding each object type, so add the section here rather than creating a new page. Applies from 9.6.0 and in serverless.",
+        "actionType": "add-section"
+      },
+      {
+        "pageUrl": "https://www.elastic.co/docs/solutions/security/investigate/security-cases",
+        "pageTitle": "Cases for Elastic Security",
+        "section": "Add events",
+        "currentContent": "View attached events in the case's Events tab, where they're organized from newest to oldest. ... Go to the case's details page, then select the Attachments tab.",
+        "gap": "Optional: add a one-line pointer after the events description saying attached events can be removed from the Attachments tab (bulk or per row), linking to the new removal section on Attach objects to cases. Applies from 9.6.0 and in serverless Security projects.",
+        "actionType": "review-only"
+      }
+    ],
+    "effortTag": "update",
+    "serverlessApplies": "yes"
+  },
+  "a0006e52-c00e-4618-ad75-26272d79dd93": {
+    "suggestedTitle": "Cases attachments API is now public (technical preview)",
+    "needsDocs": "no",
+    "confidence": 0.85,
+    "premiseAccuracy": "accurate",
+    "summary": "The Cases attachments API moves from internal to public as a technical preview in 9.6. Six new routes under `/api/cases/{caseId}/attachments` (create, replace, find, get, delete one, delete all) return the unified attachment shape (for example `type: comment` with `data.content`) and cover the legacy `/comments` routes; `GET /alerts` and `POST /files` stay on the legacy routes, and file uploads through attachments create are blocked in favor of the files API. The PR regenerates `oas_docs/output/kibana.yaml` and `kibana.serverless.yaml` with the six new operations, each tagged `x-state: Technical preview; added in 9.6.0`.",
+    "reasoning": "API reference only — the published reference and CLI pages are generated from the OpenAPI output this PR regenerates (six operations with x-state technical preview), no hand-written narrative page is affected, and the legacy comment operations are unchanged.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/api/doc/kibana/operation/operation-findcasecommentsdefaultspace",
+      "https://www.elastic.co/docs/api/doc/kibana/operation/operation-deletecasecommentdefaultspace",
+      "https://www.elastic.co/docs/api/doc/kibana/operation/operation-deletecasecommentsdefaultspace"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/api/doc/kibana/operation/operation-createcaseattachmentdefaultspace",
+        "pageTitle": "Create a case attachment",
+        "section": "Operation pages for /api/cases/{caseId}/attachments",
+        "currentContent": "The published Kibana API reference currently lists only the legacy case comment operations (find, delete one, delete all comments and alerts); the new /attachments operations are not yet published.",
+        "gap": "API reference: no manual edit expected. The API reference and CLI pages are generated from the OpenAPI output this PR regenerates (six new operations, each with x-state \"Technical preview; added in 9.6.0\", in both the stack and serverless specs). After the next reference build, spot-check that the operation pages publish with the technical preview state and the unified attachment examples. Applies from 9.6.0 (technical preview) and in serverless.",
+        "actionType": "review-only"
+      }
+    ],
+    "effortTag": null,
+    "serverlessApplies": "yes",
+    "featureStatus": "preview"
+  },
+  "2d73d621-7b48-4d33-bfbe-2452ba44fd79": {
+    "suggestedTitle": "Anonymization page now appears in navigation and replaces the Advanced Settings entry",
+    "needsDocs": "check",
+    "confidence": 0.7,
+    "premiseAccuracy": "accurate",
+    "summary": "Switches users over to the new **Anonymization** page: it is linked under **AI** in the navigation of every solution (classic and serverless), and the raw `ai:anonymizationSettings` JSON entry is no longer listed in Advanced Settings. The setting is registered read-only in the UI but still writable through the settings API and `uiSettings.overrides` in `kibana.yml`; NER rules have no UI on the new page, so those are the only ways to edit them. The inference plugin also tells the page's pattern tester whether anonymization runs on worker threads (`xpack.inference.workers.anonymization.enabled`).",
+    "reasoning": "The Advanced Settings reference was already updated in the stacked page PR (#295895) and now points users to the Anonymization page, but its note says to configure anonymization there without covering NER rules, which still can't be edited in the UI; the new page itself is covered by the sibling item, so this should be folded into the same docs issue.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/reference/kibana/advanced-settings",
+      "https://www.elastic.co/docs/explore-analyze/ai-features/manage-access-to-ai-assistant"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/reference/kibana/advanced-settings",
+        "pageTitle": "Kibana advanced settings",
+        "section": "ai:anonymizationSettings",
+        "currentContent": "The ai:anonymizationSettings setting is no longer available on the Advanced Settings page. Configure anonymization on the Anonymization page under AI in Stack Management. Masking is off by default; on that page you can turn it on and choose which patterns apply.",
+        "gap": "Update the note to link to the new Anonymization section (once written, see the Anonymization page item) and to say that NER rules can't be edited on the page and can still be set through the Kibana advanced settings API or `uiSettings.overrides` in `kibana.yml`. The raw entry, default JSON, and removed-in-9.6 tagging were already refreshed by the product PR, so avoid re-editing those. Applies from 9.6.0 and in serverless.",
+        "actionType": "update-existing"
+      },
+      {
+        "pageUrl": "https://www.elastic.co/docs/explore-analyze/ai-features/manage-access-to-ai-assistant",
+        "pageTitle": "Manage access to AI features",
+        "section": "GenAI settings",
+        "currentContent": "Go to the GenAI Settings page by using the navigation menu or the global search field.",
+        "gap": "When adding the Anonymization section, state where to find the page (under **AI** next to GenAI Settings, in the navigation of every solution view, or through the global search field) and the access requirements: an Enterprise license, the Advanced Settings: all privilege, and the Connectors capability, so it is hidden in serverless tiers without connectors. Applies from 9.6.0 and in serverless (Enterprise license required; hidden in projects without connectors).",
+        "actionType": "add-section"
+      }
+    ],
+    "effortTag": "update",
+    "serverlessApplies": "yes",
+    "featureFlags": ["xpack.inference.workers.anonymization.enabled"]
+  },
+  "03ed3a50-8f2b-4252-9b64-9c8019d32cca": {
+    "suggestedTitle": "Choose which sensitive values are masked in AI requests on the new Anonymization page",
+    "needsDocs": "yes",
+    "confidence": 0.85,
+    "premiseAccuracy": "accurate",
+    "summary": "Adds an **Anonymization** page under Stack Management → AI (a sibling of GenAI Settings) for choosing which sensitive values are masked before AI requests are sent to a model. It has built-in patterns (toggle, entity type, regex, live example; not editable), custom patterns (add or edit flyout with inline regex validation), a pattern tester that runs enabled rules against sample JSON or text and shows the masked output with a breakdown, and settings for the master \"Mask PII in AI requests\" switch and `onFailure` behavior. Masking covers AI features that use Kibana's shared AI integration with any connector; features that call a connector directly are not masked. The page and pattern tester require an Enterprise license, plus Advanced Settings save access and the Connectors capability.",
+    "reasoning": "A whole new management page with license, privilege, and scope caveats has no narrative documentation; the same PR's docs change only refreshes the Advanced Settings entry, so it doesn't cover the page.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/explore-analyze/ai-features/manage-access-to-ai-assistant",
+      "https://www.elastic.co/docs/reference/kibana/advanced-settings"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/explore-analyze/ai-features/manage-access-to-ai-assistant",
+        "pageTitle": "Manage access to AI features",
+        "section": "New section after \"Track token usage across AI features\" (for example, \"Mask sensitive data in AI requests\")",
+        "currentContent": "The page covers GenAI Settings, token usage tracking, streaming, Agent Builder documentation, and Feature Settings, and has no mention of anonymization or masking.",
+        "gap": "Add a section describing the Anonymization page: the master masking switch (off by default) and `onFailure` behavior; built-in patterns (toggle only) versus custom patterns (flyout, regex validation); the pattern tester and its sample input and output; and scope (masks requests sent through Kibana's shared AI integration with any connector, not features that call a connector directly). Include requirements: Enterprise license, Advanced Settings save access, Connectors capability. The sibling pages in this section don't cover this territory but this page is the home of the adjacent GenAI Settings page, so prefer an add-section over a new page; split it into its own page only if it outgrows a screen or two. Mention that the pattern tester can be turned off with `xpack.aiAnonymizationSettings.patternTester.enabled` only if that setting is meant to be documented. Applies from 9.6.0 and in serverless (Enterprise license required; hidden in projects without connectors).",
+        "actionType": "add-section"
+      }
+    ],
+    "effortTag": "new-content",
+    "serverlessApplies": "yes",
+    "featureFlags": ["xpack.aiAnonymizationSettings.patternTester.enabled"]
+  },
+  "6d77a913-4fc6-4acd-9b99-8e03a79e177d": {
+    "suggestedTitle": "ai:anonymizationSettings was widened to all solutions, then moved to the Anonymization page",
+    "needsDocs": "no",
+    "confidence": 0.8,
+    "premiseAccuracy": "stale",
+    "summary": "Moves the `ai:anonymizationSettings` uiSetting from the Observability category to General so every solution view lists it, adds the Security and Workplace AI serverless allowlists, and removes the Observability AI Assistant shortcut. It also fixes streaming de-anonymization so responses containing masked PII render incrementally instead of arriving as one chunk, and injects anonymization instructions when a request has no system prompt but masked content. The Advanced Settings listing was superseded before 9.6 by the Anonymization page work (#295895, #297148), which hides the raw entry.",
+    "reasoning": "PR claims the setting is available in Advanced Settings for every solution, but follow-up PRs hide it in 9.6, so the user-visible docs for this PR are limited to the entry change it already made in the same PR; the streaming and instruction fixes are internal behavior fixes.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/reference/kibana/advanced-settings"
+    ],
+    "docsGap": [],
+    "effortTag": null,
+    "serverlessApplies": "yes",
+    "dismissReason": "owned by dev",
+    "featureStatus": "preview"
+  },
+  "35e5171a-4fb8-4d55-a639-dbe883d599ba": {
+    "suggestedTitle": "Customize the columns in the Similar cases tab",
+    "needsDocs": "yes",
+    "confidence": 0.8,
+    "premiseAccuracy": "accurate",
+    "summary": "The Similar cases tab table now has a **Columns** button, matching the main Cases list. Users can show or hide columns such as created on, assignees (with avatars), comment count, status, severity, custom fields, and, with templates v2, global fields (a user-picker field shows avatars). The **Created on** column is shown by default, the **Name** column is always visible and first and doesn't appear in the picker, and the selection is saved in the browser's local storage separately from the main Cases list preference. Sorting is a follow-up PR and is out of scope here.",
+    "reasoning": "New UI control in the Similar cases tab, which the published docs only mention in passing (\"check the Similar cases tab\"); writer work is already tracked in docs-content #9327 and #9326, so this is mostly a duplicate to link or skip as already tracked.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/explore-analyze/cases/attach-objects-to-cases",
+      "https://www.elastic.co/docs/explore-analyze/cases/manage-cases"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/explore-analyze/cases/attach-objects-to-cases",
+        "pageTitle": "Attach objects to cases",
+        "section": "Add observables",
+        "currentContent": "To find related investigations, check the Similar cases tab for other cases that share the same observables.",
+        "gap": "Add a short \"Find and customize similar cases\" section (or link to the section being scoped in docs-content #9327): explain that the Similar cases tab lists cases that share observables, and that **Columns** lets users choose which details appear (Created on is the default; Name is always shown), including custom and template fields when templates v2 is on, and that the choice persists per browser and is separate from the main Cases list. Describe sorting only once the follow-up sorting PR ships. The Manage cases page already documents the main list's Fields and Columns picker, so link there rather than repeating it. Applies from 9.6.0 and in serverless Security projects (observables are not available for Observability cases).",
+        "actionType": "add-section"
+      }
+    ],
+    "effortTag": "update",
+    "serverlessApplies": "yes"
+  }
+}

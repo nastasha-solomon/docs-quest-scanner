@@ -1,0 +1,144 @@
+{
+  "91fc57a5-2f12-431e-86b0-c65ea0463c71": {
+    "suggestedTitle": "Create Universal Alerting rules with the restructured four-step rule form",
+    "needsDocs": "no",
+    "confidence": 0.7,
+    "premiseAccuracy": "partially-accurate",
+    "summary": "The Universal Alerting rule form is reorganized into a guided flow: build your query, set your schedule, choose your outcome, and set your execution behaviors. Kind selection, alerting options, and recovery move into their own outcome step, and the kind choices are reworded. The PR also rolls back some silent query-splitting and standalone-to-composed conversions from an earlier change, and locks users in the YAML editor when they make changes the form can't represent.",
+    "reasoning": "Initial assessment revised from yes to no: the published tutorial, Rule mode page, and Create an ES|QL rule page already describe the Outcome step, Detect and respond / Collect evidence, and the YAML lock, and both tracking issues (#8071, #8085) are closed. This PR's step layout was also reworked by later PRs (#284737, #286633), so the PR text only partly matches the shipped UI.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/explore-analyze/alerting/esql/rules/create-esql-rule",
+      "https://www.elastic.co/docs/explore-analyze/alerting/esql/rules/configure-rule-mode",
+      "https://www.elastic.co/docs/explore-analyze/alerting/esql/get-started/create-your-first-rule",
+      "https://www.elastic.co/docs/explore-analyze/alerting/esql/rules/configure-a-rule",
+      "https://www.elastic.co/docs/explore-analyze/alerting/esql/rules/yaml-rule-schema-reference"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/explore-analyze/alerting/esql/rules/configure-rule-mode",
+        "pageTitle": "Rule mode in Kibana Universal Alerting",
+        "section": "Set the rule mode",
+        "currentContent": "Set either mode when you create the rule, using the rule form or YAML editor. In YAML, the mode is set in the kind field. ... You can't change the mode after you save the rule.",
+        "gap": "Optional, if a writer wants more detail: the section doesn't say where the choice appears in the 9.6 rule form (the outcome step, after query and schedule, with recovery options shown only under Detect and respond) or that the outcome is visible but locked when editing. The tutorial and the Create an ES|QL rule page already walk through the steps, and issue #8085 covering this work is closed, so no change is required. Keep the 9.5 Mode/Signal/Alert labels for readers on earlier versions. Applies from 9.6.0 and in Observability serverless projects.",
+        "actionType": "review-only"
+      }
+    ],
+    "effortTag": null,
+    "serverlessApplies": "yes"
+  },
+  "89bf72a1-f050-4d7b-8292-1861405e227c": {
+    "suggestedTitle": "Pick a Slack channel from a list when adding a Slack action to a Universal Alerting rule",
+    "needsDocs": "check",
+    "confidence": 0.5,
+    "premiseAccuracy": "accurate",
+    "summary": "When you add a Slack action to a Universal Alerting rule in the rule form and select a Slack v2 connector, a channel drop-down lists the channels in the workspace. Selecting one writes the channel field into the action's YAML parameters, and the YAML editor stays visible and editable. If the channel you want isn't listed, you can still type it in the YAML editor. The list loads only the first page of channels because the Slack listChannels call has no server-side search, so large workspaces need the YAML fallback. If channel is already set in the YAML, the selector shows it.",
+    "reasoning": "The published Universal Alerting docs only describe notifications through workflows and action policies, and mention the rule form's Actions step once in the tutorial; nothing documents adding an action from the rule form or the Slack channel picker, so a writer needs to decide whether to cover it.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/explore-analyze/alerting/esql/notifications-actions",
+      "https://www.elastic.co/docs/explore-analyze/alerting/esql/workflows-alerting",
+      "https://www.elastic.co/docs/reference/kibana/connectors-kibana/slack-action-type",
+      "https://www.elastic.co/docs/explore-analyze/alerting/esql/get-started/create-your-first-rule"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/explore-analyze/alerting/esql/notifications-actions",
+        "pageTitle": "Notifications and actions in Kibana Universal Alerting",
+        "section": "Send notifications or trigger an action",
+        "currentContent": "To send a notification or trigger an action from a rule in Universal Alerting: Build a workflow that defines what to do... Create an action policy that routes alerts to that workflow.",
+        "gap": "Add a short section (or admonition) on adding an action from the rule form's Actions step, since the page presents workflow plus action policy as the only path and the tutorial mentions the Actions step without explaining it. Cover the Slack case: choose a Slack connector, pick a channel from the drop-down, and edit the action's YAML parameters; type the channel directly in the YAML editor if it isn't listed, because only the first page of channels loads and large workspaces may not show it. Confirm with the dev team what the Actions step creates (workflow, action policy, or both) before writing. Applies from 9.6.0 and in Observability serverless projects.",
+        "actionType": "add-section"
+      }
+    ],
+    "effortTag": "update",
+    "serverlessApplies": "yes"
+  },
+  "36147c4d-e47c-4fea-8a08-afafa2232b32": {
+    "suggestedTitle": "Find Universal Alerting pages in the Observability Alerting navigation panel",
+    "needsDocs": "check",
+    "confidence": 0.5,
+    "premiseAccuracy": "partially-accurate",
+    "summary": "When Universal Alerting is enabled, the Observability side navigation replaces the flat Alerts item with an Alerting panel (Inbox, Rules, Rule Library, Action Policies, Execution History, and Maintenance Windows) in both stack and serverless Observability projects. Universal Alerting pages are mounted under /app/observability/alerting/*, and they're added to global search. The classic Observability alerts table is hidden by default and returns as an extra link when a space setting is turned on. The Alerting V2 Preview entry is removed from the Observability Settings and Admin navigation.",
+    "reasoning": "The Universal Alerting setup and overview pages already explain the Alerting menu and the setting that restores the classic page, so the main gap is that the Observability alerting pages never mention the new menu; the PR text is partly stale because the setting is now alerting:v1:showV1ObservabilityAlertsTable and the link is Alerts (Classic).",
+    "existingDocs": [
+      "https://www.elastic.co/docs/explore-analyze/alerting/esql/setup",
+      "https://www.elastic.co/docs/explore-analyze/alerting/esql/system-overview",
+      "https://www.elastic.co/docs/solutions/observability/incident-management/alerting",
+      "https://www.elastic.co/docs/solutions/observability/incident-management/view-alerts"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/solutions/observability/incident-management/alerting",
+        "pageTitle": "Alerting in Elastic Observability",
+        "section": "Alerts page",
+        "currentContent": "On the Alerts page, the Alerts table provides a snapshot of alerts occurring within the specified time frame.",
+        "gap": "Add a short note near the top of the page (and a pointer from View and manage alerts) that with Universal Alerting on, the Observability navigation shows an Alerting menu instead of Alerts, and the classic page appears as Alerts (Classic) only when the Classic Alerting: Show Classic Alerts table setting is on. Link to Set up Universal Alerting, which already covers the setting. Without it, readers on 9.6 or Observability serverless following these pages look for an Alerts menu item that is no longer there by default. Also check the cross-reference from View and manage alerts. Applies from 9.6.0 and in Observability serverless projects.",
+        "actionType": "update-existing"
+      }
+    ],
+    "effortTag": "quick-fix",
+    "serverlessApplies": "yes",
+    "featureFlags": ["alerting:v2:enabled", "alerting:v1:showV1ObservabilityAlertsTable"]
+  },
+  "0e1796f2-dbfe-4699-ad1e-97bd2a862859": {
+    "suggestedTitle": "Map detection rules to MITRE ATLAS and view ATLAS coverage",
+    "needsDocs": "check",
+    "confidence": 0.5,
+    "premiseAccuracy": "accurate",
+    "summary": "Elastic Security now supports MITRE ATLAS (attacks on AI and machine learning systems) next to MITRE ATT&CK. The rule form's Threat mappings field shows a section per framework, with Add framework for ATLAS. Rule details, the upgrade diff view, and the alert flyout group mappings by framework. The MITRE coverage page gets MITRE ATT&CK and MITRE ATLAS tabs, and its invalid-mappings callout shows only the active framework's IDs, naming the framework and version. AI rule creation and the Agent Builder rule tools accept ATLAS (AML.*) IDs, and prebuilt rules for generative AI threats ship with ATLAS mappings. The artifact carries ATT&CK Enterprise v19.2 and ATLAS v2026.08 and v2026.09.",
+    "reasoning": "Most of this is already documented (MITRE coverage tab, Threat mappings setting, alert flyout, rules list search, Agent Builder prompt), so only small gaps remain: the prebuilt rules overview still describes the library as mapped to ATT&CK only, and the coverage page's outdated-mappings callout and supported-versions table don't cover ATLAS; PR #296562 alone is data-layer groundwork with no UI.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/solutions/security/detect-and-alert/mitre-attack-coverage",
+      "https://www.elastic.co/docs/solutions/security/detect-and-alert/common-rule-settings",
+      "https://www.elastic.co/docs/solutions/security/detect-and-alert/view-detection-alert-details",
+      "https://www.elastic.co/docs/solutions/security/detect-and-alert/manage-detection-rules",
+      "https://www.elastic.co/docs/solutions/security/detect-and-alert/prebuilt-rule-components",
+      "https://www.elastic.co/docs/solutions/security/detect-and-alert/prebuilt-rules",
+      "https://www.elastic.co/docs/solutions/security/ai/agent-builder/skills-use-cases",
+      "https://www.elastic.co/docs/solutions/security/detect-and-alert/remap-mitre-attack"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/solutions/security/detect-and-alert/mitre-attack-coverage",
+        "pageTitle": "MITRE coverage",
+        "section": "Supported MITRE ATT&CK versions / outdated mappings callout",
+        "currentContent": "If some rules use tactics or techniques that the supported MITRE version no longer includes, a callout about outdated mappings appears. ... Supported MITRE ATT&CK versions (table covers ATT&CK only).",
+        "gap": "Clarify that the outdated-mappings callout and its View rules modal are per framework: on the ATLAS tab they list only ATLAS IDs and name the framework and version. Add the supported ATLAS version, because the page names v2026.09 once but the artifact also carries v2026.08 and the supported-versions section covers only ATT&CK. Keep the existing Planned badges as they are. Applies from 9.6.0 and in Security serverless projects.",
+        "actionType": "update-existing"
+      },
+      {
+        "pageUrl": "https://www.elastic.co/docs/solutions/security/detect-and-alert/prebuilt-rules",
+        "pageTitle": "Prebuilt detection rules",
+        "section": "Overview",
+        "currentContent": "Elastic maintains a library of prebuilt detection rules mapped to the MITRE ATT&CK framework.",
+        "gap": "Update the opening sentence and description to say that, from 9.6, some prebuilt rules for generative AI threats are also mapped to MITRE ATLAS and count toward the ATLAS tab on the MITRE coverage page; link to MITRE coverage. Use an inline applies_to tag at the start of the new sentence instead of adding version numbers in prose. Applies from 9.6.0 and in Security serverless projects.",
+        "actionType": "update-existing"
+      }
+    ],
+    "effortTag": "quick-fix",
+    "serverlessApplies": "yes"
+  },
+  "5f4020c2-82e8-49a7-8642-1df8047125b4": {
+    "suggestedTitle": "Rule changes history is now generally available and on by default",
+    "needsDocs": "no",
+    "confidence": 0.85,
+    "premiseAccuracy": "accurate",
+    "summary": "Rule changes history for Elastic Security detection rules is now generally available. The Enable detection rule changes history advanced setting is on by default and the Technical Preview badge is removed from the page title. Users can open a rule's history from the rule details page, compare revisions, and restore a previous revision. The change was backported to 9.5.",
+    "reasoning": "The published View rule changes history page is tagged GA from 9.5 and serverless, documents the on-by-default securitySolution:enableRuleChangesHistory setting and how to turn it off, and Manage detection rules also says Generally available since 9.5; the earlier tracking issues (#7223, #6808) are closed, and no page still calls the feature a technical preview.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/solutions/security/detect-and-alert/view-rule-changes-history",
+      "https://www.elastic.co/docs/solutions/security/detect-and-alert/manage-detection-rules"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/solutions/security/detect-and-alert/view-rule-changes-history",
+        "pageTitle": "View rule changes history",
+        "section": "Turn off rule changes history",
+        "currentContent": "Rule changes history is turned on by default. If you want to turn it off, deactivate the securitySolution:enableRuleChangesHistory advanced setting.",
+        "gap": "No change needed. The page already states GA from 9.5 and serverless in its applies_to metadata, the on-by-default behavior, and the setting name, and Manage detection rules links to it. If a writer wants extra coverage, they could note that the setting itself is scheduled for removal after GA, but this is optional and the source marks that as a TODO. Applies from 9.5.0 (backported from 9.6.0) and in serverless.",
+        "actionType": "review-only"
+      }
+    ],
+    "effortTag": null,
+    "serverlessApplies": "yes"
+  }
+}

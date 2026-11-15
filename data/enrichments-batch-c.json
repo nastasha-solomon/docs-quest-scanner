@@ -1,0 +1,134 @@
+{
+  "ee51e817-a25c-429c-892c-2b09b8aec404": {
+    "suggestedTitle": "Predefined serverless Security roles now include the Manage templates privilege",
+    "needsDocs": "no",
+    "confidence": 0.8,
+    "premiseAccuracy": "unsupported",
+    "summary": "The PR adds the cases_manage_templates sub-privilege (feature_securitySolutionCasesV3.cases_manage_templates) to the local serverless role fixtures used by the kbn-es test tooling, mirroring a change in elasticsearch-controller that grants it to predefined Security roles with full Cases access (for example editor, T2/T3 analyst, rule author, SOC manager, detections admin). Read-only roles such as viewer and T1 analyst do not get it. The diff only touches test fixture YAML, so the user-facing behavior depends on the controller change; the Manage templates privilege itself is already documented as GA in serverless.",
+    "reasoning": "Diff changes only kbn-es role fixtures (no product code), so the release-note claim isn't backed by the diff, and the Manage templates privilege is already documented for serverless.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/explore-analyze/cases/control-case-access",
+      "https://www.elastic.co/docs/explore-analyze/cases/edit-case-templates"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/explore-analyze/cases/control-case-access",
+        "pageTitle": "Control access to cases",
+        "section": "Give access to manage case templates",
+        "currentContent": "To create, edit, delete, import, and export case templates and field library entries, grant the following privileges ... Set All for the Cases feature under the appropriate solution (Security or Observability). Turn on Customize sub-feature privileges. Enable Manage templates.",
+        "gap": "No correction is needed: the page already documents Manage templates as GA in serverless, and these steps remain correct for custom roles. If you choose to document the new default, add one sentence to the serverless tab saying that predefined Security roles with full Cases access already include Manage templates, so only custom roles need the sub-privilege enabled manually. Confirm the exact role list against elasticsearch-controller PR 2049 before writing it, because this PR only edits test fixtures. Serverless only.",
+        "actionType": "review-only"
+      }
+    ],
+    "effortTag": "quick-fix"
+  },
+  "ad5a6dd1-f637-49f7-a50a-651e55776324": {
+    "suggestedTitle": "Create and replace case attachments with the new unified attachments API (internal)",
+    "needsDocs": "no",
+    "confidence": 0.9,
+    "premiseAccuracy": "accurate",
+    "summary": "Adds the write path of the new unified attachments API for Cases: POST /api/cases/{case_id}/attachments creates an attachment from a unified payload (legacy per-type shapes are rejected with 400), and PUT /api/cases/{case_id}/attachments/{id} fully replaces one, with the document id taken from the path. Unlike the v1 comments routes, which return the whole case, the new routes return only the created or replaced attachment (201 and 200). Both routes are access: 'internal', so they are not public yet, and the diff has no UI or settings changes.",
+    "reasoning": "Server-side routes, schemas, and tests only, and the routes are marked internal, so there's no published API or UI to document yet.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/api/doc/kibana/operation/operation-addcasecommentdefaultspace"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/api/doc/kibana/operation/operation-addcasecommentdefaultspace",
+        "pageTitle": "Add a case comment or alert",
+        "section": "Request and response (POST /api/cases/{caseId}/comments)",
+        "currentContent": "You must have all privileges for the Cases feature in the Management, Observability, or Security section of the Kibana feature privileges, depending on the owner of the case you're creating. NOTE: Each case can have a maximum of 1,000 alerts.",
+        "gap": "No action now: the new POST and PUT attachments routes are internal and absent from the public Kibana API reference, so nothing published is wrong or incomplete. When the unified attachments API goes public, the OpenAPI spec should add the new create (POST, returns the attachment with 201) and replace (PUT, returns the attachment with 200) operations under Cases, and the existing comment operations may need a note that they return the whole case. Pages in /docs/api/ are generated from the spec, so make that change in the Kibana OpenAPI source, not in docs-content. Applies from 9.6.0 and in serverless once the routes are public.",
+        "actionType": "review-only"
+      }
+    ]
+  },
+  "bdfd3071-3535-44c6-a9eb-f339166f70e5": {
+    "suggestedTitle": "List and get case attachments of any type with the new unified attachments API (internal)",
+    "needsDocs": "no",
+    "confidence": 0.9,
+    "premiseAccuracy": "accurate",
+    "summary": "Adds the read path of the new unified attachments API for Cases: GET /api/cases/{case_id}/attachments lists attachments with page, perPage, sortOrder, and an optional type filter, and GET /api/cases/{case_id}/attachments/{id} returns a single attachment in the unified shape. The find logic no longer assumes comments only and now resolves any attachment type across both storage models. The routes are access: 'internal', so they are not public yet, and no UI changes are included.",
+    "reasoning": "Server-side routes, schemas, and tests only, and the routes are marked internal, so there's no published API or UI to document yet.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/api/doc/kibana/operation/operation-findcasecommentsdefaultspace",
+      "https://www.elastic.co/docs/api/doc/kibana/operation/operation-getcasecommentdefaultspace"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/api/doc/kibana/operation/operation-findcasecommentsdefaultspace",
+        "pageTitle": "Find case comments",
+        "section": "Parameters (GET /api/cases/{caseId}/comments/_find)",
+        "currentContent": "Retrieves a paginated list of comments for a case ... page (Query): The page number to return. perPage (Query): The number of items to return. Limited to 100 items. sortOrder (Query): Determines the sort order.",
+        "gap": "No action now: the new GET attachments routes are internal and absent from the public Kibana API reference, so the comments pages remain accurate. When the unified API goes public, the OpenAPI spec should add the list operation (query parameters page, perPage, sortOrder, type; response { data, page, per_page, total }) and the single-get operation under Cases, and the comments operations may need a pointer to them. These pages are generated from the spec, so make the change in the Kibana OpenAPI source rather than docs-content. Applies from 9.6.0 and in serverless once the routes are public.",
+        "actionType": "review-only"
+      }
+    ]
+  },
+  "08692a21-f0d5-4a4e-9ccb-bc3299cdc762": {
+    "suggestedTitle": "Delete one or all case attachments with the new unified attachments API (internal)",
+    "needsDocs": "no",
+    "confidence": 0.9,
+    "premiseAccuracy": "accurate",
+    "summary": "Adds the delete path of the new unified attachments API for Cases: DELETE /api/cases/{case_id}/attachments/{id} deletes one attachment and DELETE /api/cases/{case_id}/attachments deletes every attachment on the case, both returning 204. Behavior matches the existing comments delete routes, which stay unchanged. The routes are access: 'internal' until the API is ready to ship, and the diff has no UI changes.",
+    "reasoning": "Server-side routes and tests only, with behavior identical to the existing comment delete routes and the new routes marked internal, so there's no published API or UI to document yet.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/api/doc/kibana/operation/operation-deletecasecommentdefaultspace"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/api/doc/kibana/operation/operation-deletecasecommentdefaultspace",
+        "pageTitle": "Delete a case comment or alert",
+        "section": "Description (DELETE /api/cases/{caseId}/comments/{commentId})",
+        "currentContent": "Deletes a comment or alert from a case. If it is a file attachment, its file is also deleted. You must have all privileges for the Cases feature in the Management, Observability, or Security section of the Kibana feature privileges, depending on the owner of the cases you're deleting.",
+        "gap": "No action now: the new DELETE attachments routes are internal and absent from the public Kibana API reference, so this page remains accurate. When the unified API goes public, the OpenAPI spec should add the delete-one and delete-all attachment operations (both 204), mirroring the existing comment delete descriptions. These pages are generated from the spec, so make the change in the Kibana OpenAPI source rather than docs-content. Applies from 9.6.0 and in serverless once the routes are public.",
+        "actionType": "review-only"
+      }
+    ]
+  },
+  "a59b32bd-0c05-40f8-8a6c-72916606e11c": {
+    "suggestedTitle": "Filter case activity by source",
+    "needsDocs": "check",
+    "confidence": 0.7,
+    "premiseAccuracy": "accurate",
+    "summary": "The case activity feed gets a Source filter next to Type, Author, and sort. It is a multi-select with Agent, Workflow, Rule, Attack Discovery, API, and User, plus Not recorded for entries with no recorded source (activity from before Kibana started recording sources). Clear filters also resets the selected sources. Filtering runs on the internal user actions find route, so the public Find case activity API is unchanged.",
+    "reasoning": "The Manage cases page already documents the Source filter and its options, so only the stale Planned availability badge for Stack needs updating; initial 'no docs' suspicion revised to 'check' for that badge.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/explore-analyze/cases/manage-cases"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/explore-analyze/cases/manage-cases",
+        "pageTitle": "Manage cases",
+        "section": "See how an action started",
+        "currentContent": "(Elastic Cloud Serverless: Generally available, Elastic Stack: Planned) Activity entries show which actions started outside the Cases UI ... To limit the feed to certain sources, use the Source filter ... Select Not recorded to find entries with no recorded source.",
+        "gap": "Change the section's applies_to from stack: planned to stack: ga 9.6 and keep serverless: ga, since the Source filter ships with the 9.6.0 label. The options listed (Agent, Workflow, Rule, Attack Discovery, API, User, Not recorded) and the multi-select behavior match the diff, so no prose change is needed. Optionally add a cross-reference from the 'Filter the activity feed' section, which lists only Type and Author, to this section. Applies from 9.6.0 and in serverless.",
+        "actionType": "update-existing"
+      }
+    ],
+    "effortTag": "quick-fix"
+  },
+  "87a1b9e9-e95d-4761-b1ae-505f2aa3dda5": {
+    "suggestedTitle": "Security Overview page now has a sticky header with a back button to Dashboards",
+    "needsDocs": "check",
+    "confidence": 0.5,
+    "premiseAccuracy": "accurate",
+    "summary": "The Security Overview page now uses the Chrome Next AppHeader. It shows an Overview title and a sticky header with a back button to the Dashboards page, including on the empty (no data) page. The data view picker and search bar move from the old sticky filters strip into an in-page search band that appears only when data exists, and the hidden h1 is removed. An empty header menu prevents a second data view picker from showing for users without Fleet access.",
+    "reasoning": "UI layout change to a page that has its own documentation page; the text stays accurate but the page's screenshots probably show the old layout, so it's worth a check.",
+    "existingDocs": [
+      "https://www.elastic.co/docs/solutions/security/dashboards/overview-dashboard",
+      "https://www.elastic.co/docs/solutions/security/get-started/elastic-security-ui"
+    ],
+    "docsGap": [
+      {
+        "pageUrl": "https://www.elastic.co/docs/solutions/security/dashboards/overview-dashboard",
+        "pageTitle": "Overview dashboard",
+        "section": "Page introduction and screenshots (Overview dashboard, Live feed, Host and network events)",
+        "currentContent": "The Overview dashboard provides a high-level snapshot of alerts and events. It helps you assess overall system health and find anomalies that may require further investigation.",
+        "gap": "The page text doesn't describe the header, search bar, or data view picker, so no prose change is required. Retake the screenshots that show the top of the page, because they likely show the old sticky filters strip instead of the new Overview header with a back button to Dashboards and the in-page search band. If you also want to document the layout, add one sentence that the header's back button returns to the Dashboards page and that the data view picker and search bar sit below the header. The related Elastic Security UI page says the search bar appears at the top of each page, which stays broadly true. Applies from 9.6.0 and in serverless.",
+        "actionType": "update-existing"
+      }
+    ],
+    "effortTag": "update"
+  }
+}
