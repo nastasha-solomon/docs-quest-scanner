@@ -122,6 +122,7 @@ apiRouter.get('/queue', (_req, res) => {
   });
 
   const rawConfig = loadConfig();
+  const lastRun = loadLastRun();
   const manualFocus = rawConfig.focusStackReleases ?? [];
   const queueMinors = uniqueStackMinorsFromItems(queue.items, versionPattern);
   let focusStackReleases = manualFocus;
@@ -140,6 +141,7 @@ apiRouter.get('/queue', (_req, res) => {
       focusAuto,
       focusCategories: rawConfig.focusCategories ?? [],
       versionLabelPattern: versionPattern,
+      lastScanAt: queue.scannedAt || lastRun?.lastRunDate || null,
     },
   });
 });

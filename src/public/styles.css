@@ -29,9 +29,9 @@ body {
 }
 
 .app-header-inner {
-  max-width: 1100px;
+  max-width: min(1600px, 100%);
   margin: 0 auto;
-  padding: 12px 24px;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
   gap: 16px;
@@ -98,8 +98,24 @@ body {
   display: none;
 }
 
+.app-container {
+  width: 100%;
+  max-width: min(1600px, 100%);
+  margin: 0 auto;
+  padding: 10px 12px 16px;
+  box-sizing: border-box;
+}
+
+@media (min-width: 900px) {
+  .app-container {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
 @media (max-width: 720px) {
-  .app-header-inner { padding: 10px 14px; }
+  .app-header-inner { padding: 10px 12px; }
+  .app-container { padding-left: 10px; padding-right: 10px; }
   .brand .brand-title { display: none; }
 }
 
@@ -162,17 +178,23 @@ body {
 
 .queue-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.5rem 0.625rem;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.35rem 0.45rem;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
 }
 
 .queue-filter-field {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: 0.375rem;
-  padding: 4px 8px 4px 10px;
+  gap: 0.3rem;
+  padding: 3px 6px 3px 8px;
   border: 1px solid var(--borderColor-default, #d0d7de);
   border-radius: 8px;
   background: var(--bgColor-muted, #f6f8fa);
@@ -190,10 +212,11 @@ body {
 .queue-filter-field .queue-filter-select {
   flex: 0 0 auto;
   width: auto;
-  min-width: 5.5rem;
-  max-width: 15rem;
-  padding-left: 6px;
-  padding-right: 1.75rem;
+  min-width: 4.5rem;
+  max-width: 12rem;
+  padding-left: 4px;
+  padding-right: 1.5rem;
+  font-size: 12px;
   field-sizing: content;
   border: 0;
   box-shadow: none;
@@ -212,30 +235,51 @@ body {
   background-color: var(--bgColor-default, #ffffff);
 }
 
-#queue-version-filter.queue-filter-select {
-  min-width: 7rem;
+.queue-merge-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.5rem;
+  padding: 6px 10px;
+  border: 1px dashed var(--borderColor-default, #d0d7de);
+  border-radius: 8px;
+  background: var(--bgColor-muted, #f6f8fa);
+}
+
+.queue-merge-custom-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fgColor-muted, #656d76);
+  margin: 0;
+}
+
+.queue-merge-date {
+  width: auto;
+  min-width: 9rem;
+}
+
+#queue-version-filter.queue-filter-select,
+#queue-merge-filter.queue-filter-select {
+  min-width: 6rem;
+  max-width: 14rem;
 }
 
 #queue-category-filter.queue-filter-select {
-  min-width: 9rem;
-  max-width: 20rem;
+  min-width: 7rem;
+  max-width: 14rem;
 }
 
 #queue-priority-filter.queue-filter-select {
-  min-width: 7.5rem;
+  min-width: 6rem;
+  max-width: 10rem;
 }
 
 .queue-filter-hint {
-  flex: 1 1 100%;
-  margin-top: 0.15rem;
-}
-
-@media (min-width: 900px) {
-  .queue-filter-hint {
-    flex: 0 1 auto;
-    margin-top: 0;
-    margin-left: 0.25rem;
-  }
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 0.35rem;
+  white-space: nowrap;
+  font-size: 11px;
 }
 
 .doc-work-badge {
@@ -1097,6 +1141,7 @@ body {
 
 .card-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   padding-top: 12px;
@@ -1742,7 +1787,7 @@ dialog::backdrop {
 /* ── Hero greeting ────────────────────────────────────── */
 
 .hero-greeting {
-  padding: 16px 24px;
+  padding: 12px 12px;
   text-align: center;
   opacity: 0;
   transform: translateY(-6px);

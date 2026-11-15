@@ -1,6 +1,15 @@
 // @ts-check
 
 /** @typedef {import('../types.js').QueueItem} QueueItem */
+/** @type {typeof import('./queue-merge-filter.js') | null} */
+let mergeFilterMod = null;
+
+async function ensureMergeFilterMod() {
+  if (!mergeFilterMod) {
+    mergeFilterMod = await import('./queue-merge-filter.js');
+  }
+  return mergeFilterMod;
+}
 /** @typedef {import('../types.js').Queue} Queue */
 /** @typedef {import('../types.js').History} History */
 /** @typedef {import('../types.js').Config} Config */
@@ -27,6 +36,12 @@ let state = {
   queueCategoryFilter: 'all',
   /** @type {'all' | 'p0,p1' | 'p0' | 'p1' | 'p2' | 'p3' | 'unrated'} */
   queuePriorityFilter: 'all',
+  /** @type {'all' | '7d' | '30d' | '90d' | 'since-scan' | 'custom'} */
+  queueMergeFilter: 'all',
+  /** @type {string} */
+  queueMergeFrom: '',
+  /** @type {string} */
+  queueMergeTo: '',
   /** @type {Set<string>} */
   selectedQueueIds: new Set(),
 };
@@ -49,12 +64,14 @@ async function api(path, options = {}) {
 // ── Init ────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
+  await ensureMergeFilterMod();
   for (const [key, field, storageKey] of [
     ['queue-filter', 'queueFilter', 'queue-filter'],
     ['queue-version-filter', 'queueVersionFilter', 'queue-version-filter'],
     ['queue-doc-work-filter', 'queueDocWorkFilter', 'queue-doc-work-filter'],
     ['queue-category-filter', 'queueCategoryFilter', 'queue-category-filter'],
     ['queue-priority-filter', 'queuePriorityFilter', 'queue-priority-filter'],
+    ['queue-merge-filter', 'queueMergeFilter', 'queue-merge-filter'],
   ]) {
     const saved = sessionStorage.getItem(storageKey);
     if (!saved) continue;
@@ -62,6 +79,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const sel = document.getElementById(key);
     if (sel && [...sel.options].some((o) => o.value === saved)) sel.value = saved;
   }
+  const mergeFrom = sessionStorage.getItem('queue-merge-from');
+  const mergeTo = sessionStorage.getItem('queue-merge-to');
+  if (mergeFrom) state.queueMergeFrom = mergeFrom;
+  if (mergeTo) state.queueMergeTo = mergeTo;
   bindScanContextCollapse();
   bindBulkActions();
   bindEvents();
@@ -418,6 +439,7 @@ async function refreshAll() {
     state.config = config;
     state.lastRun = lastRun;
     populateQueueVersionFilterOptions();
+    populateQueueMergeFilterOptions();
     populateQueueCategoryFilterOptions();
     populateQueuePriorityFilterOptions();
     applyDefaultQueueFiltersIfUnset();
@@ -588,6 +610,26 @@ function filterQueueItemsByVersion(items) {
   return items.filter((i) => itemStackMinors(i).includes(vf));
 }
 
+function mergeFilterOpts() {
+  return {
+    customFrom: state.queueMergeFrom,
+    customTo: state.queueMergeTo,
+    sinceScanAt:
+      state.queue?.filterMeta?.lastScanAt ??
+      state.queue?.scannedAt ??
+      state.lastRun?.lastRunDate ??
+      null,
+  };
+}
+
+/** @param {QueueItem[]} items */
+function filterQueueItemsByMergeDate(items) {
+  const mf = state.queueMergeFilter;
+  if (mf === 'all' || !mergeFilterMod) return items;
+  const opts = mergeFilterOpts();
+  return items.filter((item) => mergeFilterMod.itemMatchesMergeFilter(item, mf, opts));
+}
+
 function configCategoryNames() {
   const cfg = state.config;
   if (!cfg) return [];
@@ -720,15 +762,28 @@ function bindBulkActions() {
 function applyQueueFilters(items) {
   return filterQueueItemsByPriority(
     filterQueueItemsByDocWork(
-      filterQueueItemsByCategory(filterQueueItemsByVersion(filterQueueItemsByAssessment(items)))
+      filterQueueItemsByCategory(
+        filterQueueItemsByMergeDate(
+          filterQueueItemsByVersion(filterQueueItemsByAssessment(items))
+        )
+      )
     )
   );
+}
+
+function mergeFilterIsActive() {
+  if (state.queueMergeFilter === 'all') return false;
+  if (state.queueMergeFilter === 'custom') {
+    return Boolean(state.queueMergeFrom.trim() || state.queueMergeTo.trim());
+  }
+  return true;
 }
 
 function activeQueueFiltersCount() {
   let n = 0;
   if (state.queueFilter !== 'all') n++;
   if (state.queueVersionFilter !== 'all') n++;
+  if (mergeFilterIsActive()) n++;
   if (state.queueDocWorkFilter !== 'all') n++;
   if (state.queueCategoryFilter !== 'all') n++;
   if (state.queuePriorityFilter !== 'all') n++;
@@ -748,15 +803,25 @@ function applyDefaultQueueFiltersIfUnset() {
 
   apply('queue-filter', 'queueFilter', defs.assessment);
   apply('queue-version-filter', 'queueVersionFilter', defs.version);
+  apply('queue-merge-filter', 'queueMergeFilter', defs.mergeRange);
   apply('queue-category-filter', 'queueCategoryFilter', defs.category);
   apply('queue-doc-work-filter', 'queueDocWorkFilter', defs.docWork);
   apply('queue-priority-filter', 'queuePriorityFilter', defs.priority);
+  if (sessionStorage.getItem('queue-merge-from') == null && defs.mergeFrom) {
+    state.queueMergeFrom = defs.mergeFrom;
+    sessionStorage.setItem('queue-merge-from', defs.mergeFrom);
+  }
+  if (sessionStorage.getItem('queue-merge-to') == null && defs.mergeTo) {
+    state.queueMergeTo = defs.mergeTo;
+    sessionStorage.setItem('queue-merge-to', defs.mergeTo);
+  }
 }
 
 function syncQueueFilterControls() {
   for (const [key, field] of [
     ['queue-filter', 'queueFilter'],
     ['queue-version-filter', 'queueVersionFilter'],
+    ['queue-merge-filter', 'queueMergeFilter'],
     ['queue-doc-work-filter', 'queueDocWorkFilter'],
     ['queue-category-filter', 'queueCategoryFilter'],
     ['queue-priority-filter', 'queuePriorityFilter'],
@@ -766,6 +831,57 @@ function syncQueueFilterControls() {
     const val = state[field];
     if ([...el.options].some((o) => o.value === val)) el.value = val;
   }
+  const fromEl = document.getElementById('queue-merge-from');
+  const toEl = document.getElementById('queue-merge-to');
+  if (fromEl) fromEl.value = state.queueMergeFrom || '';
+  if (toEl) toEl.value = state.queueMergeTo || '';
+  syncMergeCustomRow();
+}
+
+function sinceLastScanOptionLabel() {
+  const raw =
+    state.queue?.filterMeta?.lastScanAt ??
+    state.queue?.scannedAt ??
+    state.lastRun?.lastRunDate;
+  if (!raw) return 'Since last scan (none yet)';
+  return `Since last scan (${formatDate(raw)})`;
+}
+
+function populateQueueMergeFilterOptions() {
+  const sel = document.getElementById('queue-merge-filter');
+  if (!sel) return;
+  const prev = state.queueMergeFilter;
+  const items = state.queue.items ?? [];
+  const opts = mergeFilterOpts();
+
+  const count = (preset) =>
+    mergeFilterMod ? mergeFilterMod.countItemsForMergePreset(items, preset, opts) : items.length;
+
+  const presets = [
+    ['all', `All dates (${items.length})`],
+    ['7d', `Last 7 days (${count('7d')})`],
+    ['30d', `Last 30 days (${count('30d')})`],
+    ['90d', `Last 90 days (${count('90d')})`],
+    ['since-scan', `${sinceLastScanOptionLabel()} (${count('since-scan')})`],
+    ['custom', 'Custom range…'],
+  ];
+
+  sel.innerHTML = presets
+    .map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`)
+    .join('');
+
+  if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  else {
+    state.queueMergeFilter = 'all';
+    sel.value = 'all';
+    sessionStorage.setItem('queue-merge-filter', 'all');
+  }
+}
+
+function syncMergeCustomRow() {
+  const row = document.getElementById('queue-merge-custom');
+  if (!row) return;
+  row.hidden = state.queueMergeFilter !== 'custom';
 }
 
 function populateQueueCategoryFilterOptions() {
@@ -1237,6 +1353,12 @@ function renderCardBody(item) {
       <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="owned by dev">
         Skip – owned by dev
       </button>
+      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="release notes only">
+        Skip – release notes only
+      </button>
+      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="not my area">
+        Skip – not my area
+      </button>
       <div class="target-repo-select">
         <label>Target:</label>
         <select data-field="targetRepo" data-item="${item.id}">
@@ -1386,6 +1508,7 @@ function bindEvents() {
   for (const [id, field, storageKey] of [
     ['queue-filter', 'queueFilter', 'queue-filter'],
     ['queue-version-filter', 'queueVersionFilter', 'queue-version-filter'],
+    ['queue-merge-filter', 'queueMergeFilter', 'queue-merge-filter'],
     ['queue-doc-work-filter', 'queueDocWorkFilter', 'queue-doc-work-filter'],
     ['queue-category-filter', 'queueCategoryFilter', 'queue-category-filter'],
     ['queue-priority-filter', 'queuePriorityFilter', 'queue-priority-filter'],
@@ -1395,9 +1518,35 @@ function bindEvents() {
     el.addEventListener('change', () => {
       state[field] = el.value;
       sessionStorage.setItem(storageKey, el.value);
+      if (field === 'queueMergeFilter') syncMergeCustomRow();
       renderQueue();
     });
   }
+
+  const onCustomMergeDateChange = () => {
+    const fromEl = document.getElementById('queue-merge-from');
+    const toEl = document.getElementById('queue-merge-to');
+    state.queueMergeFrom = fromEl?.value ?? '';
+    state.queueMergeTo = toEl?.value ?? '';
+    if (state.queueMergeFrom) sessionStorage.setItem('queue-merge-from', state.queueMergeFrom);
+    else sessionStorage.removeItem('queue-merge-from');
+    if (state.queueMergeTo) sessionStorage.setItem('queue-merge-to', state.queueMergeTo);
+    else sessionStorage.removeItem('queue-merge-to');
+    renderQueue();
+  };
+  document.getElementById('queue-merge-from')?.addEventListener('change', onCustomMergeDateChange);
+  document.getElementById('queue-merge-to')?.addEventListener('change', onCustomMergeDateChange);
+  document.getElementById('btn-merge-custom-clear')?.addEventListener('click', () => {
+    state.queueMergeFrom = '';
+    state.queueMergeTo = '';
+    sessionStorage.removeItem('queue-merge-from');
+    sessionStorage.removeItem('queue-merge-to');
+    const fromEl = document.getElementById('queue-merge-from');
+    const toEl = document.getElementById('queue-merge-to');
+    if (fromEl) fromEl.value = '';
+    if (toEl) toEl.value = '';
+    renderQueue();
+  });
 
 }
 

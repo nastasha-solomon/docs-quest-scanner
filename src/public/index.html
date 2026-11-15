@@ -42,7 +42,7 @@
     </div>
   </div>
 
-  <div class="container-xl px-3 px-md-4 py-4">
+  <div class="app-container">
     <!-- Toolbar: tabs left, metadata + actions right -->
     <div class="toolbar">
       <nav class="UnderlineNav toolbar-tabs">
@@ -93,6 +93,17 @@
           </select>
         </div>
         <div class="queue-filter-field">
+          <label for="queue-merge-filter">Merged</label>
+          <select id="queue-merge-filter" class="form-select form-select-sm queue-filter-select">
+            <option value="all">All dates</option>
+            <option value="7d">Last 7 days</option>
+            <option value="30d">Last 30 days</option>
+            <option value="90d">Last 90 days</option>
+            <option value="since-scan">Since last scan</option>
+            <option value="custom">Custom range…</option>
+          </select>
+        </div>
+        <div class="queue-filter-field">
           <label for="queue-doc-work-filter">Doc work</label>
           <select id="queue-doc-work-filter" class="form-select form-select-sm queue-filter-select">
             <option value="all">All</option>
@@ -121,6 +132,13 @@
           </select>
         </div>
         <span class="queue-filter-hint text-small color-fg-muted" id="queue-filter-hint"></span>
+      </div>
+      <div id="queue-merge-custom" class="queue-merge-custom mb-2" hidden>
+        <label class="queue-merge-custom-label" for="queue-merge-from">From</label>
+        <input type="date" id="queue-merge-from" class="form-control form-control-sm queue-merge-date" />
+        <label class="queue-merge-custom-label" for="queue-merge-to">To</label>
+        <input type="date" id="queue-merge-to" class="form-control form-control-sm queue-merge-date" />
+        <button type="button" class="btn btn-sm btn-invisible" id="btn-merge-custom-clear">Clear range</button>
       </div>
       <div class="queue-bulk-bar mb-2" id="queue-bulk-bar">
         <span class="queue-bulk-count text-small" id="queue-bulk-count">0 selected</span>

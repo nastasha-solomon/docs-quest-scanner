@@ -449,6 +449,10 @@ export interface Config {
   defaultQueueFilters?: {
     assessment?: 'all' | 'yes' | 'check' | 'no' | 'yes,check';
     version?: 'all' | 'focus' | string;
+    /** Latest PR merge window: presets, since last scan, or custom yyyy-mm-dd range. */
+    mergeRange?: 'all' | '7d' | '30d' | '90d' | 'since-scan' | 'custom';
+    mergeFrom?: string;
+    mergeTo?: string;
     category?: 'all' | 'focus' | string;
     docWork?: 'all' | 'new' | 'update' | 'api-update' | 'unknown';
     priority?: 'all' | 'p0,p1' | 'p0' | 'p1' | 'p2' | 'p3' | 'unrated';

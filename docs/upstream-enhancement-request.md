@@ -14,6 +14,8 @@
 | `0d460da` | Category + priority filters, internal-route `docSurface`, collapsible scan scope, toolbar layout, `triagePriority` |
 | `45fb090` | Sample `data/enrichments-batch-*.json` for split enrichment merge workflow |
 | `770d604` | Bulk create, category/priority filter fixes, `create-from-queue` refactor |
+| `e847654` | Security - Cases vs One Workflow category repair |
+| *(pending)* | **Merged** date filter, compact filter toolbar, extra skip reasons (`release notes only`, `not my area`) |
 
 ---
 
@@ -28,8 +30,10 @@ This proposal adds:
 - **Enrichment fields and skill guidance** so filters stay accurate after AI triage.
 - **Review UI** improvements: collapsible scan-label strip, grouped filter controls, card badges, priority sort within categories.
 - **Bulk create** — select filtered queue rows (per card or per category section) and file GitHub issues in one pass.
+- **Merged date filter** — client-side window on latest PR merge (`mergedAt`), orthogonal to stack minor / version labels.
+- **Additional skip reasons** on triage cards for release-note-only scope and out-of-area items (same history shape as existing dismiss actions).
 
-Related fork work (unchanged here): Alerting queue repair, scan excludes, search retry.
+Related fork work (unchanged here): Alerting queue repair, scan excludes, search retry, Security Cases category repair.
 
 ---
 
@@ -40,8 +44,9 @@ Filters compose in any order; a common Security / Alerting pass:
 1. **Stack release** — Focus (auto or config), e.g. 9.7 + 9.6  
 2. **Category** — Focus (`focusCategories`), e.g. Alerting v2 + Detection Engine  
 3. **Assessment** — Needs docs + Check  
-4. **Doc work** — API reference only (when doing an API pass; not defaulted)  
-5. **Priority** — P0 + P1 (enriched `triagePriority` or release-note heuristics)
+4. **Merged** — Last 30 days or **Since last scan** when catching up after enrichment  
+5. **Doc work** — API reference only (when doing an API pass; not defaulted)  
+6. **Priority** — P0 + P1 (enriched `triagePriority` or release-note heuristics)
 
 Example config defaults (applied once per browser tab when filter `sessionStorage` keys are unset):
 
@@ -69,6 +74,7 @@ Example config defaults (applied once per browser tab when filter `sessionStorag
 |--------|---------|
 | **Assessment** | All / needs docs / check / no / needs docs + check |
 | **Stack release** | All / **Focus** (newest 1–2 minors or `focusStackReleases`) / single minor (`v9.6.0` → **9.6**) |
+| **Merged** | All dates / **Last 7 / 30 / 90 days** / **Since last scan** / **Custom range** (From / To) |
 | **Doc work** | New / update / **API reference only** / not classified |
 | **Category** | All / **Focus** (`focusCategories`) / one category (matches `category` or `alsoAppliesTo`) |
 | **Priority** | All / P0+P1 / P0–P3 / unrated |
@@ -78,9 +84,21 @@ Example config defaults (applied once per browser tab when filter `sessionStorag
 - **Default filters:** `defaultQueueFilters` in `data/config.json` — only applied when the user has not yet set that filter in `sessionStorage` this session.
 - **Sort:** Within each category group, cards sort by `triagePriorityLevel` (P0 first), then confidence.
 
+#### Merged date filter (client-side)
+
+- **Purpose:** Narrow by **when PRs merged**, independent of **stack release** (version labels on the PR).
+- **Date rule:** For grouped queue items, use the **latest** `mergedAt` among PRs in the item (same rule as serverless week estimates).
+- **Presets:** `7d`, `30d`, `90d` (rolling from “now”); **Since last scan** uses `filterMeta.lastScanAt` (`queue.scannedAt` or `lastRun.lastRunDate` on `GET /queue`).
+- **Custom:** Optional **From** / **To** calendar fields (inclusive local days); open-ended if only one bound is set. Selecting **Custom range…** reveals a second row; **Clear range** resets dates.
+- **Counts:** Dropdown options show how many queue items match each preset (full queue, not other filters).
+- **Persistence:** `sessionStorage` keys `queue-merge-filter`, `queue-merge-from`, `queue-merge-to`; optional defaults via `defaultQueueFilters.mergeRange`, `mergeFrom`, `mergeTo`.
+- **Implementation:** `src/public/queue-merge-filter.js` (shared logic, unit-tested); filter step in `applyQueueFilters()` after assessment and stack release.
+- **Items without `mergedAt`:** Excluded when any merge preset is active (not when **All dates**).
+- **Does not change scanning** — only filters the loaded queue (unlike `maxMergeAgeMonths` on scan).
+
 #### Filter toolbar layout
 
-Each control is a **label + select** in one bordered pill (`.queue-filter-field`) so wrapping does not separate labels from the wrong dropdown. Selects use content-sized width (`field-sizing: content` where supported) so short values like “All” do not look detached from their label.
+Each control is a **label + select** in one bordered pill (`.queue-filter-field`). The filter row stays on **one line** with horizontal scroll on narrow viewports (`flex-wrap: nowrap`). Selects use content-sized width (`field-sizing: content` where supported). Main content uses tighter horizontal padding (`.app-container`) so more of the queue fits on screen.
 
 ### 2. Config: release and category focus
 
@@ -126,6 +144,7 @@ Reduces visual noise when the configured label list is long.
 | `triagePriorityLevel` / `triagePriorityLabel` / `triagePrioritySource` | `assessment.triagePriority` or `deriveTriagePriority` (`src/triage-priority.ts`) |
 | `filterMeta.focusStackReleases` / `focusAuto` | Manual or auto stack focus |
 | `filterMeta.focusCategories` | From config |
+| `filterMeta.lastScanAt` | Anchor for **Since last scan** merge filter |
 
 **Doc work “API reference only” filter** matches `docSurface === 'api-only'` and doc work update/unknown (not net-new guides only).
 
@@ -152,7 +171,7 @@ On **Create issue**, project **Priority** = `triagePriority` → heuristic label
 
 ### 5. Skill enrichment (template **3.15.0+**)
 
-**Filters (agents):** Document Assessment, Stack release (`autoFocusStackReleases` / `focusStackReleases`), Doc work, Category (`focusCategories`), Priority (`triagePriority`).
+**Filters (agents):** Document Assessment, Stack release (`autoFocusStackReleases` / `focusStackReleases`), **Merged** (presets / since last scan / custom), Doc work, Category (`focusCategories`), Priority (`triagePriority`).
 
 **`docsGap` / API reference:**
 
@@ -190,9 +209,26 @@ When a category slice is ready (for example after filters + enrichment), writers
 - Each success uses the same path as `POST /create-issue` (project fields, meta-issue linking, history, queue removal).
 - Shared implementation: `src/create-from-queue.ts` (`createDocsIssueFromQueueItem`) so single and bulk stays in sync.
 
-### 8. Related fork work (same triage use case)
+### 8. Skip / dismiss reasons (triage card actions)
+
+Each **Skip** button calls `POST /dismiss` with a `reason` string; the item is removed from the queue and appended to `data/history.json` with `decision: "dismissed"`.
+
+| UI label | `reason` stored in history |
+|----------|---------------------------|
+| Skip – no docs | `no docs needed` |
+| Skip – already tracked | `already tracked` |
+| Skip – owned by dev | `owned by dev` |
+| Skip – release notes only | `release notes only` |
+| Skip – not my area | `not my area` |
+
+**UI surfaces:** **History** tab (per-row `reason`, grouped by `session`); **Queue** tab **Skipped** collapsible (dismissals since current `queue.scannedAt`) with **Restore** (`POST /undo-dismiss`). No new API fields—only additional allowed `reason` values. Auto-dismiss after enrichment may still use suffixed strings (e.g. `no docs needed (auto, …)`).
+
+`test/skip-options.test.ts` asserts all five manual skip buttons are present on each card.
+
+### 9. Related fork work (same triage use case)
 
 - Alerting v1/v2 queue repair (`fixAlertingQueue`)
+- Security - Cases vs One Workflow (`resolveSecurityCasesCategoryFromLabels`, `fixSecurityCasesQueueItem`)
 - Configurable `excludeLabels` / `excludeTitlePatterns`
 - GitHub Search API retry on rate limits
 
@@ -206,12 +242,15 @@ When a category slice is ready (for example after filters + enrichment), writers
 - Auto stack focus and **category focus** reduce repetitive config edits each train.
 - Collapsible scan scope and clearer filter grouping make large queues usable on laptop-width viewports.
 - **Bulk create** supports category-based triage slices after enrichment without repetitive single-card clicks.
+- **Merged** filter supports “what landed recently” and “since I last scanned” without conflating merge time with version labels.
+- Extra **skip reasons** record writer intent in history for slice hygiene (release-note-only, not my area).
 
 ---
 
 ## Suggested merge notes
 
-- README: document all filter keys, `focusStackReleases`, `autoFocusStackReleases`, `focusCategories`, `defaultQueueFilters`.
+- README: document all filter keys, `focusStackReleases`, `autoFocusStackReleases`, `focusCategories`, `defaultQueueFilters` (including optional `mergeRange`, `mergeFrom`, `mergeTo`), and manual skip `reason` values.
+- Skill **Skip reasons** section: list `release notes only` and `not my area` alongside existing three reasons.
 - Default `autoFocusStackReleases: false` and omit `defaultQueueFilters` for backward compatibility.
 - Policy choice: whether manual `focusStackReleases` should override auto when both are set (fork: auto wins).
 - Install / bump skill from `templates/skill.md.template` after merge (`./scripts/setup.sh`).
@@ -228,4 +267,6 @@ When a category slice is ready (for example after filters + enrichment), writers
 6. **Priority:** Breaking + `needsDocs: yes` → P0 heuristic; enriched `triagePriority` on card and on issue create (`test/triage-priority.test.ts`).
 7. **UI:** Scan scope collapses/expands and remembers state; filter pills keep label+select paired when wrapped.
 8. **Bulk create:** Filter to one category → Select visible → Create issues; partial failures leave failed rows in queue; history records successes.
-9. **Regression:** `fixAlertingQueue`, excludes, `GET /queue` consumers, existing enrichment merge script, single `POST /create-issue` unchanged behavior.
+9. **Merged:** Presets 7d / 30d / 90d match latest-`mergedAt` counts; **Since last scan** uses `filterMeta.lastScanAt`; custom From/To inclusive; custom row clears with **Clear range** (`test/queue-merge-filter.test.ts`).
+10. **Skip reasons:** Card shows five skip buttons; dismiss stores exact `reason`; History and Skipped list display it; `test/skip-options.test.ts`.
+11. **Regression:** `fixAlertingQueue`, excludes, `GET /queue` consumers, existing enrichment merge script, single `POST /create-issue` unchanged behavior.

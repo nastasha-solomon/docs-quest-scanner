@@ -71,5 +71,7 @@ test('offers every supported skip reason on each triage card', () => {
     { reason: 'no docs needed', label: 'Skip – no docs' },
     { reason: 'already tracked', label: 'Skip – already tracked' },
     { reason: 'owned by dev', label: 'Skip – owned by dev' },
+    { reason: 'release notes only', label: 'Skip – release notes only' },
+    { reason: 'not my area', label: 'Skip – not my area' },
   ]);
 });
