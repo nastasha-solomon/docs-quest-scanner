@@ -15,7 +15,7 @@ After a scan, the Security, Alerting, and Observability queue is too large to wo
 | Queue classification | Work out doc work type, API surface, and priority for each item when the queue loads | [Section 3](#3-queue-classification) |
 | Enrichment updates | Skill guidance so AI enrichment keeps that classification accurate | [Section 4](#4-enrichment-and-skill-updates) |
 | Card badges | Show doc work type and priority on each card | [Section 5](#5-card-badges) |
-| Collapsible scan scope | Hide the long label list above the queue by default | [Section 6](#6-collapsible-scan-scope) |
+| Scan scope and scan buttons | Show what the queue covers, and start a scan or enrichment from the page | [Section 6](#6-scan-scope-and-scan-buttons) |
 | Skip reasons | Add **release notes only** and **not my area** | [Section 7](#7-skip-reasons) |
 | Bulk actions | Accept or skip all selected items at once, with a progress bar | [Section 8](#8-bulk-actions) |
 
@@ -30,7 +30,7 @@ Filters combine in any order. A typical Security and Alerting pass:
 5. **Doc work:** API reference only, when doing an API pass
 6. **Priority:** P0 + P1
 
-Then **Select visible** and apply a bulk action to the results. The config for this pass is in [Section 2](#2-config-options).
+Then **Select all** and apply a bulk action to the results. The config for this pass is in [Section 2](#2-config-options).
 
 ---
 
@@ -49,7 +49,8 @@ All filters combine. Each filter's value is kept in `sessionStorage` for the bro
 | **Category** | All categories, **Focus** ([Section 2](#2-config-options)), or one category. Matches the item's `category` or `alsoAppliesTo`. |
 | **Priority** | All, P0 + P1, P0, P1, P2, P3, Unrated |
 
-- When any filter is active, the toolbar shows **Showing X of Y items**.
+- The **Triage queue** heading shows the item count, or **Showing X of Y items** when any filter is active.
+- **Reset**, at the end of the filter row, sets every filter to All. It ignores `defaultQueueFilters`.
 - A **★** in a dropdown marks focus releases and focus categories.
 - Within each category group, cards sort by priority (P0 first), then by confidence.
 
@@ -65,7 +66,9 @@ Filters by when PRs merged, independent of the version labels that **Stack relea
 - **Storage:** `sessionStorage` keys `queue-merge-filter`, `queue-merge-from`, and `queue-merge-to`.
 - **Code:** `src/public/queue-merge-filter.js`, tested in `test/queue-merge-filter.test.ts`. `applyQueueFilters()` runs it after the assessment and stack release filters.
 
-#### Toolbar layout
+#### Layout
+
+The controls above the queue sit in one bordered panel with three labeled rows: **Scan scope**, **Filters**, and **Bulk actions**. Each row has a short title and hint on the left, and its controls on the right. Under 720px wide, the label stacks above the controls. The **Triage queue** heading below the panel is larger than the category headings, so the page reads top to bottom: controls, then the queue, then categories.
 
 Each filter is a label and dropdown inside one bordered pill (`.queue-filter-field`). The filter row stays on one line and scrolls horizontally on narrow screens. Dropdowns size to their content (`field-sizing: content` where supported), and `.app-container` uses tighter side padding so more of the queue fits.
 
@@ -150,13 +153,15 @@ In addition to the existing assessment and release-note chips, each card can sho
 
 Badges are dashed when the value is an estimate. The effort tag badge is unchanged.
 
-### 6. Collapsible scan scope
+### 6. Scan scope and scan buttons
 
-The strip above the queue lists the source repo, team labels, release-note labels, and scan dates. Because the label list can be long, it's now collapsed by default in a `<details>` element.
+The **Scan scope** row shows what the loaded queue covers and lets writers refresh it without the terminal.
 
-- **Collapsed:** `Scan scope: elastic/kibana · {date range} · N labels`, with a **Show scan labels** toggle
-- **Expanded:** Team labels and release-note labels in separate rows
-- **Storage:** Open or closed state is kept in `sessionStorage` (`scan-context-open`).
+- **Summary:** Repo, **Merged since** (`lastRun.lastRunDate`, the start of the scan window), **Last scan run** (`queue.scannedAt`), and the number of categories and team labels. The **Merged since** tooltip explains that the date only moves on **Mark scan complete**.
+- **Details:** **Show categories and labels** opens a table with each category's team labels and its item count in the queue. Below it are the release note labels and any `excludeLabels` or `excludeTitlePatterns`. The open or closed state is kept in `sessionStorage` (`scan-context-open`).
+- **Run scan:** Calls the existing `POST /scan`, which had no button before. A message covers the page while the scan runs, and a toast then reports new and total items. The endpoint now returns `scanStats: { total, added }` and responds with `409` if a scan is already running. New items are matched by repo and PR numbers, because item IDs change on every scan.
+- **Enrich N items:** Counts items that still need enrichment, using the skill's Step 2 rule: not pre-filtered, not **owned by dev**, and no `docsGap`. It opens a dialog with a prompt to paste into Claude Code. Enrichment needs an AI agent with docs search, so the server doesn't run it. The button is disabled when nothing is left.
+- **Tooltips:** Both buttons have tooltips that say what will happen, including the current **Merged since** date and the number of items waiting.
 
 ### 7. Skip reasons
 
@@ -181,12 +186,12 @@ Lets writers act on a filtered slice of the queue without opening each card.
 **Selecting items**
 
 - Each card has a checkbox. Each category header has a checkbox that selects the visible items in that category.
-- The bar below the filters has **Select visible** (everything the current filters show), **Bulk action**, **Apply**, and **Clear**. **Bulk action** uses the same pill style as the filters.
-- **Apply** is disabled until at least one item is selected.
+- The **Bulk actions** row has **Select all** (every item matching the current filters), **Clear selection**, and a selected count on the left. The **Action** dropdown, in the same pill style as the filters, and the apply button are on the right.
+- The apply button names the action and count, for example **Accept 5 quests** or **Skip – no docs (3)**. It's disabled until at least one item is selected.
 
 **Actions**
 
-The **Bulk action** dropdown offers **Accept quest** and the five skip reasons from [Section 7](#7-skip-reasons). Every action asks for confirmation first and lists a sample of the selected titles.
+The **Action** dropdown offers **Accept quest** and the five skip reasons from [Section 7](#7-skip-reasons). Every action asks for confirmation first and lists a sample of the selected titles.
 
 - **Accept quest** creates a GitHub issue for each item. **Good first issue** isn't applied in bulk; use the per-card checkbox.
 - **Skip** actions dismiss each item with the matching `reason`.
@@ -225,7 +230,8 @@ These came from the same triage work and are in the fork. They're listed for con
 - The merge date filter answers "what landed recently" and "what's new since my last scan" without relying on version labels.
 - Bulk actions remove repetitive clicks after enrichment. The progress bar shows how a long run is going when GitHub calls are slow (SSO, rate limits, meta-issue linking).
 - The new skip reasons record why an item was skipped, which keeps history useful.
-- The collapsible scan scope and one-line toolbar make large queues workable on a laptop screen.
+- The labeled controls panel, compact scan scope, and one-line filter row make large queues workable on a laptop screen.
+- **Run scan** and **Enrich** mean writers don't have to remember commands to refresh or enrich the queue.
 
 ## Merge notes
 
@@ -234,6 +240,7 @@ These came from the same triage work and are in the fork. They're listed for con
 - **Decisions for upstream:**
   - When both `focusStackReleases` and `autoFocusStackReleases` are set, which wins? The fork lets auto win.
   - Keep `POST /create-issues`? The UI no longer calls it.
+  - Should **Enrich** keep handing off a prompt, or launch Claude Code from the server? The fork hands off a prompt, because a page that starts an agent with write access needs protection against cross-site requests.
 
 ## Test plan
 
@@ -244,11 +251,13 @@ These came from the same triage work and are in the fork. They're listed for con
 5. **API reference only:** A public server route with an enriched `/docs/api/` gap shows **API ref** and matches the filter.
 6. **Internal routes:** A PR with `access: 'internal'` gets no API ref estimate, and review-only internal gaps don't match the filter (`test/doc-surface.test.ts`).
 7. **Priority:** A breaking change with `needsDocs: "yes"` is estimated P0. An enriched `triagePriority` shows on the card and is set on the created issue (`test/triage-priority.test.ts`).
-8. **Layout:** Scan scope collapses, expands, and remembers its state. The filter row stays on one line and scrolls horizontally. **Bulk action** uses the filter pill style.
+8. **Layout:** The panel shows three labeled rows, and stacks them under 720px. The categories table opens, closes, and remembers its state. The filter row stays on one line and scrolls horizontally. **Reset** sets all six filters to All.
 9. **Skip reasons:** Each card has five skip buttons. Each stores its exact `reason`, which shows in History and in the Skipped list (`test/skip-options.test.ts`).
-10. **Bulk accept:** Filter to one category, click **Select visible**, and apply **Accept quest**. The progress bar advances per item. Failed items stay in the queue, and successes are recorded in history.
-11. **Bulk skip:** Select items, apply any skip reason, and confirm. The progress bar advances, and history shows the `reason`. **Apply** is disabled when nothing is selected.
-12. **Regression:** `fixAlertingQueue`, excludes, other `GET /queue` consumers, the enrichment merge script, and single-card `POST /create-issue` behave as before.
+10. **Bulk accept:** Filter to one category, click **Select all**, and apply **Accept quest**. The progress bar advances per item. Failed items stay in the queue, and successes are recorded in history.
+11. **Bulk skip:** Select items, apply any skip reason, and confirm. The progress bar advances, and history shows the `reason`. The apply button is disabled when nothing is selected.
+12. **Run scan:** The page shows a scanning message, then a toast with new and total counts. Edits and enrichment survive. A second `POST /scan` during a scan returns `409`.
+13. **Enrich:** With unenriched items, the button and the dialog's prompt show the same count. With none, the button reads **All items enriched** and is disabled.
+14. **Regression:** `fixAlertingQueue`, excludes, other `GET /queue` consumers, the enrichment merge script, and single-card `POST /create-issue` behave as before.
 
 ## Fork commits
 

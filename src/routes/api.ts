@@ -167,8 +167,22 @@ apiRouter.patch('/queue/:id', (req, res) => {
 
 // ── Scan ────────────────────────────────────────────────
 
+let scanInProgress = false;
+
+/** Stable identity for a queue item across scans (item ids are regenerated each scan). */
+function queueItemPrKey(item: QueueItem): string {
+  const prs = item.prs.map((p) => p.number).sort((a, b) => a - b).join(',');
+  return `${item.repoId ?? ''}#${prs}`;
+}
+
 apiRouter.post('/scan', async (_req, res) => {
+  if (scanInProgress) {
+    res.status(409).json({ error: 'A scan is already running' });
+    return;
+  }
+  scanInProgress = true;
   try {
+    const before = new Set(loadQueue().items.map(queueItemPrKey));
     const queue = await runScan();
 
     // Render bodies
@@ -177,9 +191,12 @@ apiRouter.post('/scan', async (_req, res) => {
     }
     saveQueue(queue);
 
-    res.json(queue);
+    const added = queue.items.filter((item) => !before.has(queueItemPrKey(item))).length;
+    res.json({ ...queue, scanStats: { total: queue.items.length, added } });
   } catch (err) {
     res.status(500).json({ error: String(err) });
+  } finally {
+    scanInProgress = false;
   }
 });
 

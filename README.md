@@ -296,14 +296,22 @@ yarn deploy        # Sync repo changes to the skill install (~/.claude/skills/do
 
 ### Queue tab
 
-Each card is a PR that needs triage. It shows the AI summary, availability, the suggested issue body, and badges for doc work type, API reference work, and priority (P0–P3). Dashed badges are estimates that enrichment hasn't confirmed.
+A panel above the queue has three rows: **Scan scope**, **Filters**, and **Bulk actions**. Below it, the **Triage queue** heading shows the item count, and cards are grouped by category.
 
-- **Already tracked:** If the scan found an existing docs issue that references the PR (through GitHub cross-reference events), the card shows a green badge and a link, so you can skip it without re-reading the PR.
-- **Scan scope:** The collapsed row above the queue shows the source repo, scan dates, and label count. Expand it to see the team and release-note labels.
+Each card is a PR that needs triage. It shows the AI summary, availability, the suggested issue body, and badges for doc work type, API reference work, and priority (P0–P3). Dashed badges are estimates that enrichment hasn't confirmed. If the scan found an existing docs issue that references the PR (through GitHub cross-reference events), the card shows a green **Already tracked** badge and a link.
+
+#### Scan scope
+
+Shows what the loaded queue covers: the repo, **Merged since** (the date of your last completed scan), **Last scan run**, and the number of categories. **Show categories and labels** opens a table of each category's team labels and how many queue items it has, followed by the release note labels and any exclusions.
+
+- **Run scan** fetches new PRs, the same as `yarn scan`. Your edits and enrichment are kept. The page is blocked until the scan finishes, and then a message reports how many items are new.
+- **Enrich N items** shows how many items haven't been through AI enrichment yet. It opens a prompt to paste into Claude Code, because enrichment runs in the skill, not in the page. Refresh the page when the agent finishes.
+
+Hover over either button for a description of what it does.
 
 #### Queue filters
 
-Filters combine, and each choice is kept for the browser session. When any filter is active, the toolbar shows "Showing X of Y items."
+Filters combine, and each choice is kept for the browser session. When any filter is active, the **Triage queue** heading shows "Showing X of Y items." **Reset** sets every filter back to All.
 
 | Filter | Options |
 |--------|---------|
@@ -339,11 +347,11 @@ Items skipped since the current scan are listed under **Skipped** at the bottom 
 
 #### Bulk actions
 
-1. Select cards with their checkboxes, a category header checkbox, or **Select visible** (everything the current filters show).
-2. Choose a **Bulk action**: **Accept quest** or any skip reason.
-3. Click **Apply** and confirm.
+1. Select cards with their checkboxes, a category header checkbox, or **Select all** (every item matching the current filters).
+2. Choose an **Action**: **Accept quest** or any skip reason.
+3. Click the button next to it, which names the action and count (for example, **Accept 5 quests**), and confirm.
 
-A progress bar counts items as they're processed one at a time (for example, `Creating issues… 3 / 8`). When it finishes, a message reports how many succeeded and the first error, if any. Failed items stay in the queue. **Good first issue** isn't applied in bulk. **Clear** deselects everything.
+A progress bar counts items as they're processed one at a time (for example, `Creating issues… 3 / 8`). When it finishes, a message reports how many succeeded and the first error, if any. Failed items stay in the queue. **Good first issue** isn't applied in bulk. **Clear selection** deselects everything.
 
 The UI calls `POST /create-issue` or `POST /dismiss` once per item. `POST /create-issues` is also available for scripted batch creates.
 
@@ -392,7 +400,7 @@ The template is at `templates/issue-template.md` (Handlebars syntax) and can be 
 
 ## Fork enhancements
 
-This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream.
+This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, **Run scan** and **Enrich** buttons, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream.
 
 ## License
 

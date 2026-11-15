@@ -62,125 +62,181 @@
       </div>
     </div>
 
-    <!-- Scan context bar (collapsible label list) -->
-    <div id="scan-context" class="scan-context-wrap" style="display:none">
-      <details class="scan-context-details" id="scan-context-details">
-        <summary class="scan-context-summary">
-          <span id="scan-context-summary-text" class="scan-context-summary-text"></span>
-          <span class="scan-context-summary-hint color-fg-muted">Show scan labels</span>
-        </summary>
-        <div class="scan-context-body" id="scan-context-body"></div>
-      </details>
-    </div>
-
     <!-- Queue tab -->
     <div id="tab-queue" class="tab-content">
-      <div class="queue-toolbar mb-3" id="queue-toolbar">
-        <div class="queue-filter-field">
-          <label for="queue-filter">Assessment</label>
-          <select id="queue-filter" class="form-select form-select-sm queue-filter-select">
-            <option value="all">All</option>
-            <option value="yes">Needs docs</option>
-            <option value="check">Check</option>
-            <option value="no">No docs needed</option>
-            <option value="yes,check">Needs docs + Check</option>
-          </select>
+      <section class="queue-controls" aria-label="Queue controls">
+        <div class="queue-controls__row" id="queue-section-scan" style="display:none">
+          <div class="queue-controls__label">
+            <h2 class="queue-controls__title">Scan scope</h2>
+            <p class="queue-controls__hint">What this queue covers</p>
+          </div>
+          <div class="queue-controls__body queue-controls__body--stack">
+            <div class="scan-scope__top">
+              <dl class="scan-scope__facts" id="scan-scope-facts"></dl>
+              <div class="scan-scope__actions">
+                <span class="btn-tip">
+                  <button type="button" class="btn btn-sm" id="btn-run-scan" aria-describedby="tip-run-scan">Run scan</button>
+                  <span class="btn-tip__bubble" role="tooltip" id="tip-run-scan">
+                    Checks GitHub for new PRs that match your categories and release note labels.
+                    Your edits and enrichment are kept. Can take a few minutes.
+                  </span>
+                </span>
+                <span class="btn-tip">
+                  <button type="button" class="btn btn-sm btn-primary" id="btn-enrich" aria-describedby="tip-enrich">Enrich</button>
+                  <span class="btn-tip__bubble" role="tooltip" id="tip-enrich">
+                    Opens a prompt to paste into Claude Code, which analyzes items that haven't been enriched yet.
+                    Nothing runs from this page.
+                  </span>
+                </span>
+              </div>
+            </div>
+            <details class="scan-scope__details" id="scan-context-details">
+              <summary class="scan-scope__toggle">
+                <span class="scan-context-summary-hint">Show categories and labels</span>
+              </summary>
+              <div class="scan-scope__body" id="scan-context-body"></div>
+            </details>
+          </div>
         </div>
-        <div class="queue-filter-field">
-          <label for="queue-version-filter">Stack release</label>
-          <select id="queue-version-filter" class="form-select form-select-sm queue-filter-select">
-            <option value="all">All versions</option>
-          </select>
+
+        <div class="queue-controls__row" id="queue-section-filters">
+          <div class="queue-controls__label">
+            <h2 class="queue-controls__title">Filters</h2>
+            <p class="queue-controls__hint">Narrow the list below</p>
+          </div>
+          <div class="queue-controls__body queue-controls__body--stack">
+            <div class="queue-toolbar" id="queue-toolbar">
+              <div class="queue-filter-field">
+                <label for="queue-filter">Assessment</label>
+                <select id="queue-filter" class="form-select form-select-sm queue-filter-select">
+                  <option value="all">All</option>
+                  <option value="yes">Needs docs</option>
+                  <option value="check">Check</option>
+                  <option value="no">No docs needed</option>
+                  <option value="yes,check">Needs docs + Check</option>
+                </select>
+              </div>
+              <div class="queue-filter-field">
+                <label for="queue-version-filter">Stack release</label>
+                <select id="queue-version-filter" class="form-select form-select-sm queue-filter-select">
+                  <option value="all">All versions</option>
+                </select>
+              </div>
+              <div class="queue-filter-field">
+                <label for="queue-merge-filter">Merged</label>
+                <select id="queue-merge-filter" class="form-select form-select-sm queue-filter-select">
+                  <option value="all">All dates</option>
+                  <option value="7d">Last 7 days</option>
+                  <option value="30d">Last 30 days</option>
+                  <option value="90d">Last 90 days</option>
+                  <option value="since-scan">Since last scan</option>
+                  <option value="custom">Custom range…</option>
+                </select>
+              </div>
+              <div class="queue-filter-field">
+                <label for="queue-doc-work-filter">Doc work</label>
+                <select id="queue-doc-work-filter" class="form-select form-select-sm queue-filter-select">
+                  <option value="all">All</option>
+                  <option value="new">New content</option>
+                  <option value="update">Update existing</option>
+                  <option value="api-update">API reference only</option>
+                  <option value="unknown">Not classified yet</option>
+                </select>
+              </div>
+              <div class="queue-filter-field">
+                <label for="queue-category-filter">Category</label>
+                <select id="queue-category-filter" class="form-select form-select-sm queue-filter-select">
+                  <option value="all">All categories</option>
+                </select>
+              </div>
+              <div class="queue-filter-field">
+                <label for="queue-priority-filter">Priority</label>
+                <select id="queue-priority-filter" class="form-select form-select-sm queue-filter-select">
+                  <option value="all">All</option>
+                  <option value="p0,p1">P0 + P1</option>
+                  <option value="p0">P0</option>
+                  <option value="p1">P1</option>
+                  <option value="p2">P2</option>
+                  <option value="p3">P3</option>
+                  <option value="unrated">Unrated</option>
+                </select>
+              </div>
+              <button type="button" class="btn btn-sm queue-filters-reset" id="btn-queue-filters-reset">Reset</button>
+            </div>
+            <div id="queue-merge-custom" class="queue-merge-custom" hidden>
+              <label class="queue-merge-custom-label" for="queue-merge-from">From</label>
+              <input type="date" id="queue-merge-from" class="form-control form-control-sm queue-merge-date" />
+              <label class="queue-merge-custom-label" for="queue-merge-to">To</label>
+              <input type="date" id="queue-merge-to" class="form-control form-control-sm queue-merge-date" />
+              <button type="button" class="btn btn-sm btn-invisible" id="btn-merge-custom-clear">Clear range</button>
+            </div>
+          </div>
         </div>
-        <div class="queue-filter-field">
-          <label for="queue-merge-filter">Merged</label>
-          <select id="queue-merge-filter" class="form-select form-select-sm queue-filter-select">
-            <option value="all">All dates</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-            <option value="since-scan">Since last scan</option>
-            <option value="custom">Custom range…</option>
-          </select>
+
+        <div class="queue-controls__row" id="queue-section-bulk">
+          <div class="queue-controls__label">
+            <h2 class="queue-controls__title">Bulk actions</h2>
+            <p class="queue-controls__hint">Act on selected cards</p>
+          </div>
+          <div class="queue-controls__body queue-controls__body--stack">
+            <div class="queue-bulk-bar" id="queue-bulk-bar">
+              <div class="queue-bulk-bar__group queue-bulk-bar__selection">
+                <button type="button" class="btn btn-sm" id="btn-bulk-select-visible">Select all</button>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-bulk-clear">Clear selection</button>
+                <span class="queue-bulk-count text-small" id="queue-bulk-count">0 selected</span>
+              </div>
+              <div class="queue-bulk-bar__spacer" aria-hidden="true"></div>
+              <div class="queue-bulk-bar__group queue-bulk-bar__actions">
+                <div class="queue-filter-field">
+                  <label for="bulk-action-select">Action</label>
+                  <select id="bulk-action-select" class="form-select form-select-sm queue-filter-select">
+                    <option value="accept">Accept quest</option>
+                    <option value="skip-no-docs">Skip – no docs</option>
+                    <option value="skip-already-tracked">Skip – already tracked</option>
+                    <option value="skip-owned-by-dev">Skip – owned by dev</option>
+                    <option value="skip-release-notes-only">Skip – release notes only</option>
+                    <option value="skip-not-my-area">Skip – not my area</option>
+                  </select>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary queue-bulk-apply" id="btn-bulk-apply" disabled>
+                  Apply
+                </button>
+              </div>
+            </div>
+            <div id="queue-bulk-progress" class="queue-bulk-progress" hidden>
+              <div class="queue-bulk-progress-track" aria-hidden="true">
+                <div id="queue-bulk-progress-fill" class="queue-bulk-progress-fill" style="width: 0%"></div>
+              </div>
+              <span id="queue-bulk-progress-label" class="queue-bulk-progress-label text-small color-fg-muted">0 / 0</span>
+            </div>
+          </div>
         </div>
-        <div class="queue-filter-field">
-          <label for="queue-doc-work-filter">Doc work</label>
-          <select id="queue-doc-work-filter" class="form-select form-select-sm queue-filter-select">
-            <option value="all">All</option>
-            <option value="new">New content</option>
-            <option value="update">Update existing</option>
-            <option value="api-update">API reference only</option>
-            <option value="unknown">Not classified yet</option>
-          </select>
+      </section>
+
+      <section class="queue-list" id="queue-section-cards">
+        <header class="queue-list__header">
+          <h2 class="queue-list__title">Triage queue</h2>
+          <span class="queue-list__meta" id="queue-filter-hint"></span>
+        </header>
+        <div id="queue-container"></div>
+        <div id="queue-empty" class="blankslate" style="display:none">
+          <h3 class="blankslate-heading" id="queue-empty-heading">Your quest log is empty</h3>
+          <p id="queue-empty-message">No PRs awaiting triage. Run a scan to discover new quests.</p>
+          <p class="text-small color-fg-muted" id="queue-empty-hint">Click <strong>Run scan</strong> in Scan scope above, or use the <code>/docs-quest-scanner</code> skill in Claude Code.</p>
+          <!-- Complete scan CTA — only shown when a scan is active and queue is clear -->
+          <div id="complete-scan-footer" class="scan-complete-footer" style="display:none">
+            <button class="btn btn-large" id="btn-complete" style="background-color: #1a7f37; color: #fff; border-color: rgba(27,31,36,0.15); padding: 10px 32px; font-size: 16px; font-weight: 600;">
+              <svg class="octicon mr-2" viewBox="0 0 16 16" width="16" height="16" style="vertical-align: text-bottom;">
+                <path fill="currentColor" d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
+              </svg>
+              Mark scan complete
+              <span class="btn-complete-sub"><span class="quest-turn-in">?</span> and collect rewards</span>
+            </button>
+            <div class="scan-complete-flavor">All quests resolved. Return to the inn.</div>
+            <div class="scan-complete-info" id="scan-complete-info"></div>
+          </div>
         </div>
-        <div class="queue-filter-field">
-          <label for="queue-category-filter">Category</label>
-          <select id="queue-category-filter" class="form-select form-select-sm queue-filter-select">
-            <option value="all">All categories</option>
-          </select>
-        </div>
-        <div class="queue-filter-field">
-          <label for="queue-priority-filter">Priority</label>
-          <select id="queue-priority-filter" class="form-select form-select-sm queue-filter-select">
-            <option value="all">All</option>
-            <option value="p0,p1">P0 + P1</option>
-            <option value="p0">P0</option>
-            <option value="p1">P1</option>
-            <option value="p2">P2</option>
-            <option value="p3">P3</option>
-            <option value="unrated">Unrated</option>
-          </select>
-        </div>
-        <span class="queue-filter-hint text-small color-fg-muted" id="queue-filter-hint"></span>
-      </div>
-      <div id="queue-merge-custom" class="queue-merge-custom mb-2" hidden>
-        <label class="queue-merge-custom-label" for="queue-merge-from">From</label>
-        <input type="date" id="queue-merge-from" class="form-control form-control-sm queue-merge-date" />
-        <label class="queue-merge-custom-label" for="queue-merge-to">To</label>
-        <input type="date" id="queue-merge-to" class="form-control form-control-sm queue-merge-date" />
-        <button type="button" class="btn btn-sm btn-invisible" id="btn-merge-custom-clear">Clear range</button>
-      </div>
-      <div class="queue-bulk-bar mb-2" id="queue-bulk-bar">
-        <span class="queue-bulk-count text-small" id="queue-bulk-count">0 selected</span>
-        <button type="button" class="btn btn-sm" id="btn-bulk-select-visible">Select visible</button>
-        <div class="queue-filter-field">
-          <label for="bulk-action-select">Bulk action</label>
-          <select id="bulk-action-select" class="form-select form-select-sm queue-filter-select">
-            <option value="accept">Accept quest</option>
-            <option value="skip-no-docs">Skip – no docs</option>
-            <option value="skip-already-tracked">Skip – already tracked</option>
-            <option value="skip-owned-by-dev">Skip – owned by dev</option>
-            <option value="skip-release-notes-only">Skip – release notes only</option>
-            <option value="skip-not-my-area">Skip – not my area</option>
-          </select>
-        </div>
-        <button type="button" class="btn btn-sm btn-primary" id="btn-bulk-apply" disabled>Apply</button>
-        <button type="button" class="btn btn-sm btn-outline" id="btn-bulk-clear">Clear</button>
-      </div>
-      <div id="queue-bulk-progress" class="queue-bulk-progress mb-2" hidden>
-        <div class="queue-bulk-progress-track" aria-hidden="true">
-          <div id="queue-bulk-progress-fill" class="queue-bulk-progress-fill" style="width: 0%"></div>
-        </div>
-        <span id="queue-bulk-progress-label" class="queue-bulk-progress-label text-small color-fg-muted">0 / 0</span>
-      </div>
-      <div id="queue-container"></div>
-      <div id="queue-empty" class="blankslate" style="display:none">
-        <h3 class="blankslate-heading" id="queue-empty-heading">Your quest log is empty</h3>
-        <p id="queue-empty-message">No PRs awaiting triage. Run a scan to discover new quests.</p>
-        <p class="text-small color-fg-muted" id="queue-empty-hint">Use the <code>/docs-quest-scanner</code> skill to scan and enrich PRs.</p>
-        <!-- Complete scan CTA — only shown when a scan is active and queue is clear -->
-        <div id="complete-scan-footer" class="scan-complete-footer" style="display:none">
-          <button class="btn btn-large" id="btn-complete" style="background-color: #1a7f37; color: #fff; border-color: rgba(27,31,36,0.15); padding: 10px 32px; font-size: 16px; font-weight: 600;">
-            <svg class="octicon mr-2" viewBox="0 0 16 16" width="16" height="16" style="vertical-align: text-bottom;">
-              <path fill="currentColor" d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
-            </svg>
-            Mark scan complete
-            <span class="btn-complete-sub"><span class="quest-turn-in">?</span> and collect rewards</span>
-          </button>
-          <div class="scan-complete-flavor">All quests resolved. Return to the inn.</div>
-          <div class="scan-complete-info" id="scan-complete-info"></div>
-        </div>
-      </div>
+      </section>
     </div>
 
     <!-- History tab -->
@@ -289,9 +345,42 @@
   </dialog>
 
 
+  <dialog id="enrich-dialog" class="enrich-dialog">
+    <div class="Box">
+      <div class="Box-header d-flex flex-items-center flex-justify-between">
+        <h3 class="Box-title">Enrich the queue</h3>
+        <button class="btn-octicon" id="btn-close-enrich" aria-label="Close">
+          <svg class="octicon" viewBox="0 0 16 16" width="16" height="16">
+            <path fill="currentColor" d="M3.72 3.72a.75.75 0 0 1 1.06 0L8 6.94l3.22-3.22a.749.749 0 0 1 1.275.326.749.749 0 0 1-.215.734L9.06 8l3.22 3.22a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L8 9.06l-3.22 3.22a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042L6.94 8 3.72 4.78a.75.75 0 0 1 0-1.06Z"/>
+          </svg>
+        </button>
+      </div>
+      <div class="Box-body">
+        <p class="enrich-dialog__lead" id="enrich-dialog-lead"></p>
+        <p class="enrich-dialog__text">
+          Enrichment is AI analysis: it reads each PR, searches the published docs, and fills in doc gaps,
+          effort, and priority. It runs in Claude Code with the <code>docs-quest-scanner</code> skill, not in this page.
+        </p>
+        <ol class="enrich-dialog__steps">
+          <li>Copy the prompt below.</li>
+          <li>Paste it into Claude Code (or run <code>claude</code> in a terminal and paste it).</li>
+          <li>When the agent finishes, refresh this page.</li>
+        </ol>
+        <textarea class="form-control input-sm width-full enrich-dialog__prompt" id="enrich-dialog-prompt" rows="4" readonly></textarea>
+        <div class="d-flex flex-justify-end mt-3">
+          <button type="button" class="btn mr-2" id="btn-enrich-cancel">Close</button>
+          <button type="button" class="btn btn-primary" id="btn-enrich-copy">Copy prompt</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Loading overlay -->
   <div id="loading-overlay" class="loading-overlay" style="display:none">
-    <div class="loading-spinner"></div>
+    <div class="loading-overlay__content">
+      <div class="loading-spinner"></div>
+      <p class="loading-overlay__message" id="loading-message" hidden></p>
+    </div>
   </div>
 
   <footer class="app-footer">

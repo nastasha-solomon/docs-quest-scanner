@@ -85,6 +85,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (mergeFrom) state.queueMergeFrom = mergeFrom;
   if (mergeTo) state.queueMergeTo = mergeTo;
   bindScanContextCollapse();
+  bindScanScopeActions();
   bindBulkActions();
   bindEvents();
   await loadUserAvatar();
@@ -489,87 +490,255 @@ function renderStatusBar() {
   }
 }
 
+/** Same rule as the skill's enrichment guard (SKILL.md Step 2). */
+function itemNeedsEnrichment(item) {
+  const a = item.assessment ?? {};
+  if (a.prefiltered) return false;
+  if (a.dismissReason === 'owned by dev') return false;
+  return !(Array.isArray(a.docsGap) && a.docsGap.length > 0);
+}
+
+function pendingEnrichmentCount() {
+  return (state.queue.items ?? []).filter(itemNeedsEnrichment).length;
+}
+
+/** Repo groups from either the multi-repo `repos[]` config or the legacy flat shape. */
+function scanScopeGroups(config) {
+  if (Array.isArray(config.repos) && config.repos.length) return config.repos;
+  return [
+    {
+      source: config.sourceRepo,
+      categories: config.categories ?? [],
+      releaseNoteLabels: config.releaseNoteLabels,
+    },
+  ];
+}
+
 function renderScanContext() {
-  const wrap = document.getElementById('scan-context');
-  const summaryEl = document.getElementById('scan-context-summary-text');
+  const section = document.getElementById('queue-section-scan');
+  const factsEl = document.getElementById('scan-scope-facts');
   const bodyEl = document.getElementById('scan-context-body');
   const config = state.config;
-  if (!config || !wrap || !summaryEl || !bodyEl) {
-    if (wrap) wrap.style.display = 'none';
+  if (!config || !factsEl || !bodyEl) {
+    if (section) section.style.display = 'none';
     return;
   }
 
-  // Support both the legacy flat shape and the multi-repo repos[] shape.
-  const groups = Array.isArray(config.repos) && config.repos.length
-    ? config.repos
-    : [{ source: config.sourceRepo, categories: config.categories ?? [], releaseNoteLabels: config.releaseNoteLabels }];
-
-  const sourceLabel = groups
+  const groups = scanScopeGroups(config);
+  const sources = groups
     .map((g) => (g.source ? `${g.source.owner}/${g.source.repo}` : ''))
-    .filter(Boolean)
-    .join(', ');
-  const teamLabels = [...new Set(groups.flatMap((g) => (g.categories ?? []).flatMap((c) => c.labels)))];
+    .filter(Boolean);
+  const categories = groups.flatMap((g) => g.categories ?? []);
+  const teamLabelCount = new Set(categories.flatMap((c) => c.labels ?? [])).size;
   const releaseLabels = [
     ...new Set(groups.flatMap((g) => g.releaseNoteLabels ?? config.releaseNoteLabels ?? [])),
   ];
+  const excludeLabels = [
+    ...new Set([...(config.excludeLabels ?? []), ...groups.flatMap((g) => g.excludeLabels ?? [])]),
+  ];
+  const excludeTitles = [
+    ...new Set([
+      ...(config.excludeTitlePatterns ?? []),
+      ...groups.flatMap((g) => g.excludeTitlePatterns ?? []),
+    ]),
+  ];
 
-  const since = state.lastRun?.lastRunDate ? formatDate(state.lastRun.lastRunDate) : null;
-  const until = state.queue.scannedAt ? formatDate(state.queue.scannedAt) : null;
-  const dateRange = since && until
-    ? `${since} → ${until}`
-    : since
-      ? `Since ${since}`
-      : until
-        ? `Up to ${until}`
-        : 'Not scanned yet';
+  const since = state.lastRun?.lastRunDate;
+  const scannedAt = state.queue.scannedAt;
 
-  const labelCount = teamLabels.length + releaseLabels.length;
-  summaryEl.textContent = `Scan scope: ${sourceLabel || '—'} · ${dateRange} · ${labelCount} labels`;
+  /** @param {string} term @param {string} valueHtml @param {string} [title] */
+  const fact = (term, valueHtml, title = '') =>
+    `<div class="scan-scope__fact"${title ? ` title="${esc(title)}"` : ''}><dt>${esc(term)}</dt><dd>${valueHtml}</dd></div>`;
 
-  wrap.style.display = '';
+  factsEl.innerHTML = [
+    fact(sources.length > 1 ? 'Repos' : 'Repo', esc(sources.join(', ') || '—')),
+    fact(
+      'Merged since',
+      since ? esc(formatDate(since)) : 'Last 14 days',
+      'Start of the scan window. Moves forward only when you click Mark scan complete.'
+    ),
+    fact(
+      'Last scan run',
+      scannedAt ? esc(formatDateTime(scannedAt)) : 'Not scanned yet',
+      'When the queue was last fetched from GitHub. This is the end of the scan window.'
+    ),
+    fact(
+      'Categories',
+      `${categories.length} <span class="scan-scope__muted">· ${teamLabelCount} team labels</span>`
+    ),
+  ].join('');
+
+  const runTip = document.getElementById('tip-run-scan');
+  if (runTip) {
+    const mergeWindow = since ? `merged since ${formatDate(since)}` : 'merged in the last 14 days';
+    runTip.textContent =
+      `Checks GitHub for PRs ${mergeWindow} that match your categories and release note labels. ` +
+      'Your edits and enrichment are kept, and new items will need enrichment. Can take a few minutes.';
+  }
+
+  const pending = pendingEnrichmentCount();
+  const pendingLabel = `${pending} item${pending === 1 ? '' : 's'}`;
+  const enrichBtn = document.getElementById('btn-enrich');
+  if (enrichBtn) {
+    enrichBtn.textContent = pending ? `Enrich ${pendingLabel}` : 'All items enriched';
+    enrichBtn.disabled = pending === 0;
+    enrichBtn.classList.toggle('btn-primary', pending > 0);
+  }
+  const enrichTip = document.getElementById('tip-enrich');
+  if (enrichTip) {
+    enrichTip.textContent = pending
+      ? `Opens a prompt to paste into Claude Code. The AI reads each PR and the published docs, then fills in doc gaps, effort, and priority for the ${pendingLabel} not analyzed yet. Nothing runs from this page.`
+      : 'Nothing to enrich. Every item has been analyzed or was pre-filtered as not needing docs.';
+  }
+
+  /** @type {Map<string, number>} */
+  const countByCategory = new Map();
+  for (const item of state.queue.items ?? []) {
+    countByCategory.set(item.category, (countByCategory.get(item.category) ?? 0) + 1);
+  }
+
+  /** @param {string} label @param {string} [modifier] */
+  const chip = (label, modifier = '') =>
+    `<span class="scan-context-label${modifier ? ` scan-context-label--${modifier}` : ''}">${esc(label)}</span>`;
+
+  const tables = groups
+    .map((g) => {
+      const caption =
+        groups.length > 1 && g.source ? `<caption>${esc(`${g.source.owner}/${g.source.repo}`)}</caption>` : '';
+      const rows = (g.categories ?? [])
+        .map(
+          (c) => `
+            <tr>
+              <th scope="row">${esc(c.name)}</th>
+              <td>${(c.labels ?? []).map((l) => chip(l)).join(' ')}</td>
+              <td class="scan-scope-table__count">${countByCategory.get(c.name) ?? 0}</td>
+            </tr>`
+        )
+        .join('');
+      return `
+        <table class="scan-scope-table">
+          ${caption}
+          <thead>
+            <tr>
+              <th scope="col">Category</th>
+              <th scope="col">Team labels <span class="scan-scope__muted">(any one matches)</span></th>
+              <th scope="col" class="scan-scope-table__count">In queue</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+    })
+    .join('');
+
+  /** @param {string} label @param {string} contentHtml */
+  const metaRow = (label, contentHtml) =>
+    `<div class="scan-scope__meta"><span class="scan-scope__meta-label">${esc(label)}</span><span class="scan-scope__meta-value">${contentHtml}</span></div>`;
+
+  const meta = [
+    metaRow(
+      'Release notes',
+      `${releaseLabels.map((l) => chip(l.replace('release_note:', ''), 'release')).join(' ')}
+       <span class="scan-scope__muted">PR needs at least one</span>`
+    ),
+    excludeLabels.length
+      ? metaRow('Excluded labels', excludeLabels.map((l) => chip(l, 'exclude')).join(' '))
+      : '',
+    excludeTitles.length
+      ? metaRow(
+          'Excluded titles',
+          excludeTitles.map((p) => `<code class="scan-scope__pattern">${esc(p)}</code>`).join(' ')
+        )
+      : '',
+  ].join('');
+
   bodyEl.innerHTML = `
-    <div class="scan-context-row">
-      <span class="scan-context-item">
-        <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1 0-1.5h1.75v-2h-8a1 1 0 0 0-.714 1.7.75.75 0 1 1-1.072 1.05A2.495 2.495 0 0 1 2 11.5Zm10.5-1h-8a1 1 0 0 0-1 1v6.708A2.486 2.486 0 0 1 4.5 9h8ZM5 12.25a.25.25 0 0 1 .25-.25h3.5a.25.25 0 0 1 .25.25v3.25a.25.25 0 0 1-.4.2l-1.45-1.087a.249.249 0 0 0-.3 0L5.4 15.7a.25.25 0 0 1-.4-.2Z"/></svg>
-        ${esc(sourceLabel)}
-      </span>
-    </div>
-    <div class="scan-context-row">
-      <span class="scan-context-row-label">Team labels</span>
-      <span class="scan-context-item scan-context-labels">
-        ${teamLabels.map((l) => `<span class="scan-context-label">${esc(l)}</span>`).join(' ')}
-      </span>
-    </div>
-    <div class="scan-context-row">
-      <span class="scan-context-row-label">Release notes</span>
-      <span class="scan-context-item scan-context-labels">
-        ${releaseLabels.map((l) => `<span class="scan-context-label scan-context-label--release">${esc(l.replace('release_note:', ''))}</span>`).join(' ')}
-      </span>
-    </div>
-    <div class="scan-context-row">
-      <span class="scan-context-item">
-        <svg class="octicon" viewBox="0 0 16 16" width="14" height="14"><path fill="currentColor" d="M4.75 0a.75.75 0 0 1 .75.75V2h5V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 13.25 16H2.75A1.75 1.75 0 0 1 1 14.25V3.75C1 2.784 1.784 2 2.75 2H4V.75A.75.75 0 0 1 4.75 0ZM2.5 7.5v6.75c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25V7.5Zm10.75-4H2.75a.25.25 0 0 0-.25.25V6h11V3.75a.25.25 0 0 0-.25-.25Z"/></svg>
-        ${esc(dateRange)}
-      </span>
-    </div>
+    <p class="scan-scope__note">
+      A PR is included when it has one of a category's team labels <strong>and</strong> one of the release note labels,
+      merged after <strong>Merged since</strong>, and isn't excluded.
+    </p>
+    ${tables}
+    <div class="scan-scope__meta-list">${meta}</div>
   `;
+
+  if (section) section.style.display = '';
 }
 
 function bindScanContextCollapse() {
   const details = document.getElementById('scan-context-details');
   if (!details || details.dataset.bound) return;
   details.dataset.bound = '1';
-  const saved = sessionStorage.getItem('scan-context-open');
-  details.open = saved === '1';
+  const hint = details.querySelector('.scan-context-summary-hint');
+  const syncHint = () => {
+    if (hint) hint.textContent = details.open ? 'Hide categories and labels' : 'Show categories and labels';
+  };
+  details.open = sessionStorage.getItem('scan-context-open') === '1';
   details.addEventListener('toggle', () => {
     sessionStorage.setItem('scan-context-open', details.open ? '1' : '0');
-    const hint = details.querySelector('.scan-context-summary-hint');
-    if (hint) {
-      hint.textContent = details.open ? 'Hide scan labels' : 'Show scan labels';
-    }
+    syncHint();
   });
-  const hint = details.querySelector('.scan-context-summary-hint');
-  if (hint) hint.textContent = details.open ? 'Hide scan labels' : 'Show scan labels';
+  syncHint();
+}
+
+function enrichPrompt(pending) {
+  const items = `${pending} item${pending === 1 ? '' : 's'}`;
+  return (
+    `/docs-quest-scanner Enrich the current queue only (${items} still need it). ` +
+    `Skip Step 1 (don't run the scanner) and Step 3 (the review UI is already running at http://localhost:3847).`
+  );
+}
+
+function openEnrichDialog() {
+  const dialog = document.getElementById('enrich-dialog');
+  if (!dialog) return;
+  const pending = pendingEnrichmentCount();
+  const total = state.queue.items?.length ?? 0;
+  const lead = document.getElementById('enrich-dialog-lead');
+  if (lead) {
+    lead.textContent = `${pending} of ${total} items haven't been enriched yet.`;
+  }
+  const prompt = document.getElementById('enrich-dialog-prompt');
+  if (prompt) prompt.value = enrichPrompt(pending);
+  dialog.showModal();
+}
+
+async function copyEnrichPrompt() {
+  const prompt = document.getElementById('enrich-dialog-prompt');
+  if (!prompt) return;
+  try {
+    await navigator.clipboard.writeText(prompt.value);
+    showToast('Prompt copied. Paste it into Claude Code.', 'success');
+  } catch {
+    prompt.select();
+    showToast('Copy failed. The prompt is selected; press Cmd+C to copy it.', 'error');
+  }
+}
+
+function bindScanScopeActions() {
+  document.getElementById('btn-run-scan')?.addEventListener('click', () => void triggerScan());
+  document.getElementById('btn-enrich')?.addEventListener('click', openEnrichDialog);
+  document.getElementById('btn-enrich-copy')?.addEventListener('click', () => void copyEnrichPrompt());
+  const close = () => document.getElementById('enrich-dialog')?.close();
+  document.getElementById('btn-close-enrich')?.addEventListener('click', close);
+  document.getElementById('btn-enrich-cancel')?.addEventListener('click', close);
+
+  const tips = document.querySelectorAll('.btn-tip');
+  for (const tip of tips) {
+    const bubble = tip.querySelector('.btn-tip__bubble');
+    const place = () => {
+      if (!bubble) return;
+      const fitsRightAligned = tip.getBoundingClientRect().right - bubble.offsetWidth >= 8;
+      tip.classList.toggle('btn-tip--start', !fitsRightAligned);
+    };
+    tip.addEventListener('mouseenter', place);
+    tip.addEventListener('focusin', place);
+    const restore = () => tip.classList.remove('btn-tip--dismissed');
+    tip.addEventListener('click', () => tip.classList.add('btn-tip--dismissed'));
+    tip.addEventListener('mouseleave', restore);
+    tip.addEventListener('focusout', restore);
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') tips.forEach((tip) => tip.classList.add('btn-tip--dismissed'));
+  });
 }
 
 /** @param {QueueItem[]} items */
@@ -723,12 +892,27 @@ const BULK_ACTIONS = {
   'skip-not-my-area': { reason: 'not my area' },
 };
 
+function bulkApplyButtonLabel() {
+  const n = state.selectedQueueIds.size;
+  const sel = document.getElementById('bulk-action-select');
+  const action = sel?.value ?? 'accept';
+  if (n === 0) return 'Apply';
+  if (action === 'accept') {
+    return n === 1 ? 'Accept quest' : `Accept ${n} quests`;
+  }
+  const optionText = sel?.selectedOptions?.[0]?.textContent?.trim() ?? 'Skip';
+  return n === 1 ? optionText : `${optionText} (${n})`;
+}
+
 function updateBulkBar() {
   const countEl = document.getElementById('queue-bulk-count');
   const applyBtn = document.getElementById('btn-bulk-apply');
   const n = state.selectedQueueIds.size;
   if (countEl) countEl.textContent = n === 1 ? '1 selected' : `${n} selected`;
-  if (applyBtn) applyBtn.disabled = n === 0 || state.bulkBusy;
+  if (applyBtn) {
+    applyBtn.disabled = n === 0 || state.bulkBusy;
+    applyBtn.textContent = bulkApplyButtonLabel();
+  }
   setBulkBarControlsDisabled(state.bulkBusy);
 }
 
@@ -821,6 +1005,7 @@ function bindBulkActions() {
   document.getElementById('btn-bulk-select-visible')?.addEventListener('click', selectAllVisibleQueueItems);
   document.getElementById('btn-bulk-clear')?.addEventListener('click', clearQueueSelection);
   document.getElementById('btn-bulk-apply')?.addEventListener('click', () => void runBulkAction());
+  document.getElementById('bulk-action-select')?.addEventListener('change', updateBulkBar);
 }
 
 function applyQueueFilters(items) {
@@ -852,6 +1037,48 @@ function activeQueueFiltersCount() {
   if (state.queueCategoryFilter !== 'all') n++;
   if (state.queuePriorityFilter !== 'all') n++;
   return n;
+}
+
+const QUEUE_FILTER_SESSION_KEYS = [
+  'queue-filter',
+  'queue-version-filter',
+  'queue-merge-filter',
+  'queue-doc-work-filter',
+  'queue-category-filter',
+  'queue-priority-filter',
+  'queue-merge-from',
+  'queue-merge-to',
+];
+
+/** Clear filter sessionStorage and set every filter to All. */
+function resetQueueFilters() {
+  for (const key of QUEUE_FILTER_SESSION_KEYS) {
+    sessionStorage.removeItem(key);
+  }
+  state.queueFilter = 'all';
+  state.queueVersionFilter = 'all';
+  state.queueMergeFilter = 'all';
+  state.queueDocWorkFilter = 'all';
+  state.queueCategoryFilter = 'all';
+  state.queuePriorityFilter = 'all';
+  state.queueMergeFrom = '';
+  state.queueMergeTo = '';
+  for (const [storageKey, value] of [
+    ['queue-filter', 'all'],
+    ['queue-version-filter', 'all'],
+    ['queue-merge-filter', 'all'],
+    ['queue-doc-work-filter', 'all'],
+    ['queue-category-filter', 'all'],
+    ['queue-priority-filter', 'all'],
+  ]) {
+    sessionStorage.setItem(storageKey, value);
+  }
+  populateQueueVersionFilterOptions();
+  populateQueueMergeFilterOptions();
+  populateQueueCategoryFilterOptions();
+  populateQueuePriorityFilterOptions();
+  syncQueueFilterControls();
+  renderQueue();
 }
 
 function applyDefaultQueueFiltersIfUnset() {
@@ -1115,11 +1342,13 @@ function renderQueue() {
   const hasActiveScan = !!state.queue.scannedAt;
 
   if (filterHint) {
-    const n = activeQueueFiltersCount();
-    if (n === 0 || state.queue.items.length === 0) {
+    const total = state.queue.items.length;
+    if (total === 0) {
       filterHint.textContent = '';
+    } else if (activeQueueFiltersCount() === 0) {
+      filterHint.textContent = total === 1 ? '1 item' : `${total} items`;
     } else {
-      filterHint.textContent = `Showing ${visibleItems.length} of ${state.queue.items.length} items`;
+      filterHint.textContent = `Showing ${visibleItems.length} of ${total} items`;
     }
   }
 
@@ -1612,6 +1841,7 @@ function bindEvents() {
     renderQueue();
   });
 
+  document.getElementById('btn-queue-filters-reset')?.addEventListener('click', resetQueueFilters);
 }
 
 function bindCardEvents() {
@@ -1719,16 +1949,25 @@ function bindCardEvents() {
 // ── Actions ─────────────────────────────────────────────
 
 async function triggerScan() {
-  showLoading(true);
+  const btn = document.getElementById('btn-run-scan');
+  if (btn) btn.disabled = true;
+  showLoading(true, 'Scanning GitHub for merged PRs. This can take a few minutes.');
   try {
-    const queue = await api('/scan', { method: 'POST' });
-    state.queue = queue;
-    showToast(`Scan complete. ${queue.items.length} new quest${queue.items.length !== 1 ? 's' : ''} discovered.`, 'success');
+    const result = await api('/scan', { method: 'POST' });
+    const total = result.scanStats?.total ?? result.items?.length ?? 0;
+    const added = result.scanStats?.added;
+    showToast(
+      added == null
+        ? `Scan finished: ${total} items in the queue.`
+        : `Scan finished: ${added} new, ${total} items in the queue.`,
+      'success'
+    );
     await refreshAll();
   } catch (err) {
     showToast(`Scan failed: ${err.message}`, 'error');
   } finally {
     showLoading(false);
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -2380,6 +2619,17 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+function formatDateTime(dateStr) {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 /** Compute the serverless deploy week from a merge date (merge + 7 days = Monday of deploy week). */
 function serverlessWeek(mergedAt) {
   if (!mergedAt) return null;
@@ -2446,8 +2696,13 @@ function renderMarkdown(md) {
   return '<p>' + esc(md).replace(/\n\n/g, '</p><p>').replace(/\n/g, '<br>') + '</p>';
 }
 
-function showLoading(show) {
+function showLoading(show, message = '') {
   document.getElementById('loading-overlay').style.display = show ? '' : 'none';
+  const msg = document.getElementById('loading-message');
+  if (msg) {
+    msg.textContent = message;
+    msg.hidden = !show || !message;
+  }
 }
 
 // ── Toasts ──────────────────────────────────────────────
