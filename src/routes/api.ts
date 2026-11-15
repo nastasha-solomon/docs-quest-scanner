@@ -5,10 +5,6 @@ import {
   normalizeConfig,
   resolveRouting,
   resolveMetaIssue,
-  resolveMetaBucket,
-  resolveFeature,
-  resolveArea,
-  resolveIssueLabels,
   saveConfig,
   loadQueue,
   saveQueue,
@@ -17,8 +13,8 @@ import {
   loadLastRun,
   saveLastRun,
 } from '../config.js';
-import { getOctokit, createIssue, addToMetaIssue, findMetaIssue, setProjectFields } from '../github.js';
-import { resolveMetaTitle } from '../fiscal-quarter.js';
+import { getOctokit } from '../github.js';
+import { createDocsIssueFromQueueItem } from '../create-from-queue.js';
 import { runScan, fixAlertingQueue, filterExcludedQueueItems } from '../scanner.js';
 import { deriveDocWorkKind, releaseNoteLabelsFromPrLabels } from '../doc-work-kind.js';
 import { deriveDocSurface } from '../doc-surface.js';
@@ -231,154 +227,73 @@ apiRouter.post('/create-issue', async (req, res) => {
       return;
     }
 
-    // Resolve the repo group this item belongs to. Fail loudly rather than
-    // mis-route if the config changed since the scan.
-    const group = config.repos.find((r) => r.id === item.repoId);
-    if (!group) {
-      res.status(409).json({
-        error: `No repo group "${item.repoId}" in current config — re-run the scan after changing repos.`,
-      });
-      return;
-    }
-
-    // Resolve routing: a category override (target/project) wins over the group
-    // default. The primary category decides where the issue is filed.
-    const primaryCategory = group.categories.find((c) => c.name === item.category);
-    const routing = resolveRouting(group, primaryCategory);
-
-    const title = item.userEdits?.title ?? item.suggestedTitle;
-    const ok = getOctokit();
-    const { data: authUser } = await ok.users.getAuthenticated().catch(() => ({ data: null }));
-    const body = renderIssueBody(item, authUser?.login);
-    // Target repo stays a UI choice: the dropdown wins, defaulting to the resolved
-    // target. It only changes where the issue is filed — project/meta follow routing.
-    const targetRepo = item.userEdits?.targetRepo ?? `${routing.target.owner}/${routing.target.repo}`;
-    const [owner, repo] = targetRepo.split('/');
-
-    // Create the issue
-    const prLabels = item.prs.flatMap((pr) => pr.labels ?? []);
-    const labels = resolveIssueLabels(
-      routing.issueLabels,
-      primaryCategory,
-      prLabels,
-      Boolean(goodFirstIssue)
+    const { issue, projectFields } = await createDocsIssueFromQueueItem(
+      item,
+      config,
+      queue,
+      history,
+      { goodFirstIssue: Boolean(goodFirstIssue) }
     );
-    const issue = await createIssue(owner, repo, title, body, labels);
-
-    // Try to set project fields
-    let projectFields: Awaited<ReturnType<typeof setProjectFields>> | null = null;
-    if (routing.project) {
-      const p = routing.project;
-      const versionMatch = item.version?.match(/v?(\d+\.\d+)/);
-      const latestMerge = item.prs.map((pr) => pr.mergedAt).filter(Boolean).sort().pop();
-      let serverlessPubDate: string | undefined;
-      if (latestMerge) {
-        const d = new Date(latestMerge);
-        d.setDate(d.getDate() + 7);
-        const day = d.getDay();
-        const diff = day === 0 ? -6 : -(day - 1);
-        d.setDate(d.getDate() + diff);
-        serverlessPubDate = d.toISOString().split('T')[0];
-      }
-
-      // Feature: a per-label override (featureByLabel) wins over the category's
-      // feature, so a category that bundles teams still routes each correctly.
-      const feature = resolveFeature(primaryCategory, prLabels);
-
-      projectFields = await setProjectFields(
-        p.org,
-        p.number,
-        owner,
-        repo,
-        issue.number,
-        {
-          release: versionMatch ? versionMatch[1] : undefined,
-          size: p.sizeMap?.[item.assessment.effortTag ?? ''] ?? undefined,
-          priority:
-            item.assessment.triagePriority ??
-            deriveTriagePriority(item.assessment, releaseNoteLabelsFromPrLabels(prLabels)).label ??
-            p.defaultPriority ??
-            undefined,
-          requester: p.defaultRequester ?? undefined,
-          area: resolveArea(primaryCategory, prLabels, p.defaultArea),
-          feature,
-          contentType: p.contentTypeMap?.[item.assessment.effortTag ?? ''] ?? undefined,
-          serverlessPubDate,
-        }
-      );
-    }
-
-    // Link the created issue into the meta-issue checklist(s) for its version.
-    // Each category can override the global meta-issue config (issue #2), so the
-    // primary category and any also-applies categories may resolve to different
-    // checklists. Categories without an override share the global config.
-    if (item.version && item.version !== 'unknown') {
-      const categoriesToLink = [item.category, ...(item.alsoAppliesTo ?? [])];
-      // Route into a "Notable changes" / "Fixes and clarifications" sub-list based
-      // on the item's release-note labels (undefined when sub-lists are disabled).
-      const subHeading = resolveMetaBucket(group, item.prs.flatMap((pr) => pr.labels ?? []));
-      // The tool's category headings, used to disambiguate when a version title
-      // pattern matches several issues (release meta vs. a narrower tracker).
-      const expectedHeadings = group.categories.map((c) => c.metaIssueHeading ?? c.name);
-      // Cache meta-issue lookups by resolved location so categories sharing a
-      // checklist don't trigger duplicate searches. Value `null` = not found.
-      const metaCache = new Map<string, Awaited<ReturnType<typeof findMetaIssue>>>();
-      for (const catName of categoriesToLink) {
-        const cat = group.categories.find((c) => c.name === catName);
-        const meta = resolveMetaIssue(config.metaIssues, group, cat);
-        if (!meta) continue; // no meta issue resolved → not linked
-        // A meta issue can live outside the group's target repo (for example a
-        // quarterly planning tracker in an internal repo).
-        const resolved = resolveMetaTitle(meta.titlePattern, item.version, config.quarterCalendar);
-        if (!resolved.ok) {
-          console.warn(
-            `Skipped meta-issue link for ${catName} ${item.version}: ${resolved.reason} ` +
-              `(pattern: "${meta.titlePattern}")`
-          );
-          continue;
-        }
-        const cacheKey = `${meta.owner}/${meta.repo}#${resolved.title}`;
-        try {
-          let found = metaCache.get(cacheKey);
-          if (found === undefined) {
-            found = await findMetaIssue(meta.owner, meta.repo, resolved.title, expectedHeadings);
-            metaCache.set(cacheKey, found);
-          }
-          if (found) {
-            const heading = cat?.metaIssueHeading ?? catName;
-            await addToMetaIssue(meta.owner, meta.repo, found.number, heading, issue.url, subHeading);
-          } else {
-            console.warn(
-              `No open meta issue titled "${resolved.title}" in ${meta.owner}/${meta.repo} ` +
-                `(version ${item.version}) — create it, or fix the quarterCalendar anchor.`
-            );
-          }
-        } catch (err) {
-          console.warn(`Failed to update meta issue for ${catName} ${item.version}:`, err);
-        }
-      }
-    }
-
-    // Record in history
-    const entry: HistoryEntry = {
-      prNumbers: item.prs.map((p) => p.number),
-      decision: 'created',
-      repoId: item.repoId,
-      issueUrl: issue.url,
-      issueNumber: issue.number,
-      timestamp: new Date().toISOString(),
-      version: item.version,
-      title,
-      session: queue.scannedAt?.split('T')[0],
-    };
-    history.entries.push(entry);
     saveHistory(history);
-
-    // Remove from queue
-    queue.items = queue.items.filter((i) => i.id !== queueItemId);
     saveQueue(queue);
 
     res.json({ ok: true, issue, projectFields });
+  } catch (err) {
+    const msg = String(err);
+    if (msg.includes('No repo group')) {
+      res.status(409).json({ error: msg });
+      return;
+    }
+    res.status(500).json({ error: msg });
+  }
+});
+
+/** Create docs issues for multiple queue items (sequential; stops on first hard failure). */
+apiRouter.post('/create-issues', async (req, res) => {
+  try {
+    const { queueItemIds, goodFirstIssue } = req.body ?? {};
+    if (!Array.isArray(queueItemIds) || queueItemIds.length === 0) {
+      res.status(400).json({ error: 'queueItemIds must be a non-empty array' });
+      return;
+    }
+
+    const config = loadNormalizedConfig();
+    const queue = loadQueue();
+    const history = loadHistory();
+
+    const created: Array<{
+      queueItemId: string;
+      issue: Awaited<ReturnType<typeof createDocsIssueFromQueueItem>>['issue'];
+      projectFields: Awaited<ReturnType<typeof createDocsIssueFromQueueItem>>['projectFields'];
+      title: string;
+    }> = [];
+    const failed: Array<{ queueItemId: string; error: string }> = [];
+
+    for (const queueItemId of queueItemIds) {
+      const item = queue.items.find((i) => i.id === queueItemId);
+      if (!item) {
+        failed.push({ queueItemId, error: 'Queue item not found' });
+        continue;
+      }
+      try {
+        const result = await createDocsIssueFromQueueItem(item, config, queue, history, {
+          goodFirstIssue: Boolean(goodFirstIssue),
+        });
+        created.push({
+          queueItemId,
+          issue: result.issue,
+          projectFields: result.projectFields,
+          title: result.title,
+        });
+      } catch (err) {
+        failed.push({ queueItemId, error: String(err) });
+      }
+    }
+
+    saveHistory(history);
+    saveQueue(queue);
+
+    res.json({ ok: true, created, failed });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

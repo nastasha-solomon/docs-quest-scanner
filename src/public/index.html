@@ -122,6 +122,12 @@
         </div>
         <span class="queue-filter-hint text-small color-fg-muted" id="queue-filter-hint"></span>
       </div>
+      <div class="queue-bulk-bar mb-2" id="queue-bulk-bar">
+        <span class="queue-bulk-count text-small" id="queue-bulk-count">0 selected</span>
+        <button type="button" class="btn btn-sm" id="btn-bulk-select-visible">Select visible</button>
+        <button type="button" class="btn btn-sm btn-primary" id="btn-bulk-create" disabled>Create issues</button>
+        <button type="button" class="btn btn-sm btn-outline" id="btn-bulk-clear">Clear</button>
+      </div>
       <div id="queue-container"></div>
       <div id="queue-empty" class="blankslate" style="display:none">
         <h3 class="blankslate-heading" id="queue-empty-heading">Your quest log is empty</h3>

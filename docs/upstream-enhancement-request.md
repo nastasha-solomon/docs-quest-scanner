@@ -1,17 +1,63 @@
-# Enhancement request — queue filters & release focus (for upstream)
+# Enhancement request — queue filters, enrichment, and triage UI (for upstream)
 
 **Author:** Nastasha Solomon  
 **Fork / branch:** https://github.com/nastasha-solomon/docs-quest-scanner (`main`)  
 **Upstream:** https://github.com/florent-leborgne/docs-quest-scanner  
-**Commits of note:** `42070fe` (alerting routing, excludes, search retry), `76cfb38` (queue filters + API surface + skill 3.15.0), `3c34d45` (`autoFocusStackReleases`), plus fork `doc-surface` rules for internal routes (heuristic + enriched `review-only` gaps)
+
+**Commits of note (fork `main`):**
+
+| Commit | What |
+|--------|------|
+| `42070fe` | Alerting v1/v2 queue repair, `excludeLabels` / `excludeTitlePatterns`, GitHub search retry |
+| `76cfb38` | Assessment / stack / doc-work filters, `docWorkKind` + `docSurface`, skill **3.15.0** |
+| `3c34d45` | `autoFocusStackReleases`, this upstream doc (initial) |
+| `0d460da` | Category + priority filters, internal-route `docSurface`, collapsible scan scope, toolbar layout, `triagePriority` |
+| `45fb090` | Sample `data/enrichments-batch-*.json` for split enrichment merge workflow |
+| `a5c366f` | Bulk create, category/priority filter fixes, create-from-queue refactor |
 
 ---
 
 ## Summary
 
-For Security / Alerting / Observability triage, the post-scan queue is large. Writers need to narrow it to **the current stack minor**, **assessment** (needs docs vs check), and **type of doc work**—including **REST/OpenAPI reference** changes that were previously skipped or mixed with narrative guides.
+For Security / Alerting / Observability triage, the post-scan queue is large. Writers need to narrow it by **stack minor**, **team category**, **assessment**, **doc work type** (including **API reference only**), and **priority**—without mis-tagging internal server routes as public API work.
 
-This proposal adds **review UI filters**, **derived classification on queue load**, optional **auto focus minors**, and **skill guidance** so enrichment populates fields the filters rely on.
+This proposal adds:
+
+- **Combinable queue filters** (persisted in `sessionStorage`, optional session defaults from config).
+- **Transient classification on `GET /queue`** (`docWorkKind`, `docSurface`, `triagePriorityLevel`, stack minors).
+- **Enrichment fields and skill guidance** so filters stay accurate after AI triage.
+- **Review UI** improvements: collapsible scan-label strip, grouped filter controls, card badges, priority sort within categories.
+- **Bulk create** — select filtered queue rows (per card or per category section) and file GitHub issues in one pass.
+
+Related fork work (unchanged here): Alerting queue repair, scan excludes, search retry.
+
+---
+
+## Typical weekly triage slice
+
+Filters compose in any order; a common Security / Alerting pass:
+
+1. **Stack release** — Focus (auto or config), e.g. 9.7 + 9.6  
+2. **Category** — Focus (`focusCategories`), e.g. Alerting v2 + Detection Engine  
+3. **Assessment** — Needs docs + Check  
+4. **Doc work** — API reference only (when doing an API pass; not defaulted)  
+5. **Priority** — P0 + P1 (enriched `triagePriority` or release-note heuristics)
+
+Example config defaults (applied once per browser tab when filter `sessionStorage` keys are unset):
+
+```json
+"autoFocusStackReleases": true,
+"focusCategories": [
+  "Kibana - Alerting v2",
+  "Security - Detection Engine"
+],
+"defaultQueueFilters": {
+  "assessment": "yes,check",
+  "version": "focus",
+  "category": "focus",
+  "priority": "p0,p1"
+}
+```
 
 ---
 
@@ -22,90 +68,164 @@ This proposal adds **review UI filters**, **derived classification on queue load
 | Filter | Purpose |
 |--------|---------|
 | **Assessment** | All / needs docs / check / no / needs docs + check |
-| **Stack release** | By major.minor from PR version labels (`v9.6.0` → `9.6`) |
-| **Doc work** | New content / update existing / **API reference only** / not classified |
-| **Category** | All / **Focus** (`focusCategories`) / single category (includes `alsoAppliesTo`) |
-| **Priority** | All / P0+P1 / P0–P3 / unrated (`triagePriority` or release-note heuristics) |
+| **Stack release** | All / **Focus** (newest 1–2 minors or `focusStackReleases`) / single minor (`v9.6.0` → **9.6**) |
+| **Doc work** | New / update / **API reference only** / not classified |
+| **Category** | All / **Focus** (`focusCategories`) / one category (matches `category` or `alsoAppliesTo`) |
+| **Priority** | All / P0+P1 / P0–P3 / unrated |
 
-“Showing X of Y items” when any filter is active. Optional `defaultQueueFilters` applies once per session when filter `sessionStorage` keys are unset.
+- **Showing X of Y items** when any filter is active.
+- **★** in dropdowns marks entries in `focusStackReleases` or `focusCategories`.
+- **Default filters:** `defaultQueueFilters` in `data/config.json` — only applied when the user has not yet set that filter in `sessionStorage` this session.
+- **Sort:** Within each category group, cards sort by `triagePriorityLevel` (P0 first), then confidence.
 
-### 2. Config: release focus
+#### Filter toolbar layout
 
-**Manual (optional):**
+Each control is a **label + select** in one bordered pill (`.queue-filter-field`) so wrapping does not separate labels from the wrong dropdown. Selects use content-sized width (`field-sizing: content` where supported) so short values like “All” do not look detached from their label.
+
+### 2. Config: release and category focus
+
+**Stack — manual (optional):**
 
 ```json
 "focusStackReleases": ["9.6", "9.7"]
 ```
 
-Adds a **Focus: … (config)** shortcut and ★ next to those minors in the dropdown. Does not affect scanning.
-
-**Automatic (optional):**
+**Stack — automatic (optional):**
 
 ```json
 "autoFocusStackReleases": true
 ```
 
-On each queue load, focus minors = **the newest one or two minors present in the current queue** (derived from version labels, newest first). UI label: **Focus: 9.7, 9.6 (auto)**.
+On each queue load, auto focus = **newest one or two majors.minor present in the queue** (from PR version labels). UI: **Focus: 9.7, 9.6 (auto)**. When `autoFocusStackReleases` is true, manual `focusStackReleases` is ignored. Patches map to major.minor only (`v9.6.1` → `9.6`). No calendar integration.
 
-- **No calendar integration** — when `v9.7.x` PRs first appear in the queue, 9.7 enters focus automatically; until then focus stays on 9.6.
-- **Patch releases** — `v9.6.0` and `v9.6.1` both map to **9.6** (major.minor only).
-- When `autoFocusStackReleases` is true, the manual `focusStackReleases` list is not used (auto wins).
-- Individual minors still always appear in the dropdown from queue data; focus is convenience only.
+**Category focus (optional):**
 
-### 3. Server-side fields on `GET /queue` (transient)
+```json
+"focusCategories": ["Kibana - Alerting v2", "Security - Detection Engine"]
+```
+
+Adds **Focus: … (config)** in the Category filter. Does not affect scanning or category assignment—triage convenience only.
+
+### 3. Scan scope bar (collapsible)
+
+The strip above the queue that lists source repo, team labels, release-note filter labels, and scan date range is **collapsed by default** inside a `<details>` element:
+
+- **Summary:** `Scan scope: elastic/kibana · {date range} · N labels` + “Show scan labels”
+- **Expanded:** Team labels and release-note labels in labeled rows  
+- Open/closed state persisted in `sessionStorage` (`scan-context-open`)
+
+Reduces visual noise when the configured label list is long.
+
+### 4. Server-side fields on `GET /queue` (transient, not persisted)
 
 | Field | Source |
 |-------|--------|
 | `stackMinors` | PR version labels per item |
-| `docWorkKind` / `docWorkKindSource` | `effortTag`, `docsGap.actionType`, release-note heuristics |
-| `docSurface` / `docSurfaceSource` | API-only vs guides vs mixed (`/docs/api/` URLs, gap text, route heuristics) |
-| `filterMeta.focusStackReleases` | Manual or auto focus list |
-| `filterMeta.focusAuto` | Whether focus was auto-derived |
+| `docWorkKind` / `docWorkKindSource` | `effortTag`, `docsGap.actionType`, release-note heuristics (`src/doc-work-kind.ts`) |
+| `docSurface` / `docSurfaceSource` | API-only vs guides vs mixed (`src/doc-surface.ts`) |
+| `triagePriorityLevel` / `triagePriorityLabel` / `triagePrioritySource` | `assessment.triagePriority` or `deriveTriagePriority` (`src/triage-priority.ts`) |
+| `filterMeta.focusStackReleases` / `focusAuto` | Manual or auto stack focus |
+| `filterMeta.focusCategories` | From config |
 
-**`docSurface` — avoid false “API reference only” on internal routes**
+**Doc work “API reference only” filter** matches `docSurface === 'api-only'` and doc work update/unknown (not net-new guides only).
 
-The **API reference only** filter and the dashed **API ref (estimate)** badge must not fire on Kibana server work that adds or changes HTTP paths but is **not** part of the public OpenAPI surface yet.
+#### `docSurface` — avoid false “API reference only” on internal routes
 
-On queue load, `deriveDocSurface` (`src/doc-surface.ts`) should:
+The **API reference only** filter and dashed **API ref (estimate)** badge must not fire on server work that changes HTTP paths but is **not** on the public OpenAPI surface yet.
 
-1. **Heuristic (pre-enrichment):** Do not classify as `api-only` when the PR text indicates internal routes — e.g. `access: 'internal'`, “not public yet”, “routes are internal”, “internal for now” — even if the body mentions `POST /api/...` and changed files are under `server/` only.
-2. **Enriched (post-enrichment):** When every `docsGap` entry is `review-only` and the gap text says the routes are internal, not public, or **no action now** (including “absent from the public API reference”), return `docSurface: unknown` instead of `api-only`. Enrichment may still link a **legacy** public operation URL for context (e.g. the old “add comment” operation); that alone must not drive the API-only lane.
+`deriveDocSurface`:
 
-**Motivating example (Security triage):** [elastic/kibana#291814](https://github.com/elastic/kibana/pull/291814) (unified attachments write path, internal at merge) was showing **API ref (estimate)** while enrichment correctly said `needsDocs: no` — writers should wait for the public flip (e.g. [#294886](https://github.com/elastic/kibana/pull/294886)) before treating the item as API reference work.
+1. **Heuristic (pre-enrichment):** No `api-only` when the PR text has `access: 'internal'`, “not public yet”, “routes are internal”, “internal for now” — even if the body mentions `POST /api/...` and files are `server/`-only.
+2. **Enriched:** When every `docsGap` entry is `review-only` and gap text cites internal / not public / **no action now** / absent from public API reference → `docSurface: unknown`. Legacy operation URLs in gaps are context only.
 
-### 4. Skill enrichment (template **3.15.0**)
+**Example:** [elastic/kibana#291814](https://github.com/elastic/kibana/pull/291814) (internal write path) vs public OpenAPI follow-up [#294886](https://github.com/elastic/kibana/pull/294886).
 
-- Replace blunt “API-only early exit” with: exit only for **internal** server refactors; run **API reference analysis** for public `/api/...` changes.
-- Document `docsGap` with OpenAPI operation URLs and “API reference” phrasing for the **API reference only** filter. For **internal** routes, use `actionType: review-only` and gap text that states routes are internal / not in public OpenAPI — so queue `docSurface` stays `unknown` and does not pollute the API-only filter.
-- Note queue toolbar filters and `autoFocusStackReleases` / `focusStackReleases` for agents.
-- Align enrichment wording with `docSurface` heuristics above so server-only PRs with `/api/` in the description but `access: 'internal'` do not look like API reference tickets in the UI.
+#### `triagePriority`
 
-### 5. Related fork work (same triage use case)
+| Source | Behavior |
+|--------|----------|
+| **Enriched** | `assessment.triagePriority` — exact GitHub Projects Priority string (e.g. `P1: High`) |
+| **Heuristic** | From `release_note:*` + `needsDocs` + `effortTag` → P0–P3; card badge shows level with dashed **(estimate)** |
+| **None** | `needsDocs: no` with no gaps → unrated for priority filter |
 
-Already on fork: Alerting v1/v2 queue repair, configurable `excludeLabels` / `excludeTitlePatterns`, GitHub Search API retry.
+On **Create issue**, project **Priority** = `triagePriority` → heuristic label → `project.defaultPriority`.
+
+### 5. Skill enrichment (template **3.15.0+**)
+
+**Filters (agents):** Document Assessment, Stack release (`autoFocusStackReleases` / `focusStackReleases`), Doc work, Category (`focusCategories`), Priority (`triagePriority`).
+
+**`docsGap` / API reference:**
+
+- Public routes: OpenAPI operation URLs and “API reference” phrasing for **API reference only** filter.
+- Internal routes: `actionType: review-only`, gap text states internal / not in public OpenAPI → `docSurface` stays `unknown`.
+
+**`triagePriority` (optional on assessment):** Set when severity is clear — e.g. P0/P1 for breaking or major feature gaps with `needsDocs: yes`; omit for `needsDocs: "no"`. Use the same strings as the target GitHub Project.
+
+**Merge workflow:** Enrichment batches can be split (e.g. `data/enrichments-batch-a.json`) and merged with `scripts/merge-enrichments.mjs`, which accepts `triagePriority` alongside other assessment fields.
+
+**Internal vs public API:** Step 2a early exit only for purely internal server refactors; public `/api/...` still gets API reference analysis even when `needsDocs: "no"` (OpenAPI-codegen cases).
+
+### 6. Card header badges (UI)
+
+Existing assessment + release-note chips, plus:
+
+- **API ref** / **New content** / **Update existing** — from `docWorkKind` / `docSurface` (dashed when heuristic).
+- **P0–P3** — from `triagePriorityLevel` (dashed when heuristic).
+- Effort tag badge unchanged when `effortTag` is set.
+
+### 7. Bulk issue creation
+
+When a category slice is ready (for example after filters + enrichment), writers can file many docs issues without opening each card.
+
+**UI**
+
+- Checkbox on each triage card; **Select all** checkbox on each category header (visible items only).
+- Toolbar: **Select visible** (current filter results), **Create issues**, **Clear**.
+- Confirmation dialog lists a sample of titles; **Good first issue** is not bulk-applied (per-card checkbox still applies to single create).
+
+**API**
+
+- `POST /create-issues` with `{ queueItemIds: string[], goodFirstIssue?: boolean }`.
+- Processes items **sequentially**; returns `{ created: [...], failed: [...] }`.
+- Each success uses the same path as `POST /create-issue` (project fields, meta-issue linking, history, queue removal).
+- Shared implementation: `src/create-from-queue.ts` (`createDocsIssueFromQueueItem`) so single and bulk stays in sync.
+
+### 8. Related fork work (same triage use case)
+
+- Alerting v1/v2 queue repair (`fixAlertingQueue`)
+- Configurable `excludeLabels` / `excludeTitlePatterns`
+- GitHub Search API retry on rate limits
 
 ---
 
 ## Why upstream
 
-- Release-focused triage without forking scan logic.
-- API-only PRs get a visible lane instead of “no docs” or narrative noise; internal route work stays out of that lane until public OpenAPI lands.
-- Auto focus removes a recurring manual config edit when the train advances—while staying honest (data-driven from queued PRs only).
+- Release- and **team-focused** triage without forking scan logic.
+- API-only lane is visible; **internal** route work stays out until public OpenAPI lands.
+- **Priority** surfaces breaking/feature work first; writers can still override via enrichment.
+- Auto stack focus and **category focus** reduce repetitive config edits each train.
+- Collapsible scan scope and clearer filter grouping make large queues usable on laptop-width viewports.
+- **Bulk create** supports category-based triage slices after enrichment without repetitive single-card clicks.
 
 ---
 
 ## Suggested merge notes
 
-- Document `focusStackReleases`, `autoFocusStackReleases`, and filters in README.
-- Consider default `autoFocusStackReleases: false` for backward compatibility.
-- Optional: `autoFocusStackReleases` + non-empty manual list = manual overrides auto (policy choice).
+- README: document all filter keys, `focusStackReleases`, `autoFocusStackReleases`, `focusCategories`, `defaultQueueFilters`.
+- Default `autoFocusStackReleases: false` and omit `defaultQueueFilters` for backward compatibility.
+- Policy choice: whether manual `focusStackReleases` should override auto when both are set (fork: auto wins).
+- Install / bump skill from `templates/skill.md.template` after merge (`./scripts/setup.sh`).
 
 ---
 
 ## Test plan
 
-1. Queue with `v9.6.x` and `v9.7.x` labels — auto focus shows up to two newest minors.
-2. Filters: **Focus (auto)** + **Needs docs + Check** + **API reference only**.
-3. Enrich a **public** server-only route PR — `docsGap` with `/docs/api/` URL → **API ref** badge and **API reference only** filter match.
-4. Internal route PR (body: `access: 'internal'` or “not public yet”, server paths only) — before enrichment: no **API ref (estimate)**; after enrichment with review-only internal gaps: `docSurface: unknown`, not in **API reference only**.
-5. Regression: `fixAlertingQueue`, exclude rules, existing queue API consumers; unit tests in `test/doc-surface.test.ts` for internal heuristic and review-only gaps.
+1. **Stack:** Queue with `v9.6.x` and `v9.7.x` — auto focus shows up to two newest minors; Focus filter matches.
+2. **Category:** `focusCategories` — Focus option and ★ on named categories; filter includes `alsoAppliesTo`.
+3. **Assessment + defaults:** Fresh session with `defaultQueueFilters` — toolbar matches config once; `sessionStorage` overrides thereafter.
+4. **Doc work:** Public server route + enriched `/docs/api/` gap → **API ref** + **API reference only** filter.
+5. **Internal routes:** `access: 'internal'` — no API ref estimate; review-only internal gaps → not in API-only filter (`test/doc-surface.test.ts`).
+6. **Priority:** Breaking + `needsDocs: yes` → P0 heuristic; enriched `triagePriority` on card and on issue create (`test/triage-priority.test.ts`).
+7. **UI:** Scan scope collapses/expands and remembers state; filter pills keep label+select paired when wrapped.
+8. **Bulk create:** Filter to one category → Select visible → Create issues; partial failures leave failed rows in queue; history records successes.
+9. **Regression:** `fixAlertingQueue`, excludes, `GET /queue` consumers, existing enrichment merge script, single `POST /create-issue` unchanged behavior.

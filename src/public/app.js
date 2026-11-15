@@ -23,6 +23,12 @@ let state = {
   queueVersionFilter: 'all',
   /** @type {'all' | 'new' | 'update' | 'api-update' | 'unknown'} */
   queueDocWorkFilter: 'all',
+  /** @type {'all' | 'focus' | string} */
+  queueCategoryFilter: 'all',
+  /** @type {'all' | 'p0,p1' | 'p0' | 'p1' | 'p2' | 'p3' | 'unrated'} */
+  queuePriorityFilter: 'all',
+  /** @type {Set<string>} */
+  selectedQueueIds: new Set(),
 };
 
 // ── API helpers ─────────────────────────────────────────
@@ -47,6 +53,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     ['queue-filter', 'queueFilter', 'queue-filter'],
     ['queue-version-filter', 'queueVersionFilter', 'queue-version-filter'],
     ['queue-doc-work-filter', 'queueDocWorkFilter', 'queue-doc-work-filter'],
+    ['queue-category-filter', 'queueCategoryFilter', 'queue-category-filter'],
+    ['queue-priority-filter', 'queuePriorityFilter', 'queue-priority-filter'],
   ]) {
     const saved = sessionStorage.getItem(storageKey);
     if (!saved) continue;
@@ -55,6 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (sel && [...sel.options].some((o) => o.value === saved)) sel.value = saved;
   }
   bindScanContextCollapse();
+  bindBulkActions();
   await refreshAll();
   bindEvents();
   loadUserAvatar();
@@ -184,6 +193,11 @@ async function refreshAll() {
     state.config = config;
     state.lastRun = lastRun;
     populateQueueVersionFilterOptions();
+    populateQueueCategoryFilterOptions();
+    populateQueuePriorityFilterOptions();
+    applyDefaultQueueFiltersIfUnset();
+    syncQueueFilterControls();
+    pruneQueueSelection();
     render();
     renderHeroGreeting();
   } catch (err) {
@@ -349,6 +363,67 @@ function filterQueueItemsByVersion(items) {
   return items.filter((i) => itemStackMinors(i).includes(vf));
 }
 
+function configCategoryNames() {
+  const cfg = state.config;
+  if (!cfg) return [];
+  const names = [];
+  if (Array.isArray(cfg.repos)) {
+    for (const g of cfg.repos) {
+      for (const c of g.categories ?? []) {
+        if (c.name) names.push(c.name);
+      }
+    }
+  }
+  for (const c of cfg.categories ?? []) {
+    if (c.name) names.push(c.name);
+  }
+  return [...new Set(names)];
+}
+
+/** @param {QueueItem} item */
+function itemCategoryNames(item) {
+  const names = [item.category, ...(item.alsoAppliesTo ?? [])].filter(Boolean);
+  return [...new Set(names)];
+}
+
+/** @param {QueueItem[]} items */
+function filterQueueItemsByCategory(items) {
+  const cf = state.queueCategoryFilter;
+  if (cf === 'all') return items;
+  const focus =
+    state.queue.filterMeta?.focusCategories ?? state.config?.focusCategories ?? [];
+  if (cf === 'focus') {
+    const focusSet = new Set(focus);
+    return items.filter((i) => itemCategoryNames(i).some((n) => focusSet.has(n)));
+  }
+  return items.filter((i) => itemCategoryNames(i).includes(cf));
+}
+
+/** @param {QueueItem[]} items */
+function filterQueueItemsByPriority(items) {
+  const pf = state.queuePriorityFilter;
+  if (pf === 'all') return items;
+  if (pf === 'unrated') {
+    return items.filter((i) => !i.triagePriorityLevel);
+  }
+  const allowed = new Set(pf.split(','));
+  return items.filter(
+    (i) => i.triagePriorityLevel && allowed.has(i.triagePriorityLevel.toLowerCase())
+  );
+}
+
+const PRIORITY_SORT = { P0: 0, P1: 1, P2: 2, P3: 3 };
+
+/** @param {QueueItem[]} items */
+function sortQueueItemsByPriority(items) {
+  return [...items].sort((a, b) => {
+    const pa = PRIORITY_SORT[a.triagePriorityLevel] ?? 9;
+    const pb = PRIORITY_SORT[b.triagePriorityLevel] ?? 9;
+    if (pa !== pb) return pa - pb;
+    return (b.assessment?.confidence ?? 0) - (a.assessment?.confidence ?? 0);
+  });
+}
+
 /** @param {QueueItem[]} items */
 function filterQueueItemsByDocWork(items) {
   if (state.queueDocWorkFilter === 'all') return items;
@@ -363,8 +438,66 @@ function filterQueueItemsByDocWork(items) {
 }
 
 /** @param {QueueItem[]} items */
+function pruneQueueSelection() {
+  const ids = new Set((state.queue.items ?? []).map((i) => i.id));
+  for (const id of state.selectedQueueIds) {
+    if (!ids.has(id)) state.selectedQueueIds.delete(id);
+  }
+}
+
+function updateBulkBar() {
+  const countEl = document.getElementById('queue-bulk-count');
+  const createBtn = document.getElementById('btn-bulk-create');
+  const n = state.selectedQueueIds.size;
+  if (countEl) countEl.textContent = n === 1 ? '1 selected' : `${n} selected`;
+  if (createBtn) createBtn.disabled = n === 0;
+}
+
+function setItemSelected(itemId, selected) {
+  if (selected) state.selectedQueueIds.add(itemId);
+  else state.selectedQueueIds.delete(itemId);
+  updateBulkBar();
+}
+
+function selectAllVisibleQueueItems() {
+  const visible = applyQueueFilters(state.queue.items ?? []);
+  for (const item of visible) state.selectedQueueIds.add(item.id);
+  renderQueue();
+}
+
+function clearQueueSelection() {
+  state.selectedQueueIds.clear();
+  renderQueue();
+}
+
+function categoryGroupAllSelected(itemIds) {
+  return itemIds.length > 0 && itemIds.every((id) => state.selectedQueueIds.has(id));
+}
+
+function categoryGroupSomeSelected(itemIds) {
+  return itemIds.some((id) => state.selectedQueueIds.has(id));
+}
+
+function toggleCategoryGroupSelection(itemIds, selected) {
+  for (const id of itemIds) {
+    if (selected) state.selectedQueueIds.add(id);
+    else state.selectedQueueIds.delete(id);
+  }
+  renderQueue();
+}
+
+function bindBulkActions() {
+  document.getElementById('btn-bulk-select-visible')?.addEventListener('click', selectAllVisibleQueueItems);
+  document.getElementById('btn-bulk-clear')?.addEventListener('click', clearQueueSelection);
+  document.getElementById('btn-bulk-create')?.addEventListener('click', createBulkIssues);
+}
+
 function applyQueueFilters(items) {
-  return filterQueueItemsByDocWork(filterQueueItemsByVersion(filterQueueItemsByAssessment(items)));
+  return filterQueueItemsByPriority(
+    filterQueueItemsByDocWork(
+      filterQueueItemsByCategory(filterQueueItemsByVersion(filterQueueItemsByAssessment(items)))
+    )
+  );
 }
 
 function activeQueueFiltersCount() {
@@ -372,7 +505,116 @@ function activeQueueFiltersCount() {
   if (state.queueFilter !== 'all') n++;
   if (state.queueVersionFilter !== 'all') n++;
   if (state.queueDocWorkFilter !== 'all') n++;
+  if (state.queueCategoryFilter !== 'all') n++;
+  if (state.queuePriorityFilter !== 'all') n++;
   return n;
+}
+
+function applyDefaultQueueFiltersIfUnset() {
+  const defs = state.config?.defaultQueueFilters;
+  if (!defs) return;
+
+  /** @param {string} storageKey @param {string} field @param {string | undefined} value */
+  const apply = (storageKey, field, value) => {
+    if (sessionStorage.getItem(storageKey) != null || value == null) return;
+    state[field] = value;
+    sessionStorage.setItem(storageKey, value);
+  };
+
+  apply('queue-filter', 'queueFilter', defs.assessment);
+  apply('queue-version-filter', 'queueVersionFilter', defs.version);
+  apply('queue-category-filter', 'queueCategoryFilter', defs.category);
+  apply('queue-doc-work-filter', 'queueDocWorkFilter', defs.docWork);
+  apply('queue-priority-filter', 'queuePriorityFilter', defs.priority);
+}
+
+function syncQueueFilterControls() {
+  for (const [key, field] of [
+    ['queue-filter', 'queueFilter'],
+    ['queue-version-filter', 'queueVersionFilter'],
+    ['queue-doc-work-filter', 'queueDocWorkFilter'],
+    ['queue-category-filter', 'queueCategoryFilter'],
+    ['queue-priority-filter', 'queuePriorityFilter'],
+  ]) {
+    const el = document.getElementById(key);
+    if (!el) continue;
+    const val = state[field];
+    if ([...el.options].some((o) => o.value === val)) el.value = val;
+  }
+}
+
+function populateQueueCategoryFilterOptions() {
+  const sel = document.getElementById('queue-category-filter');
+  if (!sel) return;
+  const prev = state.queueCategoryFilter;
+  const names = new Set(configCategoryNames());
+  for (const item of state.queue.items ?? []) {
+    for (const n of itemCategoryNames(item)) names.add(n);
+  }
+  const sorted = [...names].sort((a, b) => a.localeCompare(b));
+  const focus = state.queue.filterMeta?.focusCategories ?? state.config?.focusCategories ?? [];
+
+  let html = '<option value="all">All categories</option>';
+  if (focus.length) {
+    const label =
+      focus.length === 1
+        ? `Focus: ${focus[0]} (config)`
+        : `Focus: ${focus.join(', ')} (config)`;
+    html += `<option value="focus">${esc(label)}</option>`;
+  }
+  for (const name of sorted) {
+    const isFocus = focus.includes(name);
+    html += `<option value="${esc(name)}">${esc(name)}${isFocus ? ' ★' : ''}</option>`;
+  }
+  sel.innerHTML = html;
+  if ([...sel.options].some((o) => o.value === prev)) sel.value = prev;
+  else if (focus.length && prev === 'focus') sel.value = 'focus';
+  else {
+    state.queueCategoryFilter = 'all';
+    sel.value = 'all';
+  }
+}
+
+/** Count items per priority tier (uses server-derived `triagePriorityLevel` on each item). */
+function priorityTierCounts() {
+  /** @type {Record<string, number>} */
+  const counts = { P0: 0, P1: 0, P2: 0, P3: 0, unrated: 0 };
+  for (const item of state.queue.items ?? []) {
+    const level = item.triagePriorityLevel;
+    if (!level) counts.unrated += 1;
+    else if (level in counts) counts[level] += 1;
+  }
+  return counts;
+}
+
+function populateQueuePriorityFilterOptions() {
+  const sel = document.getElementById('queue-priority-filter');
+  if (!sel) return;
+  const prev = state.queuePriorityFilter;
+  const c = priorityTierCounts();
+  const p01 = c.P0 + c.P1;
+
+  const options = [
+    ['all', 'All'],
+    ['p0,p1', `P0 + P1 (${p01})`],
+    ['p0', `P0 (${c.P0})`],
+    ['p1', `P1 (${c.P1})`],
+    ['p2', `P2 (${c.P2})`],
+    ['p3', `P3 (${c.P3})`],
+    ['unrated', `Unrated (${c.unrated})`],
+  ];
+
+  sel.innerHTML = options
+    .map(([value, label]) => `<option value="${esc(value)}">${esc(label)}</option>`)
+    .join('');
+
+  if ([...sel.options].some((o) => o.value === prev)) {
+    sel.value = prev;
+  } else {
+    state.queuePriorityFilter = 'all';
+    sel.value = 'all';
+    sessionStorage.setItem('queue-priority-filter', 'all');
+  }
 }
 
 function populateQueueVersionFilterOptions() {
@@ -430,6 +672,18 @@ function docWorkBadge(item) {
   return parts.join('');
 }
 
+function priorityBadge(item) {
+  const level = item.triagePriorityLevel;
+  if (!level) return '';
+  const est = item.triagePrioritySource === 'heuristic' ? ' (estimate)' : '';
+  const cls = item.triagePrioritySource === 'heuristic' ? ' priority-badge--heuristic' : '';
+  const title =
+    item.triagePrioritySource === 'heuristic'
+      ? 'From release-note heuristic until enrichment sets triagePriority'
+      : item.triagePriorityLabel ?? level;
+  return `<span class="priority-badge${cls}" title="${esc(title)}">${esc(level)}${esc(est)}</span>`;
+}
+
 function renderTabCounts() {
   const items = state.queue.items;
   const yes = items.filter((i) => i.assessment.needsDocs === 'yes').length;
@@ -484,7 +738,7 @@ function renderQueue() {
     container.innerHTML = `
       <div class="blankslate">
         <h3 class="blankslate-heading">No items match this filter</h3>
-        <p class="color-fg-muted text-small">Relax the <strong>Assessment</strong>, <strong>Stack release</strong>, or <strong>Doc work</strong> filters, or run enrichment for finer doc-work labels.</p>
+        <p class="color-fg-muted text-small">Relax <strong>Assessment</strong>, <strong>Stack release</strong>, <strong>Doc work</strong>, <strong>Category</strong>, or <strong>Priority</strong>. Priority counts are heuristic until enrichment sets <code>triagePriority</code>; <strong>P0 + P1</strong> is narrow — try P2 or All.</p>
       </div>`;
     empty.style.display = 'none';
     if (footer) footer.style.display = 'none';
@@ -499,12 +753,19 @@ function renderQueue() {
   let html = '';
 
   for (const [category, items] of grouped) {
-    const yes = items.filter((i) => i.assessment.needsDocs === 'yes').length;
-    const check = items.filter((i) => i.assessment.needsDocs === 'check').length;
-    const no = items.filter((i) => i.assessment.needsDocs === 'no').length;
+    const sortedItems = sortQueueItemsByPriority(items);
+    const itemIds = sortedItems.map((i) => i.id);
+    const allSel = categoryGroupAllSelected(itemIds);
+    const someSel = !allSel && categoryGroupSomeSelected(itemIds);
+    const yes = sortedItems.filter((i) => i.assessment.needsDocs === 'yes').length;
+    const check = sortedItems.filter((i) => i.assessment.needsDocs === 'check').length;
+    const no = sortedItems.filter((i) => i.assessment.needsDocs === 'no').length;
     html += `
-      <div class="category-group">
+      <div class="category-group" data-category-group="${esc(category)}">
         <div class="category-header">
+          <label class="category-select-all" title="Select all items in this section">
+            <input type="checkbox" class="category-select-all-input" data-item-ids="${esc(itemIds.join(','))}"${allSel ? ' checked' : ''}${someSel ? ' data-indeterminate="1"' : ''} />
+          </label>
           <h3>${esc(category)}</h3>
           <div class="category-pills">
             ${yes > 0 ? `<span class="pill pill-yes">${yes} needs docs</span>` : ''}
@@ -512,7 +773,7 @@ function renderQueue() {
             ${no > 0 ? `<span class="pill pill-no">${no} no docs</span>` : ''}
           </div>
         </div>
-        ${items.map((item) => renderCard(item)).join('')}
+        ${sortedItems.map((item) => renderCard(item)).join('')}
       </div>
     `;
   }
@@ -546,6 +807,14 @@ function renderQueue() {
 
   container.innerHTML = html;
   bindCardEvents();
+  updateBulkBar();
+  container.querySelectorAll('.category-select-all-input').forEach((input) => {
+    if (input.dataset.indeterminate === '1') input.indeterminate = true;
+    input.addEventListener('change', () => {
+      const ids = (input.dataset.itemIds ?? '').split(',').filter(Boolean);
+      toggleCategoryGroupSelection(ids, input.checked);
+    });
+  });
 
   // Bind unskip buttons
   container.querySelectorAll('[data-action="unskip"]').forEach((btn) => {
@@ -599,9 +868,11 @@ function renderCard(item) {
   const confidence = item.assessment.confidence != null ? Math.round(item.assessment.confidence * 100) : null;
   const confStr = confidence != null ? ` · ${confidence}%` : '';
 
+  const selected = state.selectedQueueIds.has(item.id);
   return `
     <div class="triage-card" data-id="${item.id}">
       <div class="triage-card-header" data-action="toggle">
+        <input type="checkbox" class="triage-select" data-item="${item.id}" aria-label="Select for bulk create"${selected ? ' checked' : ''} />
         <svg class="triage-card-chevron octicon" viewBox="0 0 16 16" width="16" height="16">
           <path fill="currentColor" d="m6.427 4.427 3.396 3.396a.25.25 0 0 1 0 .354l-3.396 3.396A.25.25 0 0 1 6 11.396V4.604a.25.25 0 0 1 .427-.177Z"/>
         </svg>
@@ -611,6 +882,7 @@ function renderCard(item) {
           ${releaseNoteBadges(item)}
           ${avail ? `<span class="avail-badge">${esc(avail)}</span>` : ''}
           ${docWorkBadge(item)}
+          ${priorityBadge(item)}
           ${effortBadge(item.assessment.effortTag)}
           ${item.assessment.trackedIn?.length ? `<span class="tracked-badge">Already tracked</span>` : ''}
         </div>
@@ -890,6 +1162,8 @@ function bindEvents() {
     ['queue-filter', 'queueFilter', 'queue-filter'],
     ['queue-version-filter', 'queueVersionFilter', 'queue-version-filter'],
     ['queue-doc-work-filter', 'queueDocWorkFilter', 'queue-doc-work-filter'],
+    ['queue-category-filter', 'queueCategoryFilter', 'queue-category-filter'],
+    ['queue-priority-filter', 'queuePriorityFilter', 'queue-priority-filter'],
   ]) {
     const el = document.getElementById(id);
     if (!el) continue;
@@ -905,8 +1179,16 @@ function bindEvents() {
 function bindCardEvents() {
   // Toggle expand/collapse
   document.querySelectorAll('[data-action="toggle"]').forEach((el) => {
-    el.addEventListener('click', () => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('.triage-select')) return;
       el.closest('.triage-card').classList.toggle('expanded');
+    });
+  });
+
+  document.querySelectorAll('.triage-select').forEach((input) => {
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('change', () => {
+      setItemSelected(input.dataset.item, input.checked);
     });
   });
 
@@ -1027,6 +1309,60 @@ async function saveFieldEdit(itemId, field, value) {
     if (idx >= 0) state.queue.items[idx] = updated;
   } catch (err) {
     showToast(`Save failed: ${err.message}`, 'error');
+  }
+}
+
+async function createBulkIssues() {
+  const ids = [...state.selectedQueueIds];
+  if (!ids.length) return;
+
+  const titles = ids
+    .map((id) => state.queue.items.find((i) => i.id === id))
+    .filter(Boolean)
+    .slice(0, 5)
+    .map((i) => i.userEdits?.title ?? i.suggestedTitle);
+  const preview =
+    titles.length >= ids.length
+      ? titles.map((t) => `• ${t}`).join('\n')
+      : `${titles.map((t) => `• ${t}`).join('\n')}\n• …and ${ids.length - titles.length} more`;
+
+  if (
+    !confirm(
+      `Create ${ids.length} GitHub issue${ids.length === 1 ? '' : 's'}? Each uses its card title, target repo, and template body.\n\n${preview}`
+    )
+  ) {
+    return;
+  }
+
+  const btn = document.getElementById('btn-bulk-create');
+  const prevLabel = btn?.textContent;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+  }
+
+  try {
+    const result = await api('/create-issues', {
+      method: 'POST',
+      body: { queueItemIds: ids },
+    });
+    const ok = result.created?.length ?? 0;
+    const bad = result.failed?.length ?? 0;
+    state.selectedQueueIds.clear();
+    if (bad === 0) {
+      showToast(`Created ${ok} issue${ok === 1 ? '' : 's'}.`, 'success');
+    } else {
+      const firstErr = result.failed[0]?.error ?? 'unknown error';
+      showToast(`Created ${ok}, failed ${bad}. First error: ${firstErr}`, bad === ids.length ? 'error' : 'success');
+    }
+    await refreshAll();
+  } catch (err) {
+    showToast(`Bulk create failed: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = state.selectedQueueIds.size === 0;
+      btn.textContent = prevLabel ?? 'Create issues';
+    }
   }
 }
 
