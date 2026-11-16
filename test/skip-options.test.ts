@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import test from 'node:test';
 import vm from 'node:vm';
+import { DEFAULT_THEME_ID, getTheme } from '../src/public/themes.js';
 
 function renderCard(): string {
   const appSource = readFileSync(resolve(import.meta.dirname, '..', 'src', 'public', 'app.js'), 'utf8');
@@ -27,9 +28,13 @@ function renderCard(): string {
     fetch,
     requestAnimationFrame() {},
     setTimeout,
+    __theme: getTheme(DEFAULT_THEME_ID),
   } as Record<string, unknown>;
 
-  vm.runInNewContext(`${appSource}\nglobalThis.__renderCard = renderCard;`, context);
+  vm.runInNewContext(
+    `${appSource}\nactiveTheme = globalThis.__theme;\nglobalThis.__renderCard = renderCard;`,
+    context
+  );
 
   const render = context.__renderCard as (item: unknown) => string;
   return render({

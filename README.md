@@ -334,7 +334,7 @@ To start every new session with the same filters, set `defaultQueueFilters` in `
 
 #### Card actions
 
-- **Accept quest and create issue:** Creates the GitHub issue, links it in the meta issue if one is configured, sets project fields, and adds **good first issue** if checked.
+- **Accept quest and create issue** (the wording changes with the [theme](#themes)): Creates the GitHub issue, links it in the meta issue if one is configured, sets project fields, and adds **good first issue** if checked.
 - **Skip** buttons remove the item from the queue and record the reason in `history.json`:
 
 | Button | Stored `reason` |
@@ -364,6 +364,27 @@ When the queue is empty, **Mark scan complete** records the scan in `last_run.js
 ### History tab
 
 **Decision history** lists past decisions grouped by scan session, newest first, with a count of issues created and items skipped. Created issues link to GitHub, and skipped items show their reason.
+
+### Themes
+
+The palette button in the header switches the theme. Your choice is saved in this browser and applied before the page draws, so the default theme doesn't flash first.
+
+| Theme | Look |
+|-------|------|
+| **Azeroth** (default) | The original quest-giver look and greetings |
+| **Midnight Coven** | Dark obsidian and twilight purple with starlight gold, plus tarot, astrology, and witch familiars |
+| **Bright Falls** | A softened dark theme with Alan Wake characters, lamp-amber accents, and a typewriter font |
+| **Oldest House** | A light concrete theme with Control characters, Bureau red accents, and subtitles from the Board |
+
+A theme changes colors, fonts, the greeting and mascots, the empty-queue and completion text, the rewards popup, toast messages, and the wording of the accept button on each card. Every accept label still says that it creates an issue. Skip reasons, filters, bulk actions, and tooltips are the same in every theme.
+
+To add a theme:
+
+1. Add an entry to `THEMES` in `src/public/themes.js` with an `id`, `name`, `description`, `colorMode` (`light` or `dark`), and the voice fields you want to change. Fields you leave out use Azeroth's.
+2. Add an `html[data-theme="your-id"][data-color-mode]` block to `src/public/themes.css` that overrides the variables at the top of `src/public/styles.css`. Copy the Primer mapping at the end of an existing block so buttons, inputs, and dialogs match the theme.
+3. Run `yarn test`. `test/themes.test.ts` checks that every theme has the fields the UI reads.
+
+Greeting lines are inserted as HTML, so write literal angle brackets as `&lt;` and `&gt;` (the Oldest House `board()` helper does this for Board subtitles).
 
 ### Same-PR documentation coverage
 
@@ -402,7 +423,7 @@ The template is at `templates/issue-template.md` (Handlebars syntax) and can be 
 
 ## Fork enhancements
 
-This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, **Run scan** and **Enrich** buttons, tooltips and descriptions, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream.
+This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, **Run scan** and **Enrich** buttons, tooltips and descriptions, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream. [Themes](#themes) are fork-only and aren't part of that proposal.
 
 ## License
 

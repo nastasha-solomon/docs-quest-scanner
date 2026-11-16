@@ -1,0 +1,410 @@
+/* Theme overrides. Each block redefines variables from the :root block in
+   styles.css; the matching voice lives in themes.js. Azeroth is the default
+   and has no block.
+
+   html[data-theme][data-color-mode] outranks Primer's
+   [data-color-mode][data-*-theme] blocks, so the Primer variables set here win
+   over its default palettes. Dark themes keep body text near 9:1 contrast
+   rather than the 14:1+ of pure white on black. */
+
+/* ── Midnight Coven (dark) ───────────────────────────── */
+
+html[data-theme="midnight-coven"][data-color-mode] {
+  /* Text: pale and dusty lilac */
+  --text: #cbc1db;
+  --text-muted: #a99dc0;
+  --text-subtle: #9a8fb0;
+  --text-faint: #9488aa;
+  --text-placeholder: #756b8c;
+  --label-fg: #c0b5d3;
+  --on-emphasis: #ffffff;
+
+  /* Surfaces: obsidian and twilight purple */
+  --surface: #221e30;
+  --surface-page: #1a1724;
+  --surface-subtle: #29243a;
+  --surface-muted: #312b45;
+  --surface-inset: #312b45;
+  --surface-sunken: #1e1a2b;
+  --surface-track: #3a3352;
+  --overlay-bg: rgba(26, 23, 36, 0.78);
+  --field-highlight: rgba(255, 255, 255, 0.03);
+  --code-bg: rgba(165, 147, 196, 0.16);
+  --shadow-rgb: 0, 0, 0;
+  --card-hover: #29243a;
+
+  /* Borders */
+  --border: #3b3452;
+  --border-muted: #352f4a;
+  --border-subtle: #352f4a;
+  --border-faint: #2c2740;
+  --border-strong: #5a5078;
+
+  /* Accent: starlight gold */
+  --accent: #e0c27a;
+  --accent-strong: #eed59a;
+  --accent-subtle: rgba(224, 194, 122, 0.14);
+  --accent-hover-bg: rgba(224, 194, 122, 0.08);
+  --accent-border: rgba(224, 194, 122, 0.4);
+  --accent-border-faint: rgba(224, 194, 122, 0.25);
+  --focus-rgb: 224, 194, 122;
+  --elastic-blue: #b9a3e3;
+
+  /* Assessment pills and badges */
+  --needs-docs-bg: rgba(214, 120, 150, 0.18);
+  --needs-docs-fg: #e6a3b8;
+  --check-docs-bg: rgba(224, 194, 122, 0.15);
+  --check-docs-fg: #e0c27a;
+  --badge-docs: #7fbf95;
+  --badge-no: var(--text-muted);
+
+  /* Status */
+  --danger: #e6919f;
+  --priority-fg: #e6ab80;
+  --success-emphasis: #2f7a45;
+  --success-emphasis-hover: #368a4f;
+  --success-rgb: 70, 150, 95;
+  --success-subtle-bg: rgba(70, 150, 95, 0.2);
+  --success-subtle-fg: #8fd1a5;
+  --accept-bg: #e0c27a;
+  --accept-bg-hover: #eed59a;
+  --accept-border: #c9aa62;
+  --accept-fg: #1a1724;
+  --tracked-icon: #7fbf95;
+  --attention-fg: #e0c27a;
+  --attention-subtle: rgba(187, 140, 40, 0.16);
+  --attention-emphasis: #b08a3a;
+  --attention-border: rgba(187, 140, 40, 0.45);
+  --attention-border-faint: rgba(187, 140, 40, 0.25);
+  --attention-wash: rgba(187, 140, 40, 0.1);
+  --severe-fg: #e6ab80;
+  --severe-subtle: rgba(210, 130, 80, 0.16);
+  --severe-rgb: 230, 171, 128;
+
+  /* Release note and effort badges */
+  --rn-deprecation: #d9ad55;
+  --rn-feature: #8fd6a8;
+  --rn-fix: #c9a7f2;
+  --effort-update-bg: rgba(150, 170, 255, 0.16);
+  --effort-update-fg: #b3c0ff;
+  --effort-new-bg: rgba(195, 168, 232, 0.18);
+  --effort-new-fg: #d6c2f2;
+
+  /* Tooltips and toasts: raised panels with a starlight edge */
+  --tooltip-bg: #352e4b;
+  --tooltip-fg: #e4dcef;
+  --tooltip-border: rgba(224, 194, 122, 0.28);
+  --toast-bg: #352e4b;
+  --toast-fg: #e4dcef;
+  --toast-border: rgba(224, 194, 122, 0.28);
+
+  /* Quest flavor: starlight gold, lilac glow, crescent moons */
+  --quest-gold: #e0c27a;
+  --quest-gold-rgb: 224, 194, 122;
+  --quest-turn-in: #eed59a;
+  --quest-turn-in-rgb: 238, 213, 154;
+  --quest-trim: #a593c4;
+  --quest-trim-rgb: 165, 147, 196;
+  --quest-done: #9a8fb0;
+  --quest-mark: #e0c27a;
+  --quest-mark-glow: rgba(185, 160, 230, 0.45);
+  --parchment: #221e30;
+  --parchment-hover: #29243a;
+  --parchment-rule: #352f4a;
+  --hero-ornament-start: '☾ ✧ ';
+  --hero-ornament-end: ' ✧ ☽';
+  --font-flavor: Palatino, 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+
+  /* Primer components (buttons, inputs, dialogs, tabs) */
+  --bgColor-default: var(--surface);
+  --bgColor-muted: var(--surface-subtle);
+  --bgColor-inset: var(--surface-sunken);
+  --fgColor-default: var(--text);
+  --fgColor-muted: var(--text-muted);
+  --fgColor-accent: var(--accent);
+  --borderColor-default: var(--border);
+  --borderColor-muted: var(--border-muted);
+  --overlay-bgColor: var(--surface);
+  --control-bgColor-rest: var(--surface-subtle);
+  --control-borderColor-rest: var(--border);
+  --button-default-bgColor-rest: var(--surface-subtle);
+  --button-default-bgColor-hover: var(--surface-muted);
+  --button-default-borderColor-rest: var(--border);
+  --focus-outlineColor: var(--accent);
+  --underlineNav-borderColor-active: var(--quest-trim);
+  --button-outline-fgColor-rest: var(--accent);
+  --button-outline-fgColor-hover: var(--accept-fg);
+  --button-outline-bgColor-hover: var(--accent);
+  --button-outline-borderColor-hover: var(--accent);
+  --button-outline-fgColor-active: var(--accept-fg);
+  --button-outline-bgColor-active: var(--accent-strong);
+  --button-danger-fgColor-rest: var(--danger);
+  --button-danger-iconColor-rest: var(--danger);
+  --button-danger-fgColor-hover: var(--accept-fg);
+  --button-danger-iconColor-hover: var(--accept-fg);
+  --button-danger-bgColor-hover: var(--danger);
+  --button-danger-borderColor-hover: var(--danger);
+  --button-danger-fgColor-active: var(--accept-fg);
+  --button-danger-bgColor-active: var(--danger);
+}
+
+/* ── Bright Falls (dark, dusk) ───────────────────────── */
+
+html[data-theme="bright-falls"][data-color-mode] {
+  /* Text: muted parchment */
+  --text: #d6cfbf;
+  --text-muted: #a8a395;
+  --text-subtle: #959083;
+  --text-faint: #8f8a7e;
+  --text-placeholder: #737066;
+  --label-fg: #c6bfb0;
+  --on-emphasis: #ffffff;
+
+  /* Surfaces: charcoal pine */
+  --surface: #252c28;
+  --surface-page: #1d2320;
+  --surface-subtle: #2a322d;
+  --surface-muted: #313a34;
+  --surface-inset: #313a34;
+  --surface-sunken: #212824;
+  --surface-track: #38423b;
+  --overlay-bg: rgba(29, 35, 32, 0.75);
+  --field-highlight: rgba(255, 255, 255, 0.03);
+  --code-bg: rgba(143, 168, 154, 0.16);
+  --shadow-rgb: 0, 0, 0;
+  --card-hover: #2a322d;
+
+  /* Borders */
+  --border: #3b463f;
+  --border-muted: #353f38;
+  --border-subtle: #353f38;
+  --border-faint: #2e3732;
+  --border-strong: #56645b;
+
+  /* Accent: lamp amber */
+  --accent: #dcb766;
+  --accent-strong: #e8c987;
+  --accent-subtle: rgba(220, 183, 102, 0.14);
+  --accent-hover-bg: rgba(220, 183, 102, 0.08);
+  --accent-border: rgba(220, 183, 102, 0.4);
+  --accent-border-faint: rgba(220, 183, 102, 0.25);
+  --focus-rgb: 220, 183, 102;
+  --elastic-blue: #9cc3e6;
+
+  /* Assessment pills and badges: muted reds */
+  --needs-docs-bg: rgba(201, 110, 96, 0.18);
+  --needs-docs-fg: #e0a093;
+  --check-docs-bg: rgba(220, 183, 102, 0.15);
+  --check-docs-fg: #dcb766;
+  --badge-docs: #74ad77;
+  --badge-no: var(--text-muted);
+
+  /* Status */
+  --danger: #dd8a7e;
+  --priority-fg: #e0a473;
+  --success-emphasis: #2f7a45;
+  --success-emphasis-hover: #368a4f;
+  --success-rgb: 70, 150, 95;
+  --success-subtle-bg: rgba(70, 150, 95, 0.2);
+  --success-subtle-fg: #8fd1a5;
+  --accept-bg: #dcb766;
+  --accept-bg-hover: #e8c987;
+  --accept-border: #c9a453;
+  --accept-fg: #1d2320;
+  --tracked-icon: #74ad77;
+  --attention-fg: #dcb766;
+  --attention-subtle: rgba(187, 140, 40, 0.16);
+  --attention-emphasis: #b08a3a;
+  --attention-border: rgba(187, 140, 40, 0.45);
+  --attention-border-faint: rgba(187, 140, 40, 0.25);
+  --attention-wash: rgba(187, 140, 40, 0.1);
+  --severe-fg: #e0a473;
+  --severe-subtle: rgba(210, 130, 80, 0.16);
+  --severe-rgb: 224, 164, 115;
+
+  /* Release note and effort badges */
+  --rn-deprecation: #d2a24c;
+  --rn-feature: #8fd1a5;
+  --rn-fix: #c3a6e6;
+  --effort-update-bg: rgba(140, 180, 220, 0.16);
+  --effort-update-fg: #a9cbe9;
+  --effort-new-bg: rgba(190, 160, 230, 0.16);
+  --effort-new-fg: #cdb6ec;
+
+  /* Tooltips and toasts: raised panels, not inverted */
+  --tooltip-bg: #38423b;
+  --tooltip-fg: #e3ddcf;
+  --tooltip-border: #4a5650;
+  --toast-bg: #38423b;
+  --toast-fg: #e3ddcf;
+  --toast-border: #4a5650;
+
+  /* Quest flavor: lamplight and pine */
+  --quest-gold: #dcb766;
+  --quest-gold-rgb: 220, 183, 102;
+  --quest-turn-in: #e8c987;
+  --quest-turn-in-rgb: 232, 201, 135;
+  --quest-trim: #8fa89a;
+  --quest-trim-rgb: 143, 168, 154;
+  --quest-done: #959083;
+  --quest-mark: #dcb766;
+  --quest-mark-glow: rgba(220, 183, 102, 0.3);
+  --parchment: #252c28;
+  --parchment-hover: #2a322d;
+  --parchment-rule: #353f38;
+  --hero-ornament-start: '🌲 ';
+  --hero-ornament-end: ' 🌲';
+  --font-flavor: 'American Typewriter', 'Courier New', Courier, monospace;
+  --font-pill: 'American Typewriter', 'Courier New', Courier, monospace;
+  --font-pill-code: 'American Typewriter', 'Courier New', Courier, monospace;
+
+  /* Primer components (buttons, inputs, dialogs, tabs) */
+  --bgColor-default: var(--surface);
+  --bgColor-muted: var(--surface-subtle);
+  --bgColor-inset: var(--surface-sunken);
+  --fgColor-default: var(--text);
+  --fgColor-muted: var(--text-muted);
+  --fgColor-accent: var(--accent);
+  --borderColor-default: var(--border);
+  --borderColor-muted: var(--border-muted);
+  --overlay-bgColor: var(--surface);
+  --control-bgColor-rest: var(--surface-subtle);
+  --control-borderColor-rest: var(--border);
+  --button-default-bgColor-rest: var(--surface-subtle);
+  --button-default-bgColor-hover: var(--surface-muted);
+  --button-default-borderColor-rest: var(--border);
+  --focus-outlineColor: var(--accent);
+  --underlineNav-borderColor-active: var(--quest-gold);
+  --button-outline-fgColor-rest: var(--accent);
+  --button-outline-fgColor-hover: var(--accept-fg);
+  --button-outline-bgColor-hover: var(--accent);
+  --button-outline-borderColor-hover: var(--accent);
+  --button-outline-fgColor-active: var(--accept-fg);
+  --button-outline-bgColor-active: var(--accent-strong);
+  --button-danger-fgColor-rest: var(--danger);
+  --button-danger-iconColor-rest: var(--danger);
+  --button-danger-fgColor-hover: var(--accept-fg);
+  --button-danger-iconColor-hover: var(--accept-fg);
+  --button-danger-bgColor-hover: var(--danger);
+  --button-danger-borderColor-hover: var(--danger);
+  --button-danger-fgColor-active: var(--accept-fg);
+  --button-danger-bgColor-active: var(--danger);
+}
+
+/* ── Oldest House (light) ────────────────────────────── */
+
+html[data-theme="oldest-house"][data-color-mode] {
+  /* Text: Bureau black */
+  --text: #1c1c1e;
+  --text-muted: #5b5954;
+  --text-subtle: #64615b;
+  --text-faint: #75726b;
+  --text-placeholder: #a29e96;
+  --label-fg: #3c3a36;
+
+  /* Surfaces: poured concrete */
+  --surface: #f5f3ef;
+  --surface-page: #e5e2dc;
+  --surface-subtle: #edeae5;
+  --surface-muted: #e3e0da;
+  --surface-inset: #e3e0da;
+  --surface-sunken: #f0eee9;
+  --surface-track: #d8d4cd;
+  --overlay-bg: rgba(229, 226, 220, 0.75);
+  --field-highlight: rgba(255, 255, 255, 0.5);
+  --code-bg: rgba(120, 112, 100, 0.14);
+  --shadow-rgb: 28, 28, 30;
+  --card-hover: #edeae5;
+
+  /* Borders */
+  --border: #cdc8c0;
+  --border-muted: #d5d1c9;
+  --border-subtle: #dbd7d0;
+  --border-faint: #e5e2dc;
+  --border-strong: #b2ada4;
+
+  /* Accent: Bureau red */
+  --accent: #a8322b;
+  --accent-strong: #86251f;
+  --accent-subtle: #f3dfdc;
+  --accent-hover-bg: #f6e9e7;
+  --accent-border: rgba(168, 50, 43, 0.35);
+  --accent-border-faint: rgba(168, 50, 43, 0.2);
+  --focus-rgb: 168, 50, 43;
+  --elastic-blue: #3f4c58;
+
+  /* Assessment pills and badges */
+  --needs-docs-bg: #f4dcd8;
+  --needs-docs-fg: #962a22;
+  --check-docs-bg: #efe5cc;
+  --check-docs-fg: #6e5108;
+  --badge-docs: #2f6b3d;
+  --badge-no: var(--text-muted);
+
+  /* Status */
+  --danger: #b3261e;
+  --priority-fg: #9a4a12;
+
+  /* Accept: the Board's black pyramid */
+  --accept-bg: #1c1c1e;
+  --accept-bg-hover: #3a3a3d;
+  --accept-border: #000000;
+  --accept-fg: #f5f3ef;
+
+  /* Tooltips and toasts */
+  --tooltip-bg: #1c1c1e;
+  --tooltip-fg: #f5f3ef;
+  --toast-bg: #1c1c1e;
+  --toast-fg: #f5f3ef;
+
+  /* Quest flavor: Bureau red marks, concrete trim, Board pyramids */
+  --quest-gold: #b03a2e;
+  --quest-gold-rgb: 176, 58, 46;
+  --quest-turn-in: #c4473a;
+  --quest-turn-in-rgb: 196, 71, 58;
+  --quest-trim: #8a857c;
+  --quest-trim-rgb: 138, 133, 124;
+  --quest-done: #8f8b83;
+  --quest-mark: #b03a2e;
+  --quest-mark-glow: rgba(176, 58, 46, 0.22);
+  --parchment: #f5f3ef;
+  --parchment-hover: #edeae5;
+  --parchment-rule: #dbd7d0;
+  --hero-ornament-start: '🔻 ';
+  --hero-ornament-end: ' 🔺';
+  --font-flavor: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --font-pill: 'American Typewriter', 'Courier New', Courier, monospace;
+  --font-pill-code: 'American Typewriter', 'Courier New', Courier, monospace;
+
+  /* Primer components (buttons, inputs, dialogs, tabs) */
+  --bgColor-default: var(--surface);
+  --bgColor-muted: var(--surface-subtle);
+  --bgColor-inset: var(--surface-sunken);
+  --fgColor-default: var(--text);
+  --fgColor-muted: var(--text-muted);
+  --fgColor-accent: var(--accent);
+  --borderColor-default: var(--border);
+  --borderColor-muted: var(--border-muted);
+  --overlay-bgColor: var(--surface);
+  --control-bgColor-rest: var(--surface-subtle);
+  --control-borderColor-rest: var(--border);
+  --button-default-bgColor-rest: var(--surface-subtle);
+  --button-default-bgColor-hover: var(--surface-muted);
+  --button-default-borderColor-rest: var(--border);
+  --focus-outlineColor: var(--accent);
+  --underlineNav-borderColor-active: var(--quest-mark);
+  --button-outline-fgColor-rest: var(--accent);
+  --button-outline-fgColor-hover: var(--surface);
+  --button-outline-bgColor-hover: var(--accent);
+  --button-outline-borderColor-hover: var(--accent);
+  --button-outline-fgColor-active: var(--surface);
+  --button-outline-bgColor-active: var(--accent-strong);
+  --button-danger-fgColor-rest: var(--danger);
+  --button-danger-iconColor-rest: var(--danger);
+  --button-danger-fgColor-hover: var(--surface);
+  --button-danger-iconColor-hover: var(--surface);
+  --button-danger-bgColor-hover: var(--danger);
+  --button-danger-borderColor-hover: var(--danger);
+  --button-danger-fgColor-active: var(--surface);
+  --button-danger-bgColor-active: var(--danger);
+}
