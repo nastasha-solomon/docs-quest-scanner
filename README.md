@@ -365,6 +365,24 @@ When the queue is empty, **Mark scan complete** records the scan in `last_run.js
 
 **Decision history** lists past decisions grouped by scan session, newest first, with a count of issues created and items skipped. Created issues link to GitHub, and skipped items show their reason.
 
+### Themes
+
+The palette button in the header switches the theme. Your choice is saved in this browser and applied before the page draws, so the default theme doesn't flash first.
+
+| Theme | Look |
+|-------|------|
+| **Azeroth** (default) | The original quest-giver look and greetings |
+| **Coven** | Witch greetings, a witch familiar among the mascots, and purple quest marks |
+| **Bright Falls** | A dark theme with characters from Alan Wake and Control, a typewriter font, and red Bureau quest marks |
+
+A theme changes colors, fonts, the greeting and mascots, the empty-queue and completion text, the rewards popup, and toast messages. Button labels, skip reasons, filters, and tooltips are the same in every theme.
+
+To add a theme:
+
+1. Add an entry to `THEMES` in `src/public/themes.js` with an `id`, `name`, `description`, `colorMode` (`light` or `dark`), and the voice fields you want to change. Fields you leave out use Azeroth's.
+2. Add a `[data-theme="your-id"]` block to `src/public/themes.css` that overrides the variables at the top of `src/public/styles.css`. A dark theme also overrides Primer's variables, as the Bright Falls block does.
+3. Run `yarn test`. `test/themes.test.ts` checks that every theme has the fields the UI reads.
+
 ### Same-PR documentation coverage
 
 During enrichment, the scanner inspects user-facing documentation included in the product PR, commonly under `docs/`, and compares it with the implemented behavior and the published docs. If those files completely and accurately cover the change and are assembled into the user-facing documentation, the item is automatically dismissed as **owned by dev**. A documentation path alone is never sufficient: incomplete, incorrect, unlinked, developer-only, generated, or release-note content stays in the triage queue with its specific gaps.
@@ -402,7 +420,7 @@ The template is at `templates/issue-template.md` (Handlebars syntax) and can be 
 
 ## Fork enhancements
 
-This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, **Run scan** and **Enrich** buttons, tooltips and descriptions, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream.
+This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, **Run scan** and **Enrich** buttons, tooltips and descriptions, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream. [Themes](#themes) are fork-only and aren't part of that proposal.
 
 ## License
 

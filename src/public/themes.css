@@ -1,0 +1,140 @@
+/* Theme overrides. Each block redefines variables from the :root block in
+   styles.css; the matching voice lives in themes.js. Azeroth is the default
+   and has no block. */
+
+/* ── Coven ───────────────────────────────────────────── */
+
+[data-theme="coven"] {
+  --quest-mark: #a371f7;
+  --quest-mark-glow: rgba(163, 113, 247, 0.45);
+}
+
+[data-theme="coven"] .quest-animal--witch {
+  width: 22px;
+  height: 20px;
+  stroke: #8b5cf6;
+  fill: #a78bfa22;
+}
+
+/* ── Bright Falls (dark) ─────────────────────────────── */
+
+/* [data-color-mode] outranks Primer's [data-color-mode][data-dark-theme] block,
+   so the Primer variables below win over its default dark palette. */
+html[data-theme="bright-falls"][data-color-mode] {
+  /* Text */
+  --text: #e9e4d8;
+  --text-muted: #a9a496;
+  --text-subtle: #8d897d;
+  --text-faint: #858176;
+  --text-placeholder: #6c695f;
+  --label-fg: #cfc9bb;
+  --on-emphasis: #ffffff;
+
+  /* Surfaces */
+  --surface: #151a17;
+  --surface-page: #0c0f0d;
+  --surface-subtle: #1b211e;
+  --surface-muted: #232a26;
+  --surface-inset: #232a26;
+  --surface-sunken: #111512;
+  --surface-track: #2a322d;
+  --overlay-bg: rgba(12, 15, 13, 0.75);
+  --field-highlight: rgba(255, 255, 255, 0.02);
+  --code-bg: rgba(143, 168, 154, 0.18);
+  --shadow-rgb: 0, 0, 0;
+  --card-hover: #1b211e;
+
+  /* Borders */
+  --border: #2e3832;
+  --border-muted: #29322d;
+  --border-subtle: #29322d;
+  --border-faint: #212824;
+  --border-strong: #4b5a51;
+
+  /* Accent: flashlight yellow */
+  --accent: #f2c14e;
+  --accent-strong: #ffd978;
+  --accent-subtle: rgba(242, 193, 78, 0.14);
+  --accent-hover-bg: rgba(242, 193, 78, 0.08);
+  --accent-border: rgba(242, 193, 78, 0.4);
+  --accent-border-faint: rgba(242, 193, 78, 0.25);
+  --focus-rgb: 242, 193, 78;
+  --elastic-blue: #8cc4ff;
+
+  /* Assessment pills and badges */
+  --needs-docs-bg: rgba(229, 72, 59, 0.18);
+  --needs-docs-fg: #ff8f84;
+  --check-docs-bg: rgba(242, 193, 78, 0.16);
+  --check-docs-fg: #f2c14e;
+  --badge-docs: #57ab5a;
+  --badge-no: var(--text-muted);
+
+  /* Status */
+  --danger: #ff6b5e;
+  --priority-fg: #ff9b5c;
+  --success-emphasis: #238636;
+  --success-emphasis-hover: #2ea043;
+  --success-rgb: 46, 160, 67;
+  --success-subtle-bg: rgba(46, 160, 67, 0.2);
+  --success-subtle-fg: #7ee2a8;
+  --tracked-icon: #57ab5a;
+  --attention-fg: #e3b341;
+  --attention-subtle: rgba(187, 128, 9, 0.16);
+  --attention-emphasis: #bb8009;
+  --attention-border: rgba(187, 128, 9, 0.45);
+  --attention-border-faint: rgba(187, 128, 9, 0.25);
+  --attention-wash: rgba(187, 128, 9, 0.1);
+  --severe-fg: #f0883e;
+  --severe-subtle: rgba(219, 109, 40, 0.16);
+  --severe-rgb: 240, 136, 62;
+
+  /* Release note and effort badges */
+  --rn-deprecation: #d29922;
+  --rn-feature: #7ee2a8;
+  --rn-fix: #c297ff;
+  --effort-update-bg: rgba(88, 166, 255, 0.16);
+  --effort-update-fg: #8cc4ff;
+  --effort-new-bg: rgba(188, 140, 255, 0.16);
+  --effort-new-fg: #d2a8ff;
+
+  /* Tooltips and toasts: light on dark */
+  --tooltip-bg: #e9e4d8;
+  --tooltip-fg: #0c0f0d;
+  --toast-bg: #e9e4d8;
+  --toast-fg: #0c0f0d;
+
+  /* Quest flavor: Control red marks, pine trim, Remedy spirals */
+  --quest-gold: #f2c14e;
+  --quest-gold-rgb: 242, 193, 78;
+  --quest-turn-in: #ffe08a;
+  --quest-turn-in-rgb: 255, 224, 138;
+  --quest-trim: #8fa89a;
+  --quest-trim-rgb: 143, 168, 154;
+  --quest-done: #8d897d;
+  --quest-mark: #e5483b;
+  --quest-mark-glow: rgba(229, 72, 59, 0.55);
+  --parchment: #151a17;
+  --parchment-hover: #1b211e;
+  --parchment-rule: #29322d;
+  --hero-ornament-start: '꩜ ';
+  --hero-ornament-end: ' 𖦹';
+  --font-flavor: 'American Typewriter', 'Courier New', Courier, monospace;
+
+  /* Primer components (buttons, inputs, dialogs, tabs) */
+  --bgColor-default: var(--surface);
+  --bgColor-muted: var(--surface-subtle);
+  --bgColor-inset: var(--surface-sunken);
+  --fgColor-default: var(--text);
+  --fgColor-muted: var(--text-muted);
+  --fgColor-accent: var(--accent);
+  --borderColor-default: var(--border);
+  --borderColor-muted: var(--border-muted);
+  --overlay-bgColor: var(--surface);
+  --control-bgColor-rest: var(--surface-subtle);
+  --control-borderColor-rest: var(--border);
+  --button-default-bgColor-rest: var(--surface-subtle);
+  --button-default-bgColor-hover: var(--surface-muted);
+  --button-default-borderColor-rest: var(--border);
+  --focus-outlineColor: var(--accent);
+  --underlineNav-borderColor-active: var(--quest-mark);
+}
