@@ -308,3 +308,4 @@ These came from the same triage work and are in the fork. They're listed for con
 | `a1b0b7b` | Bulk action dropdown (accept and skip), README update |
 | `873325e` | Bulk progress bar; UI creates issues one request at a time |
 | `82ba988` | **Run scan** and **Enrich** buttons, scan scope table, controls panel layout, filter **Reset**, bulk bar labels |
+| `cbb315e` | Tooltips and descriptions across the review UI |
