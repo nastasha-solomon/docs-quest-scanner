@@ -1,0 +1,36 @@
+---
+description: Add a docs/CHANGELOG.md entry under Unreleased for user-facing changes
+alwaysApply: true
+---
+
+# Changelog entries
+
+When a change affects what someone using the scanner sees or does, add an entry to `docs/CHANGELOG.md` under `## Unreleased`, on the same branch as the change.
+
+- **Needs an entry:** the review UI (`src/public/`), scanning, queue, or issue behavior (`src/`), the skill (`templates/skill.md.template`), config options, and setup steps.
+- **No entry:** tests only, refactors with no visible change, `data/` files, and internal docs such as `docs/upstream-enhancement-request.md`.
+
+## Format
+
+- Group entries under `###` headings in this order, adding a heading only when it has entries: Features and enhancements, Fixes, Breaking changes, Action needed.
+- Write one line per change. Start with what the user can now do, or what now works, in plain language. Don't describe the code.
+- End the line with where the change lives and a link: `(Fork only, [#4])`. Use **Proposed upstream** only when the change is also described in `docs/upstream-enhancement-request.md`, and **From upstream** for changes merged from `florent-leborgne/docs-quest-scanner`. Otherwise use **Fork only**.
+- Add link definitions at the bottom of the file, for example `[#4]: https://github.com/nastasha-solomon/docs-quest-scanner/pull/4`. If the PR doesn't exist yet, leave the link out. If you open the PR, add the link in a follow-up commit.
+- Add an **Action needed** line when the user has to do something after pulling, such as running `./scripts/setup.sh` after a skill change or setting a new required config key.
+- Don't add date headings. Entries move from **Unreleased** to a heading for the merge date when the PR merges.
+
+## Example
+
+```markdown
+## Unreleased
+
+### Features and enhancements
+
+- Filter the queue by merge date, including **Since last scan**. (Proposed upstream, [#4])
+
+### Action needed
+
+- Run `./scripts/setup.sh` to reinstall the skill.
+```
+
+In your summary, tell the user you added a changelog entry so they can review the wording.
