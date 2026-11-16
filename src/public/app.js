@@ -1524,7 +1524,7 @@ function renderCardBody(item) {
           <svg class="octicon mr-1" viewBox="0 0 16 16" width="16" height="16">
             <path fill="currentColor" d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z"/>
           </svg>
-          Accept quest and create issue
+          ${esc(activeTheme.text.acceptLabel)}
         </button>
       </div>
       <button class="btn btn-sm btn-danger" data-action="dismiss" data-item="${item.id}" data-reason="no docs needed"${tipAttr(skipTip('The change doesn\'t need documentation.'))}>
@@ -2019,6 +2019,7 @@ async function bulkDismissIssues(ids, reason) {
 async function createIssue(itemId) {
   const card = document.querySelector(`.triage-card[data-id="${itemId}"]`);
   const btn = card.querySelector('[data-action="create"]');
+  const label = btn.innerHTML;
   btn.disabled = true;
   btn.textContent = 'Creating...';
 
@@ -2045,7 +2046,7 @@ async function createIssue(itemId) {
   } catch (err) {
     showToast(`Failed to create issue: ${err.message}`, 'error');
     btn.disabled = false;
-    btn.textContent = 'Create issue';
+    btn.innerHTML = label;
   }
 }
 

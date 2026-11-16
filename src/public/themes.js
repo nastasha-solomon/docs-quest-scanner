@@ -5,6 +5,9 @@
  * `<html data-theme="…">`) with the voice defined here. Fields a theme leaves
  * out fall back to the default theme in getTheme().
  *
+ * Quest and rest lines are inserted as HTML, so literal angle brackets must be
+ * written as &lt; and &gt;. Tooltips, toasts, and rewards are plain text.
+ *
  * @typedef {{ svg?: string, glyph?: string, tooltips: string[] }} Mascot
  * @typedef {{ item: string, amount: string, icon: string }} Reward
  * @typedef {{ mark: string, greeting: string, name: string, count: number, quests: string, singular: boolean }} QuestLineContext
@@ -16,6 +19,7 @@
  *   allResolvedMessage: string,
  *   completeSub: string,
  *   completeFlavor: string,
+ *   acceptLabel: string,
  *   toastAccepted: (issueNumber: number) => string,
  *   toastSkipped: (reason: string) => string,
  *   toastRestored: string,
@@ -196,6 +200,7 @@ const azeroth = {
     allResolvedMessage: 'Every PR has been triaged. Mark the scan complete to log your progress.',
     completeSub: 'and collect rewards',
     completeFlavor: 'All quests resolved. Return to the inn.',
+    acceptLabel: 'Accept quest and create issue',
     toastAccepted: (issueNumber) => `Quest accepted! Issue #${issueNumber} created.`,
     toastSkipped: (reason) => `Quest skipped. ${reason}.`,
     toastRestored: 'Quest restored to your log.',
@@ -222,240 +227,250 @@ const azeroth = {
   },
 };
 
-// ── Coven ───────────────────────────────────────────────
-
-const QUEST_WITCH = {
-  svg: `<svg class="quest-animal quest-animal--witch" viewBox="0 0 24 22" aria-hidden="true">
-    <path d="M12 3 L19 11 H5 Z" />
-    <path d="M9 11 H15 V12 Q15 14 12 14 Q9 14 9 12 Z" />
-    <path d="M7 16 Q12 13 17 16" />
-    <path d="M18 20 L19.5 14 M19 17 L21 15.5" />
-  </svg>`,
-  tooltips: [
-    'The documentation witch — triage by candlelight',
-    'Warlock of the release notes: knowledge demands clarity',
-    'Shadow, script, and changelog',
-    'Keeper of the warded queue',
-    'Hex the backlog, bless the merge',
-    'Scrying the PR runes since dawn',
-    'Moon-priestess of the triage circle',
-    'Your familiar naps; you do not',
-    'Salt, sage, and semantic versioning',
-    'The athame chooses the worthy page',
-  ],
-};
-
-const WARLOCK_GREETINGS = [
-  'By shadow and script',
-  'The grimoire stirs',
-  'As the coven wills it',
-  'Candle high — the queue calls',
-  'The ritual of triage begins',
-  'By starlight and changelog',
-  'The veil thins',
-  'Hear the familiar scratch at the ledger',
-  'Salt the threshold — work awaits',
-  'The athame points to unfinished lore',
-  'Mercury is in retrograde and so is this queue',
-  'From my tower I see your summons',
-  'The bones have spoken',
-  'Ash and ink, witch',
-  'By the old words and the new releases',
-  'The circle is cast',
-  'Mind the ward — spirits of scope creep linger',
-  'The cauldron bubbles with merged PRs',
-  'As above in Kibana, so below in the docs',
-  'Thirteen tabs open, one truth to write',
-  'The moon is waxing; so is the backlog',
-  'Fetch your focus — the ritual wants it',
-  'By herb and hyperlink',
-  'The tarot turned up “needs docs”',
-  'Whispered once, filed twice',
-  'Patience, power, and patch releases',
-  'The runes are fresh off the scanner',
-  'Sight unclouded, quill uncapped',
-  'What is written in shadow must be published in light',
-  'By bell, book, and broken cross-link',
-];
-
-/**
- * @param {string} mark
- * @param {string} greeting
- * @param {string} n
- * @param {number} count
- * @param {string} q
- * @param {boolean} singular
- */
-function witchQuestLines(mark, greeting, n, count, q, singular) {
-  const r = singular ? 'requires' : 'require';
-  const a = singular ? 'awaits' : 'await';
-  const h = singular ? 'has' : 'have';
-  const d = singular ? 'demands' : 'demand';
-  const rem = singular ? 'remains' : 'remain';
-  return [
-    `${mark}${greeting}, ${n}! The spellbook lists ${count} ${q} that ${r} your judgment.`,
-    `${mark}${greeting}, ${n}! ${count} ${q} ${a} resolution by moonlight.`,
-    `${mark}${greeting}, ${n}! The coven whispers of ${count} ${q} still loose in the queue.`,
-    `${mark}${greeting}, ${n}! ${count} ${q} ${d} ink, nerve, and a steady hand.`,
-    `${mark}${greeting}, ${n}! ${count} urgent ${q} ${h} surfaced from the shadows.`,
-    `${mark}${greeting}, ${n}! ${count} thread${singular ? '' : 's'} of fate ${rem} for you to weave.`,
-    `${mark}${greeting}, ${n}! The scrying bowl shows ${count} ${q} not yet bound to issues.`,
-    `${mark}${greeting}, ${n}! ${count} sigil${singular ? '' : 's'} on the ward pulse for your touch.`,
-    `${mark}${greeting}, ${n}! The familiars report ${count} ${q} circling the backlog.`,
-    `${mark}${greeting}, ${n}! ${count} page${singular ? '' : 's'} of prophecy ${a} your red ink.`,
-    `${mark}${greeting}, ${n}! Through smoke and semver: ${count} ${q} call your name.`,
-    `${mark}${greeting}, ${n}! The crystals warmed — ${count} ${q} ${h} entered the circle.`,
-    `${mark}${greeting}, ${n}! A charm upon you: ${count} ${q} to set right before dawn.`,
-    `${mark}${greeting}, ${n}! The herb bundle dries; ${count} ${q} do not.`,
-    `${mark}${greeting}, ${n}! Stars align on ${count} ${q} — the ritual chooses you.`,
-    `${mark}${greeting}, ${n}! ${count} whisper${singular ? '' : 's'} in the stack ${a} documentation.`,
-    `${mark}${greeting}, ${n}! Burn the sage: ${count} ${q} still hungry for clarity.`,
-    `${mark}${greeting}, ${n}! The tower bell tolls ${count} — ${q} at the gate.`,
-    `${mark}${greeting}, ${n}! Your grimoire gains ${count} new line${singular ? '' : 's'} of unfinished work.`,
-    `${mark}${greeting}, ${n}! The veil parts on ${count} ${q} ripe for binding.`,
-    `${mark}${greeting}, ${n}! Salt, bell, and quill — ${count} ${q} ${d} the ritual.`,
-    `${mark}${greeting}, ${n}! Even the ravens gossip: ${count} ${q} need a witch's eye.`,
-    `${mark}${greeting}, ${n}! Moonwater cools; ${count} hot ${q} ${rem}.`,
-    `${mark}${greeting}, ${n}! The tarot dealt ${count} card${singular ? '' : 's'} — each an omen still unfiled.`,
-  ];
-}
-
-/** @param {string} mark @param {string} n */
-function witchRestLines(mark, n) {
-  return [
-    `${mark}The cauldron rests, ${n}. No quests on the ward.`,
-    `${mark}All rites complete, ${n}. Close the grimoire and breathe.`,
-    `${mark}Your queue is clear, ${n}. Even warlocks need quiet hours.`,
-    `${mark}No new summons, ${n}. Let the candles gutter out.`,
-    `${mark}The circle fades, ${n}. Only moonlight on an empty backlog.`,
-    `${mark}Silence in the tower, ${n}. The familiars finally sleep.`,
-    `${mark}The inkwell is still, ${n}. No runes demand you tonight.`,
-    `${mark}Rest your athame, ${n}. The queue sleeps beneath salt and ash.`,
-    `${mark}The scrying glass shows nothing, ${n}. A rare peace.`,
-    `${mark}No whispers from the merge train, ${n}. Steep the tea.`,
-    `${mark}Your ward holds, ${n}. Nothing breaches the empty log.`,
-    `${mark}Stars wheel on without errand, ${n}. Enjoy the hush.`,
-    `${mark}The spell is complete, ${n}. Till the next scan stirs the leaves.`,
-    `${mark}Bone dice show blanks, ${n}. Take the night.`,
-    `${mark}Even the changelog is quiet, ${n}. Curl up with something that isn't YAML.`,
-    `${mark}The broom leans idle, ${n}. No chase through the PR forest.`,
-    `${mark}Smoke clears; no new omens, ${n}. The coven releases you.`,
-    `${mark}Crystal cooled, ${n}. No futures left to file tonight.`,
-  ];
-}
+// ── Midnight Coven ──────────────────────────────────────
 
 /** @type {ThemeDef} */
-const coven = {
-  id: 'coven',
-  name: 'Coven',
-  description: 'Candlelight, grimoires, and a witch familiar, with purple quest marks.',
-  colorMode: 'light',
+const midnightCoven = {
+  id: 'midnight-coven',
+  name: 'Midnight Coven',
+  description: 'Obsidian and twilight purple with starlight gold: tarot cards, moon phases, and a black cat familiar.',
+  colorMode: 'dark',
   fallbackName: 'Witch',
-  greetings: WARLOCK_GREETINGS,
-  questLines: ({ mark, greeting, name, count, quests, singular }) =>
-    witchQuestLines(mark, greeting, name, count, quests, singular),
-  restLines: ({ mark, name }) => witchRestLines(mark, name),
-  mascots: [...QUEST_ANIMALS, QUEST_WITCH],
+  marks: { active: '🔮', done: '🌙', turnIn: '✨' },
+  greetings: [
+    'By shadow and starlight',
+    'The grimoire stirs',
+    'As the coven wills it',
+    'Candle lit, circle cast',
+    'The High Priestess turns a card',
+    'The Moon card rises',
+    'The Star shines on your queue',
+    'Mercury is in retrograde, and so is this queue',
+    'The Wheel of Fortune turns',
+    'The Hermit raises his lantern',
+    'Your rising sign is Documentation',
+    'The planetary hour favors editing',
+    'The crystal ball clears',
+    'Your familiar has opinions',
+    'The veil thins at midnight',
+    'Salt the threshold',
+    'By bell, book, and broken cross-link',
+    'The bones have spoken',
+    'The tarot turned up "needs docs"',
+    'By herb and hyperlink',
+    'As above in Kibana, so below in the docs',
+    'The new moon calls for new pages',
+    'Venus has entered the house of release notes',
+    'The black cat crossed your backlog',
+    'The owl calls three times',
+  ],
+  questLines: ({ mark, greeting, name, count, quests, singular }) => {
+    /** @param {string} one @param {string} many */
+    const v = (one, many) => (singular ? one : many);
+    return [
+      `${mark}${greeting}, ${name}! The cards reveal ${count} ${quests} that ${v('requires', 'require')} your judgment.`,
+      `${mark}${greeting}, ${name}! ${count} ${quests} ${v('awaits', 'await')} resolution by moonlight.`,
+      `${mark}${greeting}, ${name}! The crystal ball shows ${count} ${quests} not yet bound to issues.`,
+      `${mark}${greeting}, ${name}! You drew the Tower: ${count} ${quests} ${v('needs', 'need')} rebuilding before release.`,
+      `${mark}${greeting}, ${name}! The Star card promises clarity, but first, ${count} ${quests}.`,
+      `${mark}${greeting}, ${name}! The Moon card warns of ${count} unclear release ${v('note', 'notes')}.`,
+      `${mark}${greeting}, ${name}! The coven gathers 🧙‍♀️🧹🐈‍⬛🌙📜 over ${count} unfinished ${quests}.`,
+      `${mark}${greeting}, ${name}! Your natal chart puts ${count} ${quests} in the house of documentation.`,
+      `${mark}${greeting}, ${name}! The black cat brought you ${count} ${quests}. ${v('It looks', 'They look')} important.`,
+      `${mark}${greeting}, ${name}! ${count} ${v('candle burns', 'candles burn')} for the ${quests} still in the queue.`,
+      `${mark}${greeting}, ${name}! The pendulum swings toward ${count} ${quests}. Ink your quill.`,
+      `${mark}${greeting}, ${name}! The scrying bowl ripples with ${count} ${quests}.`,
+      `${mark}${greeting}, ${name}! Mercury retrograde scrambled ${count} release ${v('note', 'notes')}. Set ${v('it', 'them')} right.`,
+      `${mark}${greeting}, ${name}! The grimoire gains ${count} new ${v('page', 'pages')} of unfinished work.`,
+      `${mark}${greeting}, ${name}! The Wheel of Fortune landed on ${count} ${quests}. Fate has a sense of humor.`,
+      `${mark}${greeting}, ${name}! ${count} ${v('sigil glows', 'sigils glow')} on the ward, waiting for your touch.`,
+      `${mark}${greeting}, ${name}! The full moon rises over ${count} ${quests} that ${v('needs', 'need')} a witch's eye.`,
+      `${mark}${greeting}, ${name}! The owl reports ${count} ${quests} circling the backlog.`,
+    ];
+  },
+  restLines: ({ mark, name }) => [
+    `${mark}The cards are face down, ${name}. No omens tonight.`,
+    `${mark}The cauldron rests, ${name}. No quests on the ward.`,
+    `${mark}All rites complete, ${name}. Close the grimoire and breathe.`,
+    `${mark}🌙🕯️🔮🖤✨ The midnight ritual is complete, ${name}. Rest.`,
+    `${mark}Only the night sky remains, ${name}. 🌌🦉🦇🕸️🌑`,
+    `${mark}The moon is full and the queue is empty, ${name}.`,
+    `${mark}The black cat is asleep on the keyboard, ${name}. Nothing left to file.`,
+    `${mark}The crystal ball shows nothing, ${name}. A rare peace.`,
+    `${mark}The candles gutter out, ${name}. Even witches need quiet hours.`,
+    `${mark}Your ward holds, ${name}. Nothing breaches the empty log.`,
+    `${mark}The stars wheel on without errand, ${name}. Enjoy the hush.`,
+    `${mark}The Hermit card says rest and reflect, ${name}. The queue is clear.`,
+  ],
+  mascots: [
+    { glyph: '🧙‍♀️', tooltips: ['The documentation witch: triage by candlelight', 'Keeper of the warded queue', 'Hex the backlog, bless the merge'] },
+    { glyph: '🌙', tooltips: ['Moon-priestess of the triage circle', 'Waxing moon, waning backlog', 'Midnight is the best time for release notes'] },
+    { glyph: '🕯️', tooltips: ['One candle, one focused draft', 'Light a candle for every broken link', 'Ritual lighting for quiet editing'] },
+    { glyph: '🔮', tooltips: ['Scrying the PR runes since dawn', 'The crystal ball sees the doc gap before the user does', 'Divination says: add an example'] },
+    { glyph: '🐈‍⬛', tooltips: ['Your familiar naps; you do not', 'The black cat approves this changelog', 'Familiar on the keyboard, typos in the draft'] },
+    { glyph: '🖤', tooltips: ['Shadow, script, and changelog', 'Gothic hearts write clear prose', 'Dark aesthetic, bright explanations'] },
+    { glyph: '🧹', tooltips: ['Sweeps stale drafts out of the queue', 'Broom parked by the merge train', 'Flies through the backlog after midnight'] },
+    { glyph: '📜', tooltips: ['Salt, sage, and semantic versioning', 'An ancient scroll of release notes', 'The grimoire chooses the worthy page'] },
+    { glyph: '🦉', tooltips: ['The owl reviews every sentence twice', 'Night watch over the docs repo', 'Wise eyes on vague release notes'] },
+    { glyph: '🦇', tooltips: ['Echolocates broken cross-links', 'Hangs upside down to read the diff', 'Out after dark, chasing doc gaps'] },
+    { glyph: '🕸️', tooltips: ['Weaves cross-references across the web', 'Caught a dangling link in the silk', 'Patient spider, tidy navigation'] },
+    { glyph: '🌌', tooltips: ['Reads the release schedule in the stars', 'The stars say: ship the docs with the feature', 'Under the night sky, every page aligns'] },
+  ],
+  text: {
+    emptyHeading: 'The grimoire is blank',
+    emptyMessage: 'No PRs awaiting triage. Run a scan to call new quests out of the dark. 🌌🦉🦇🕸️🌑',
+    allResolvedHeading: 'The circle is closed!',
+    allResolvedMessage: 'Every PR has been triaged. Mark the scan complete to seal the ritual.',
+    completeSub: 'and receive the blessing',
+    completeFlavor: 'All quests resolved. The coven disperses until the next full moon. 🧙‍♀️🧹🐈‍⬛🌙📜',
+    acceptLabel: 'Seal the pact and create issue',
+    toastAccepted: (issueNumber) => `The pact is sealed. Issue #${issueNumber} created.`,
+    toastSkipped: (reason) => `Banished. ${reason}.`,
+    toastRestored: 'Summoned back from the void. The PR returns on the next scan.',
+  },
+  rewards: {
+    header: 'The ritual is complete!',
+    subheader: '🌙🕯️🔮🖤✨ The coven bestows:',
+    accept: 'Accept the blessing',
+    dismiss: 'Continue',
+    base: () => [
+      { item: 'Moonstones', amount: `${Math.floor(Math.random() * 12 + 3)}`, icon: '🌕' },
+      { item: 'Starlight', amount: `${Math.floor(Math.random() * 900 + 100)} motes`, icon: '✨' },
+    ],
+    bonus: [
+      { item: 'Tarot deck of Clear Prose', amount: '+5 Intuition', icon: '🃏' },
+      { item: 'Black candle of Focus', amount: 'Burns through one long triage session', icon: '🕯️' },
+      { item: 'Crystal ball', amount: 'Use: Foresee one broken link', icon: '🔮' },
+      { item: "Familiar's favor", amount: '+3 Companionship', icon: '🐈‍⬛' },
+      { item: 'Page from the grimoire', amount: '+4 Lore', icon: '📜' },
+      { item: 'Enchanted broom', amount: 'Sweeps away one stale draft', icon: '🧹' },
+      { item: 'Owl feather quill', amount: '+2 Wisdom', icon: '🪶' },
+      { item: 'Obsidian mirror', amount: 'Reflects one vague sentence back at its author', icon: '🪞' },
+    ],
+  },
 };
 
-// ── Bright Falls (Alan Wake and Control) ────────────────
+// ── Bright Falls (Alan Wake) ────────────────────────────
 
 /** @type {ThemeDef} */
 const brightFalls = {
   id: 'bright-falls',
   name: 'Bright Falls',
-  description: 'A dark theme from Alan Wake and Control: flashlights, typewriters, and the Bureau.',
+  description: 'A dusky Alan Wake theme: flashlights, typewriters, and coffee at the Oh Deer Diner.',
   colorMode: 'dark',
   fallbackName: 'Writer',
   noun: ['page', 'pages'],
-  marks: { active: '🔺', done: '☕︎', turnIn: '🔦' },
+  marks: { active: '🔦', done: '☕︎', turnIn: '✍️' },
   greetings: [
     'Welcome back to In Between',
-    'Ah, ystävä',
-    'The Board sends its regards',
     'Stay in the light',
     'Flashlight on, cursor blinking',
-    "It's not a backlog, it's a spiral",
-    'This is the Federal Bureau of Control',
+    "It's not a loop, it's a spiral",
     'The coffee is hot at the Oh Deer Diner',
     'Night Springs is on the air',
-    'The Hotline is ringing',
     'Saga has opened the Mind Place',
     'The typewriter keys are moving on their own',
-    'Polaris points the way',
     'The Clicker clicked',
-    'The Oldest House moved the hallways again',
     'Thomas Zane left notes in the margins',
     'Barry booked you a press tour',
-    'The Hiss is quiet for now',
-    'The lighthouse lamp is lit',
+    'Barry strung up the Christmas lights',
+    'Your agent is on line one',
     'Words have power in Bright Falls',
+    'Rose saved you a booth',
+    'The Alan Wake Fan Club is now in session',
+    'The Lady of the Light is watching over you',
+    'Casey is on the case',
+    'The Old Gods of Asgard are tuning up',
+    'Cauldron Lake is still tonight',
+    'Pat Maine is on the late-night radio',
+    'Deerfest is in full swing',
+    'Greetings from Watery, Washington',
+    'Welcome to Coffee World',
+    'Ilmo Koskela has a new business plan',
+    'The Koskela brothers are filming another commercial',
+    'Ahti is on vacation in Watery',
+    'Ahti has the keys',
+    'Karaoke night at Suomi Hall',
   ],
   questLines: ({ mark, greeting, name, count, singular }) => {
     /** @param {string} one @param {string} many */
     const v = (one, many) => (singular ? one : many);
     return [
       `${mark}${greeting}, ${name}! ${count} manuscript ${v('page needs', 'pages need')} rewriting before the story takes hold.`,
-      `${mark}${greeting}, ${name}! The Board flagged ${count} Altered ${v('PR', 'PRs')} for documentation. Clear prose is containment.`,
       `${mark}${greeting}, ${name}! Tonight's ${v('guest', 'guests')}: ${count} ${v('PR', 'PRs')} that never got a release note.`,
       `${mark}${greeting}, ${name}! Saga pinned ${count} ${v('clue', 'clues')} to the Mind Place wall. Time to profile the doc gaps.`,
-      `${mark}${greeting}, ${name}! Ahti found ${count} ${v('PR', 'PRs')} behind the mop bucket. ${v('It needs', 'They need')} words, not wax.`,
       `${mark}${greeting}, ${name}! ${count} ${v('draft is', 'drafts are')} stuck in the Dark Place. Write ${v('it', 'them')} back into the light.`,
-      `${mark}${greeting}, ${name}! The Hotline rang ${count} ${v('time', 'times')}. Every call is a doc request.`,
-      `${mark}${greeting}, ${name}! Dr. Darling calls ${count} undocumented ${v('feature', 'features')} "fascinating." Users call ${v('it', 'them')} confusing.`,
-      `${mark}${greeting}, ${name}! The Hiss is chanting ${count} PR ${v('title', 'titles')}. Only a clear explanation breaks the loop.`,
       `${mark}${greeting}, ${name}! ${count} ${v('page', 'pages')} of the manuscript came true. Now document what changed.`,
-      `${mark}${greeting}, ${name}! The Oldest House shifted: ${count} new ${v('room', 'rooms')} and no map. Draw ${v('it', 'them')}.`,
       `${mark}${greeting}, ${name}! Barry already told the press about ${count} ${v('feature', 'features')}. Better write the docs.`,
       `${mark}${greeting}, ${name}! The case file lists ${count} open ${v('lead', 'leads')}. Follow the merged PRs.`,
       `${mark}${greeting}, ${name}! The Old Gods of Asgard wrote a ballad about ${count} missing release ${v('note', 'notes')}. Don't make them write a second verse.`,
       `${mark}${greeting}, ${name}! Thomas Zane left ${count} ${v('note', 'notes')} in the margins. Turn ${v('it', 'them')} into docs.`,
-      `${mark}${greeting}, ${name}! ${count} ${v('Object', 'Objects')} of Power ${v('needs', 'need')} usage instructions.`,
       `${mark}${greeting}, ${name}! Rose refilled your coffee. ${count} ${v('PR is', 'PRs are')} waiting in the booth.`,
       `${mark}${greeting}, ${name}! The typewriter is warm: ${count} ${v('scene', 'scenes')} still ${v('needs', 'need')} writing.`,
-      `${mark}${greeting}, ${name}! Jesse cleansed the Control Point. ${count} ${v('PR needs', 'PRs need')} a docs pass before the Hiss spreads.`,
       `${mark}${greeting}, ${name}! On Night Springs tonight: ${count} ${v('feature', 'features')} with no docs, and a narrator who can't explain ${v('it', 'them')}.`,
+      `${mark}${greeting}, ${name}! ${count} Taken ${v('typo is', 'typos are')} lurking in the drafts. Burn ${v('it', 'them')} away with the flashlight.`,
+      `${mark}${greeting}, ${name}! Casey's notebook lists ${count} undocumented ${v('change', 'changes')}. He wants answers.`,
+      `${mark}${greeting}, ${name}! Pat Maine read ${count} listener ${v('question', 'questions')} on air. Each one is a doc request.`,
+      `${mark}${greeting}, ${name}! The lamp flickers over ${count} unfinished ${v('chapter', 'chapters')}.`,
+      `${mark}${greeting}, ${name}! Barry wrapped himself in Christmas lights to guard ${count} ${v('draft', 'drafts')} from the Darkness. Now finish ${v('it', 'them')}.`,
+      `${mark}${greeting}, ${name}! Barry called from Hollywood. ${count} ${v('PR needs', 'PRs need')} docs before he can pitch the sequel.`,
+      `${mark}${greeting}, ${name}! Your agent read ${count} ${v('release note', 'release notes')} and called ${v('it', 'them')} "unpublishable." He's not wrong.`,
+      `${mark}${greeting}, ${name}! Fan Club president Rose Marigold has ${count} ${v('question', 'questions')} about the docs. She has read every page.`,
+      `${mark}${greeting}, ${name}! The Lady of the Light sent the Angel Lamp. ${count} ${v('page', 'pages')} still ${v('needs', 'need')} its glow.`,
+      `${mark}${greeting}, ${name}! Rose loaded her shotgun. ${count} ${v('Hater is', 'Haters are')} after the drafts, and Scratch is leaving bad reviews.`,
+      `${mark}${greeting}, ${name}! Ilmo Koskela wants ${count} ${v('feature', 'features')} in the next Coffee World brochure. Jaakko just wants ${v('it', 'them')} documented.`,
+      `${mark}${greeting}, ${name}! The Koskela brothers made a commercial about ${count} undocumented ${v('feature', 'features')}. Somebody has to write the fine print.`,
+      `${mark}${greeting}, ${name}! Ilmo revved his motorcycle past ${count} stalled ${v('PR', 'PRs')}. Jaakko stayed behind to help.`,
+      `${mark}${greeting}, ${name}! Ahti handed you ${count} ${v('key', 'keys')}, called you Tom, and walked off. Each one opens a doc gap.`,
+      `${mark}${greeting}, ${name}! Ahti is "on vacation," but he left ${count} cryptic ${v('clue', 'clues')} about the merged PRs.`,
+      `${mark}${greeting}, ${name}! Ahti and his Swedish brothers took the stage at Suomi Hall. ${count} ${v('PR', 'PRs')} can't wait for the encore.`,
     ];
   },
   restLines: ({ mark, name }) => [
     `${mark}The Oh Deer Diner is open late, ${name}. No quests tonight; the Dark Place can wait.`,
     `${mark}The lamp is lit and the queue is clear, ${name}. Stay in the light.`,
     `${mark}Mr. Door has no guests tonight, ${name}. The studio lights dim.`,
-    `${mark}Ahti finished mopping, ${name}. Every hallway of the queue is clean.`,
-    `${mark}The Board is satisfied, ${name}. For now.`,
     `${mark}The manuscript is finished, ${name}. Every page made it into the light.`,
     `${mark}Saga closed the case file, ${name}. No open leads.`,
-    `${mark}The Hotline is silent, ${name}. Brew another pot of coffee.`,
-    `${mark}No Altered PRs detected, ${name}. The Oldest House is quiet.`,
     `${mark}The typewriter rests, ${name}. Even the Writer takes a break.`,
     `${mark}Cauldron Lake is calm, ${name}. Nothing surfaced in the queue.`,
     `${mark}The Old Gods of Asgard are playing your song, ${name}. Take the night off.`,
+    `${mark}Pat Maine is signing off, ${name}. Nothing left on the call-in line.`,
+    `${mark}Rose flipped the diner sign to Closed, ${name}. The queue is empty.`,
+    `${mark}Rose finished her shift at the Valhalla Nursing Home, ${name}. The Lady of the Light keeps watch tonight.`,
+    `${mark}Barry unplugged the Christmas lights, ${name}. The Darkness has nothing left to read.`,
+    `${mark}The Koskela brothers closed Coffee World for the night, ${name}. Ilmo is already planning tomorrow.`,
+    `${mark}Ahti mopped the Dark Place, ${name}. Not a single draft left on the floor.`,
   ],
   mascots: [
     { glyph: '🔦', tooltips: ['Light burns away the Darkness, and vague release notes', 'Keep the beam on the doc gaps', 'Fresh batteries, fresh drafts'] },
     { glyph: '⌨️', tooltips: ['What the Writer types becomes true. Type carefully.', 'Clack, clack: another release note escapes the Dark Place', 'The keys remember every rewrite'] },
     { glyph: '✍️', tooltips: ['Words have power in Bright Falls', 'Edits in the margins, Thomas Zane style', 'Write it so readers can follow it in the dark'] },
-    { glyph: '📺', tooltips: ['Tonight on In Between: the undocumented feature', 'Mr. Door would like a word. Preferably a clear one.', 'Static on every channel except the docs'] },
-    { glyph: '🔺', tooltips: ['The Bureau files every Altered PR', 'The Board speaks in redactions. You speak in plain language.', 'Clearance granted: docs team'] },
+    { glyph: '📺', tooltips: ['Tonight on In Between: the undocumented feature', 'Mr. Door would like a word. Preferably a clear one.', 'Night Springs: every feature has a twist ending'] },
     { glyph: '🌀', tooltips: ["It's not a loop, it's a spiral. So is the release train.", 'Each pass through the draft gets a little clearer', "The Dark Place repeats itself. Good docs don't."] },
     { glyph: '🌲', tooltips: ['Bright Falls, Washington: small town, big backlog', 'Deep in the pines, a PR waits for docs', 'Evergreen content, like the forest'] },
-    { glyph: '☕', tooltips: ['Oh Deer Diner coffee: fuel for triage', 'A thermos of coffee, the true Object of Power', 'Refills are free. Release notes are not.'] },
+    { glyph: '☕', tooltips: ['Oh Deer Diner coffee: fuel for triage', 'A thermos of coffee keeps the Darkness at bay', 'Refills are free. Release notes are not.'] },
+    { glyph: '💡', tooltips: ['Barry Wheeler: Christmas lights and a headlamp, for protection', 'Your agent says this release note needs more punch', 'Barry manages the Old Gods of Asgard. And, apparently, your backlog.'] },
+    { glyph: '🌹', tooltips: ['Rose Marigold, president of the Alan Wake Fan Club', 'The Lady of the Light keeps the lamp burning', 'Rose has a shotgun for the Haters and fresh coffee for you'] },
+    { glyph: '🎢', tooltips: ["Coffee World: the Koskela brothers' plan to save Watery", 'Ilmo has the vision. Jaakko goes along with it.', 'Brought to you by Ahma Beer and the Koskela brothers'] },
+    { glyph: '🪣', tooltips: ['Ahti knows where every key is, and every doc gap', '"Tom," he says. Just go with it.', 'Mind the wet floor. Ahti just mopped the Dark Place.'] },
   ],
   text: {
     emptyHeading: 'The manuscript is blank',
     emptyMessage: 'No PRs awaiting triage. Run a scan to find new pages.',
     allResolvedHeading: 'Every page is in the light!',
-    allResolvedMessage: 'Every PR has been triaged. Mark the scan complete to close the case.',
-    completeSub: 'and close the case',
+    allResolvedMessage: 'Every PR has been triaged. Mark the scan complete to finish the chapter.',
+    completeSub: 'and finish the chapter',
     completeFlavor: 'All quests resolved. The coffee at the Oh Deer Diner is still warm.',
-    toastAccepted: (issueNumber) => `Filed with the Bureau. Issue #${issueNumber} created.`,
-    toastSkipped: (reason) => `Redacted. ${reason}.`,
+    acceptLabel: 'Write it in and create issue',
+    toastAccepted: (issueNumber) => `Written into the story. Issue #${issueNumber} created.`,
+    toastSkipped: (reason) => `Left in the Dark Place. ${reason}.`,
     toastRestored: 'Pulled back from the Dark Place. The PR returns on the next scan.',
   },
   rewards: {
-    header: 'Case closed!',
-    subheader: 'The Bureau issues you:',
-    accept: 'File the case',
+    header: 'Chapter complete!',
+    subheader: 'You find:',
+    accept: 'Pocket them',
     dismiss: 'Continue',
     base: () => [
       { item: 'Batteries', amount: `${Math.floor(Math.random() * 8 + 2)} AA`, icon: '🔋' },
@@ -464,12 +479,133 @@ const brightFalls = {
     bonus: [
       { item: 'Thermos of Oh Deer Diner coffee', amount: 'Restores 25% focus', icon: '☕' },
       { item: 'The Clicker', amount: 'Use: Change the scene', icon: '🔘' },
-      { item: 'Federal Bureau of Control badge', amount: 'Clearance: Level 7', icon: '🔺' },
       { item: 'Typewriter ribbon', amount: '+5 Writing Power', icon: '⌨️' },
       { item: 'Flare gun', amount: 'Clears every Taken typo nearby', icon: '🎆' },
       { item: 'Old Gods of Asgard vinyl', amount: '+3 Morale', icon: '💿' },
-      { item: 'Lighthouse lamp', amount: 'Light that never goes out', icon: '💡' },
       { item: 'Night Springs VHS tape', amount: 'Watch: Learn one new style rule', icon: '📼' },
+      { item: 'Coffee World souvenir mug', amount: '+2 Caffeine', icon: '🍵' },
+      { item: 'Deerfest pin', amount: 'Reputation: Local legend', icon: '🦌' },
+      { item: 'Angel Lamp', amount: 'Returns the light to one scene', icon: '🪔' },
+      { item: "Barry's Christmas lights", amount: '+4 Protection (allegedly)', icon: '🎄' },
+      { item: 'Alan Wake Fan Club card', amount: 'Signed by Rose Marigold', icon: '🪪' },
+      { item: "Ahti's keys", amount: 'Opens one locked door in the Dark Place', icon: '🗝️' },
+      { item: 'Ahma Beer', amount: 'Courtesy of the Koskela brothers', icon: '🍺' },
+    ],
+  },
+};
+
+// ── Oldest House (Control) ──────────────────────────────
+
+/**
+ * A Board subtitle. The Board offers slash-separated alternatives because no
+ * single human word fits what it means.
+ * @param {string} text
+ */
+const board = (text) => `&lt; ${text} &gt;`;
+
+/** @type {ThemeDef} */
+const oldestHouse = {
+  id: 'oldest-house',
+  name: 'Oldest House',
+  description: 'A Control theme: brutalist concrete, Bureau red, and memos from the Board.',
+  colorMode: 'light',
+  fallbackName: 'Director',
+  marks: { active: '🟥', done: '🔻', turnIn: '🔺' },
+  greetings: [
+    'This is the Federal Bureau of Control',
+    'Ah, ystävä',
+    'Welcome to the Oldest House',
+    'The Hotline is ringing',
+    'Polaris is humming',
+    'The hallways moved again',
+    'Control Point secured',
+    'Dr. Darling has a new slideshow',
+    'Emily Pope found the files',
+    'The Threshold Kids are on',
+    'The Ashtray Maze is open',
+    'Ahti is mopping the Central Executive',
+    'The Hiss is quiet for now',
+    'Someone is watching the Refrigerator',
+    'Synchronicity detected',
+  ],
+  questLines: ({ mark, greeting, name, count, singular }) => {
+    /** @param {string} one @param {string} many */
+    const v = (one, many) => (singular ? one : many);
+    return [
+      `${mark}${board(`Welcome/Return, ${name}. Our favorite/current Director`)} ${board(`${count} ${v('deliverable awaits', 'deliverables await')} Documentation/Containment`)}`,
+      `${mark}${board(`You should/must/will document ${count} ${v('Object', 'Objects')} of Change/Power`)} ${board(`This is a performance/survival metric, ${name}`)}`,
+      `${mark}${board(`${count} ${v('change was', 'changes were')} Merged/Released/Unleashed without a Narrative`)} ${board(`Remediate/Rectify, ${name}`)}`,
+      `${mark}${board(`You are mismanaging the Backlog/Self/Narrative, ${name}`)} ${board(`${count} ${v('item remains', 'items remain')} Unfiled/Unknowable`)}`,
+      `${mark}${board(`${name}. Your quarterly/eternal review approaches`)} ${board(`${count} ${v('gap', 'gaps')} detected in the Documentation/Fabric`)}`,
+      `${mark}${board(`We/You delegate ${count} ${v('action item', 'action items')} to the Asset/Director ${name}`)}`,
+      `${mark}${board(`Alignment/Compliance is expected, ${name}`)} ${board(`${count} release ${v('note is', 'notes are')} Overdue/Unaccounted for`)}`,
+      `${mark}${greeting}, ${name}! The Bureau logged ${count} Altered ${v('PR', 'PRs')}. Clear prose is containment.`,
+      `${mark}${greeting}, ${name}! Ahti found ${count} ${v('PR', 'PRs')} behind the mop bucket. ${v('It needs', 'They need')} words, not wax.`,
+      `${mark}${greeting}, ${name}! The Hotline rang ${count} ${v('time', 'times')}. Every call is a doc request.`,
+      `${mark}${greeting}, ${name}! Dr. Darling calls ${count} undocumented ${v('feature', 'features')} "fascinating." Users call ${v('it', 'them')} confusing.`,
+      `${mark}${greeting}, ${name}! The Hiss is chanting ${count} PR ${v('title', 'titles')}. Only a clear explanation breaks the loop.`,
+      `${mark}${greeting}, ${name}! The Oldest House shifted: ${count} new ${v('room', 'rooms')} and no map. Draw ${v('it', 'them')}.`,
+      `${mark}${greeting}, ${name}! ${count} ${v('Object', 'Objects')} of Power ${v('needs', 'need')} usage instructions.`,
+      `${mark}${greeting}, ${name}! Jesse cleansed the Control Point. ${count} ${v('PR needs', 'PRs need')} a docs pass before the Hiss spreads.`,
+      `${mark}${greeting}, ${name}! Emily Pope flagged ${count} ${v('memo', 'memos')} for redaction review.`,
+    ];
+  },
+  restLines: ({ mark, name }) => [
+    `${mark}${board('The queue is Contained/Resolved/Adequate')} ${board(`Rest/Recharge, ${name}. For now`)}`,
+    `${mark}${board(`Your performance is Acceptable/Tolerable/Noted, ${name}`)}`,
+    `${mark}${board('No deliverables remain')} ${board(`Enjoy your benefits/health plan, ${name}`)}`,
+    `${mark}Ahti finished mopping, ${name}. Every hallway of the queue is clean.`,
+    `${mark}The Hotline is silent, ${name}. Brew another pot of coffee.`,
+    `${mark}No Altered PRs detected, ${name}. The Oldest House is quiet.`,
+    `${mark}The Hiss is silent, ${name}. Not a single PR title is chanting.`,
+    `${mark}Control Point cleansed, ${name}. Nothing left to file.`,
+    `${mark}Polaris hums softly, ${name}. The queue is clear.`,
+    `${mark}The Threshold Kids say good job, ${name}! No PRs today.`,
+  ],
+  mascots: [
+    { glyph: '🟥', tooltips: ['The red square: Bureau-approved geometry', 'Brutalist, geometric, and on brand. Like a good style guide.', 'Square edges, clear headings'] },
+    { glyph: '🔻', tooltips: ['< We/You see the Pyramid/Backlog >', '< The Board is Watching/Reviewing/Pleased >', '< Clearance/Permission granted. Proceed/Comply >'] },
+    { glyph: '🔺', tooltips: ['The Bureau files every Altered PR', 'Federal Bureau of Control: geometry is a form of control', 'A Control Point: a safe place to save your draft'] },
+    { glyph: '🕹️', tooltips: ['You are in Control. Mostly.', 'Good docs are the tutorial level', 'Press A to accept the quest'] },
+    { glyph: '🌀', tooltips: ['The Oceanview Motel has more rooms than doors', 'Somewhere between the Oldest House and the Dark Place', "The Hiss repeats itself. Good docs don't."] },
+    { glyph: '🗝️', tooltips: ['Ahti found the key. He always does.', 'An Oceanview Motel key. Room number: unclear.', 'Ah, ystävä. This one opens the changelog.'] },
+    { glyph: '🚪', tooltips: ['Threshold doors lead anywhere. So do broken links.', 'One wrong door and you are in the Astral Plane', 'Knock first. The Oceanview Motel is always occupied.'] },
+    { glyph: '📞', tooltips: ['The Hotline rings for the Director. And the docs team.', 'Every call is a doc request', 'Pick up. It might be a past Director with feedback.'] },
+    { glyph: '📺', tooltips: ['Polaris flickers across the projector', 'The Threshold Kids are on. Take notes.', 'Broadcast anomaly detected in the release notes'] },
+  ],
+  text: {
+    emptyHeading: 'The case file is empty',
+    emptyMessage: 'No PRs awaiting triage. Run a scan to detect new Altered PRs.',
+    allResolvedHeading: 'Every Altered PR is contained!',
+    allResolvedMessage: 'Every PR has been triaged. Mark the scan complete to file your report.',
+    completeSub: 'and file your report',
+    completeFlavor: 'All quests resolved. The Board is satisfied. For now.',
+    acceptLabel: 'File/Create/Contain issue',
+    toastAccepted: (issueNumber) => `Filed with the Bureau. Issue #${issueNumber} created.`,
+    toastSkipped: (reason) => `Redacted. ${reason}.`,
+    toastRestored: 'Declassified. The PR returns on the next scan.',
+  },
+  rewards: {
+    header: 'Report filed!',
+    subheader: 'The Board grants you:',
+    accept: 'Accept benefits',
+    dismiss: 'Continue',
+    base: () => [
+      { item: 'Clearance', amount: `Level ${Math.floor(Math.random() * 6 + 2)}`, icon: '🪪' },
+      { item: 'Overtime', amount: `${Math.floor(Math.random() * 30 + 5)} hours logged`, icon: '🕰️' },
+    ],
+    bonus: [
+      { item: 'Federal Bureau of Control badge', amount: 'Clearance: Level 7', icon: '🔺' },
+      { item: 'Service Weapon: Pierce form', amount: '+5 Precision', icon: '🎯' },
+      { item: 'Hotline receiver', amount: 'Use: Hear one more doc request', icon: '📞' },
+      { item: 'Oceanview Motel key', amount: 'Opens one threshold door', icon: '🗝️' },
+      { item: 'Threshold door', amount: 'Leads somewhere. Probably the backlog.', icon: '🚪' },
+      { item: 'Bureau-issued controller', amount: '+5 Control', icon: '🕹️' },
+      { item: 'Red square sticker', amount: 'Approved for fan art', icon: '🟥' },
+      { item: 'Threshold Kids broadcast', amount: 'Watch: Learn one Bureau procedure', icon: '📺' },
+      { item: 'Refrigerator watch shift', amount: "Don't look away", icon: '👁️' },
+      { item: 'Ashtray Maze backstage pass', amount: '+3 Morale', icon: '🎸' },
+      { item: 'Comprehensive health plan', amount: 'Courtesy of the Board', icon: '🩺' },
     ],
   },
 };
@@ -477,7 +613,7 @@ const brightFalls = {
 // ── Registry ────────────────────────────────────────────
 
 /** @type {ThemeDef[]} */
-export const THEMES = [azeroth, coven, brightFalls];
+export const THEMES = [azeroth, midnightCoven, brightFalls, oldestHouse];
 
 /**
  * @param {string | null | undefined} id

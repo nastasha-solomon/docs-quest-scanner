@@ -63,6 +63,10 @@
   --success-rgb: 26, 127, 55;
   --success-subtle-bg: #d4f5e2;
   --success-subtle-fg: #166b34;
+  --accept-bg: #017d73;
+  --accept-bg-hover: #00665e;
+  --accept-border: #00665e;
+  --accept-fg: #ffffff;
   --tracked-icon: #57ab5a;
   --attention-fg: #9a6700;
   --attention-subtle: #fff8c5;
@@ -86,8 +90,10 @@
   /* Tooltips and toasts */
   --tooltip-bg: #24292f;
   --tooltip-fg: #ffffff;
+  --tooltip-border: transparent;
   --toast-bg: #1f2328;
   --toast-fg: #ffffff;
+  --toast-border: transparent;
 
   /* Quest flavor: hero greeting, completion footer, rewards popup */
   --quest-gold: #e8a100;
@@ -108,6 +114,8 @@
   /* Fonts */
   --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
   --font-flavor: Georgia, 'Times New Roman', serif;
+  --font-pill: var(--font-body);
+  --font-pill-code: var(--fontStack-monospace, ui-monospace, monospace);
 }
 
 body {
@@ -533,6 +541,7 @@ body {
 }
 
 .doc-work-badge {
+  font-family: var(--font-pill);
   font-size: 11px;
   padding: 2px 6px;
   border-radius: 6px;
@@ -551,6 +560,7 @@ body {
 }
 
 .priority-badge {
+  font-family: var(--font-pill);
   font-size: 11px;
   font-weight: 600;
   padding: 2px 6px;
@@ -578,6 +588,7 @@ body {
   align-items: center;
   padding: 2px 9px;
   border-radius: 10px;
+  font-family: var(--font-pill);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -656,6 +667,7 @@ body {
 }
 
 .docs-badge {
+  font-family: var(--font-pill);
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;
@@ -669,6 +681,7 @@ body {
 }
 
 .avail-badge {
+  font-family: var(--font-pill);
   font-size: 11px;
   color: var(--text-muted);
   padding: 2px 8px;
@@ -682,7 +695,7 @@ body {
    Uniform chip appearance; only the text color hints at the kind. */
 .rn-badge {
   font-size: 11px;
-  font-family: var(--fontStack-monospace, ui-monospace, monospace);
+  font-family: var(--font-pill-code);
   padding: 2px 8px;
   border-radius: 12px;
   background: var(--surface-subtle);
@@ -701,6 +714,7 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+  font-family: var(--font-pill);
   font-size: 11px;
   font-weight: 500;
   padding: 2px 8px;
@@ -1399,12 +1413,13 @@ body {
 }
 
 .card-actions .btn-primary {
-  background: var(--elastic-teal) !important;
-  border-color: var(--elastic-teal-dark) !important;
+  background: var(--accept-bg) !important;
+  border-color: var(--accept-border) !important;
+  color: var(--accept-fg) !important;
 }
 
 .card-actions .btn-primary:hover {
-  background: var(--elastic-teal-dark) !important;
+  background: var(--accept-bg-hover) !important;
 }
 
 .create-group {
@@ -1669,6 +1684,7 @@ dialog::backdrop {
 .toast {
   background: var(--toast-bg);
   color: var(--toast-fg);
+  border: 1px solid var(--toast-border);
   padding: 12px 16px;
   border-radius: 6px;
   font-size: 13px;
@@ -2222,6 +2238,7 @@ dialog::backdrop {
   padding: 5px 10px;
   background: var(--tooltip-bg);
   color: var(--tooltip-fg);
+  border: 1px solid var(--tooltip-border);
   font-family: var(--font-body);
   font-size: 12px;
   font-style: italic;
@@ -2308,6 +2325,7 @@ dialog::backdrop {
   border-radius: 6px;
   background: var(--tooltip-bg);
   color: var(--tooltip-fg);
+  border: 1px solid var(--tooltip-border);
   font-family: var(--font-body);
   font-size: 12px;
   font-style: normal;
@@ -2441,6 +2459,7 @@ dialog::backdrop {
 /* ── Tracked issues ──────────────────────────────────── */
 
 .tracked-badge {
+  font-family: var(--font-pill);
   font-size: 11px;
   font-weight: 600;
   padding: 2px 8px;

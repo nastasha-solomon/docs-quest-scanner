@@ -334,7 +334,7 @@ To start every new session with the same filters, set `defaultQueueFilters` in `
 
 #### Card actions
 
-- **Accept quest and create issue:** Creates the GitHub issue, links it in the meta issue if one is configured, sets project fields, and adds **good first issue** if checked.
+- **Accept quest and create issue** (the wording changes with the [theme](#themes)): Creates the GitHub issue, links it in the meta issue if one is configured, sets project fields, and adds **good first issue** if checked.
 - **Skip** buttons remove the item from the queue and record the reason in `history.json`:
 
 | Button | Stored `reason` |
@@ -372,16 +372,19 @@ The palette button in the header switches the theme. Your choice is saved in thi
 | Theme | Look |
 |-------|------|
 | **Azeroth** (default) | The original quest-giver look and greetings |
-| **Coven** | Witch greetings, a witch familiar among the mascots, and purple quest marks |
-| **Bright Falls** | A dark theme with characters from Alan Wake and Control, a typewriter font, and red Bureau quest marks |
+| **Midnight Coven** | Dark obsidian and twilight purple with starlight gold, plus tarot, astrology, and witch familiars |
+| **Bright Falls** | A softened dark theme with Alan Wake characters, lamp-amber accents, and a typewriter font |
+| **Oldest House** | A light concrete theme with Control characters, Bureau red accents, and subtitles from the Board |
 
-A theme changes colors, fonts, the greeting and mascots, the empty-queue and completion text, the rewards popup, and toast messages. Button labels, skip reasons, filters, and tooltips are the same in every theme.
+A theme changes colors, fonts, the greeting and mascots, the empty-queue and completion text, the rewards popup, toast messages, and the wording of the accept button on each card. Every accept label still says that it creates an issue. Skip reasons, filters, bulk actions, and tooltips are the same in every theme.
 
 To add a theme:
 
 1. Add an entry to `THEMES` in `src/public/themes.js` with an `id`, `name`, `description`, `colorMode` (`light` or `dark`), and the voice fields you want to change. Fields you leave out use Azeroth's.
-2. Add a `[data-theme="your-id"]` block to `src/public/themes.css` that overrides the variables at the top of `src/public/styles.css`. A dark theme also overrides Primer's variables, as the Bright Falls block does.
+2. Add an `html[data-theme="your-id"][data-color-mode]` block to `src/public/themes.css` that overrides the variables at the top of `src/public/styles.css`. Copy the Primer mapping at the end of an existing block so buttons, inputs, and dialogs match the theme.
 3. Run `yarn test`. `test/themes.test.ts` checks that every theme has the fields the UI reads.
+
+Greeting lines are inserted as HTML, so write literal angle brackets as `&lt;` and `&gt;` (the Oldest House `board()` helper does this for Board subtitles).
 
 ### Same-PR documentation coverage
 

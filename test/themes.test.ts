@@ -31,6 +31,7 @@ for (const def of THEMES) {
       assert.ok(mascot.tooltips.length > 0);
     }
     for (const [key, value] of Object.entries(theme.text)) assert.ok(value, key);
+    assert.match(theme.text.acceptLabel, /\bcreate\b.*\bissue\b/i);
     assert.match(theme.text.toastAccepted(42), /#42/);
     assert.match(theme.text.toastSkipped('No docs needed'), /No docs needed/);
   });
@@ -59,6 +60,18 @@ for (const def of THEMES) {
     const lines = theme.restLines({ mark: '? ', name });
     assert.ok(lines.length > 0);
     for (const line of lines) assert.ok(line.includes(name), line);
+  });
+
+  test(`${def.id}: escaped angle brackets in greetings are balanced`, () => {
+    const lines = [
+      ...theme.questLines({ mark: '', greeting: theme.greetings[0], name, count: 3, quests: theme.noun[1], singular: false }),
+      ...theme.restLines({ mark: '', name }),
+    ];
+    for (const line of lines) {
+      const opens = line.split('&lt;').length - 1;
+      const closes = line.split('&gt;').length - 1;
+      assert.equal(opens, closes, line);
+    }
   });
 
   test(`${def.id}: rewards have base items and a bonus pool`, () => {
