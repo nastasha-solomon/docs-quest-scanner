@@ -423,7 +423,7 @@ The template is at `templates/issue-template.md` (Handlebars syntax) and can be 
 
 ## Fork enhancements
 
-This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, **Run scan** and **Enrich** buttons, tooltips and descriptions, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream. [Themes](#themes) are fork-only and aren't part of that proposal.
+This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, **Run scan** and **Enrich** buttons, tooltips and descriptions, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream. [Themes](#themes) are fork-only and aren't part of that proposal. For changes by date, see [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
 ## License
 
