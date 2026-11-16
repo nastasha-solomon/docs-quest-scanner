@@ -425,6 +425,22 @@ The template is at `templates/issue-template.md` (Handlebars syntax) and can be 
 
 This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, **Run scan** and **Enrich** buttons, tooltips and descriptions, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream. [Themes](#themes) are fork-only and aren't part of that proposal. For changes by date, see [`docs/CHANGELOG.md`](docs/CHANGELOG.md).
 
+## Maintaining this fork
+
+A ruleset protects `main`. You can find it in the repository's **Settings → Rules → Rulesets**. It blocks deleting `main` and force-pushing to it, and requires every change to go through a pull request. No approvals are required, so you can merge your own PRs. Nobody can bypass it, including admins.
+
+- **Sync with upstream through a PR.** The ruleset blocks GitHub's **Sync fork** button and `git push origin main`. Merge upstream into a branch instead:
+
+  ```sh
+  git fetch upstream
+  git switch -c sync-upstream main
+  git merge upstream/main
+  git push -u origin sync-upstream
+  ```
+
+  Then open a PR from `sync-upstream` to `main` and merge it.
+- **Direct push, if you ever need one:** Open the ruleset, set **Enforcement status** to **Disabled**, and push. Then set it back to **Active**.
+
 ## License
 
 MIT
