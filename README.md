@@ -298,6 +298,8 @@ yarn deploy        # Sync repo changes to the skill install (~/.claude/skills/do
 
 A panel above the queue has three rows: **Scan scope**, **Filters**, and **Bulk actions**. Below it, the **Triage queue** heading shows the item count, and cards are grouped by category.
 
+Hover over (or tab to) a button, badge, filter label, or category name to see what it means or what it will do. Labels with a dotted underline have an explanation.
+
 Each card is a PR that needs triage. It shows the AI summary, availability, the suggested issue body, and badges for doc work type, API reference work, and priority (P0–P3). Dashed badges are estimates that enrichment hasn't confirmed. If the scan found an existing docs issue that references the PR (through GitHub cross-reference events), the card shows a green **Already tracked** badge and a link.
 
 #### Scan scope
@@ -307,7 +309,7 @@ Shows what the loaded queue covers: the repo, **Merged since** (the date of your
 - **Run scan** fetches new PRs, the same as `yarn scan`. Your edits and enrichment are kept. The page is blocked until the scan finishes, and then a message reports how many items are new.
 - **Enrich N items** shows how many items haven't been through AI enrichment yet. It opens a prompt to paste into Claude Code, because enrichment runs in the skill, not in the page. Refresh the page when the agent finishes.
 
-Hover over either button for a description of what it does.
+The button tooltips show the current **Merged since** date and how many items are waiting.
 
 #### Queue filters
 
@@ -343,7 +345,7 @@ To start every new session with the same filters, set `defaultQueueFilters` in `
 | Skip – release notes only | `release notes only` |
 | Skip – not my area | `not my area` |
 
-Items skipped since the current scan are listed under **Skipped** at the bottom of the queue, where you can **Restore** them.
+Items skipped since the current scan are listed under **Skipped** at the bottom of the queue. **Restore** undoes a skip by removing it from `history.json`, so the PR comes back on the next scan.
 
 #### Bulk actions
 
@@ -361,7 +363,7 @@ When the queue is empty, **Mark scan complete** records the scan in `last_run.js
 
 ### History tab
 
-Shows past decisions grouped by scan session. Created issues link to GitHub, and skipped items show their reason.
+**Decision history** lists past decisions grouped by scan session, newest first, with a count of issues created and items skipped. Created issues link to GitHub, and skipped items show their reason.
 
 ### Same-PR documentation coverage
 
@@ -400,7 +402,7 @@ The template is at `templates/issue-template.md` (Handlebars syntax) and can be 
 
 ## Fork enhancements
 
-This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, **Run scan** and **Enrich** buttons, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream.
+This fork has triage features that aren't in [upstream](https://github.com/florent-leborgne/docs-quest-scanner) yet: queue filters (including merge date), bulk actions with a progress bar, **Run scan** and **Enrich** buttons, tooltips and descriptions, `docSurface` classification, category repair, and extra skip reasons. [`docs/upstream-enhancement-request.md`](docs/upstream-enhancement-request.md) is the proposal to add them upstream.
 
 ## License
 

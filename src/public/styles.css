@@ -192,12 +192,28 @@ body {
 }
 
 .queue-list__header {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
   margin-bottom: 12px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--borderColor-default, #d0d7de);
+}
+
+.queue-list__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.queue-list__desc {
+  margin: 2px 0 0;
+  max-width: 72ch;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--fgColor-muted, #656d76);
+}
+
+.queue-list__filters {
+  margin-bottom: 12px;
 }
 
 .queue-list__title {
@@ -1863,12 +1879,6 @@ dialog::backdrop {
   white-space: nowrap;
 }
 
-.scan-scope__fact[title] dt {
-  text-decoration: underline dotted var(--borderColor-default, #d0d7de);
-  text-underline-offset: 2px;
-  cursor: help;
-}
-
 .scan-scope__muted {
   font-weight: 400;
   color: var(--fgColor-muted, #656d76);
@@ -1878,68 +1888,6 @@ dialog::backdrop {
   display: inline-flex;
   flex: 0 0 auto;
   gap: 8px;
-}
-
-/* Tooltip below a button; JS adds --start when right-aligning would overflow the left edge */
-.btn-tip {
-  position: relative;
-  display: inline-flex;
-}
-
-.btn-tip__bubble {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 30;
-  width: max-content;
-  max-width: 280px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: #24292f;
-  color: #ffffff;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 18px;
-  text-align: left;
-  white-space: normal;
-  box-shadow: 0 6px 16px rgba(31, 35, 40, 0.2);
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-2px);
-  transition: opacity 0.12s ease, transform 0.12s ease, visibility 0s linear 0.12s;
-  pointer-events: none;
-}
-
-.btn-tip__bubble::before {
-  content: '';
-  position: absolute;
-  bottom: 100%;
-  right: 18px;
-  border: 5px solid transparent;
-  border-bottom-color: #24292f;
-}
-
-.btn-tip--start .btn-tip__bubble {
-  right: auto;
-  left: 0;
-}
-
-.btn-tip--start .btn-tip__bubble::before {
-  right: auto;
-  left: 18px;
-}
-
-.btn-tip:hover .btn-tip__bubble,
-.btn-tip:has(:focus-visible) .btn-tip__bubble {
-  opacity: 1;
-  visibility: visible;
-  transform: none;
-  transition: opacity 0.12s ease 0.2s, transform 0.12s ease 0.2s, visibility 0s linear 0.2s;
-}
-
-.btn-tip.btn-tip--dismissed .btn-tip__bubble {
-  opacity: 0;
-  visibility: hidden;
 }
 
 .scan-scope__toggle {
@@ -2259,6 +2207,72 @@ dialog::backdrop {
 
 .hero-rest .hero-text strong {
   color: #656d76;
+}
+
+/* ── Tooltips ([data-tip], positioned by showTooltip in app.js) ── */
+
+.ui-tooltip {
+  position: fixed;
+  z-index: 1000;
+  max-width: 300px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #24292f;
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 18px;
+  text-align: left;
+  white-space: normal;
+  box-shadow: 0 6px 16px rgba(31, 35, 40, 0.2);
+  pointer-events: none;
+}
+
+.ui-tooltip[hidden] {
+  display: none;
+}
+
+.ui-tooltip::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: var(--tip-arrow-x, 50%);
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-bottom-color: #24292f;
+}
+
+.ui-tooltip--above::before {
+  bottom: auto;
+  top: 100%;
+  border-bottom-color: transparent;
+  border-top-color: #24292f;
+}
+
+/* Disabled controls don't get pointer events, so the wrapper carries the tooltip */
+.tip-wrap {
+  display: inline-flex;
+}
+
+.tip-wrap > :disabled {
+  pointer-events: none;
+}
+
+.tip-label {
+  text-decoration: underline dotted #8c959f;
+  text-underline-offset: 3px;
+  cursor: help;
+}
+
+[data-tip].tip-help {
+  cursor: help;
+}
+
+.card-section-hint {
+  font-weight: 400;
+  color: var(--fgColor-muted, #656d76);
 }
 
 /* ── Footer ───────────────────────────────────────────── */

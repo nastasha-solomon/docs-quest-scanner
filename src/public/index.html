@@ -25,7 +25,7 @@
       <div class="header-spacer"></div>
       <div class="header-actions">
         <img id="user-avatar" src="" alt="" class="avatar" />
-        <button id="btn-settings" class="icon-btn" aria-label="Settings" title="Settings">
+        <button id="btn-settings" class="icon-btn" aria-label="Settings" data-tip="Settings: repos, categories, labels, and meta issues">
           <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor">
             <path d="M8 0a8.2 8.2 0 0 1 .701.031C9.444.095 9.99.645 10.16 1.29l.288 1.107c.018.066.079.158.212.224.231.114.454.243.668.386.123.082.233.09.299.071l1.103-.303c.644-.176 1.392.021 1.82.63.27.385.506.792.704 1.218.315.675.111 1.422-.364 1.891l-.814.806c-.049.048-.098.147-.088.294a6.1 6.1 0 0 1 0 .772c-.01.147.04.246.088.294l.814.806c.475.469.679 1.216.364 1.891a7.977 7.977 0 0 1-.704 1.217c-.428.61-1.176.807-1.82.63l-1.103-.303c-.066-.019-.176-.011-.299.071a5.991 5.991 0 0 1-.668.386c-.133.066-.194.158-.212.224l-.288 1.107c-.17.645-.716 1.195-1.459 1.26a8.006 8.006 0 0 1-1.402 0c-.743-.065-1.289-.615-1.459-1.26l-.289-1.107c-.017-.066-.078-.158-.211-.224a5.99 5.99 0 0 1-.668-.386c-.123-.082-.233-.09-.3-.071l-1.102.303c-.644.177-1.392-.02-1.82-.63a7.968 7.968 0 0 1-.704-1.217c-.315-.675-.111-1.422.363-1.891l.815-.806c.049-.048.098-.147.088-.294a6.1 6.1 0 0 1 0-.772c.01-.147-.04-.246-.088-.294l-.815-.806C.635 6.045.431 5.298.746 4.623a7.92 7.92 0 0 1 .704-1.217c.428-.61 1.176-.807 1.82-.63l1.103.303c.066.019.176.011.299-.071.214-.143.437-.272.668-.386.133-.066.194-.158.212-.224L5.84 1.29c.17-.645.716-1.195 1.459-1.26A8.2 8.2 0 0 1 8 0ZM8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Z"/>
           </svg>
@@ -47,11 +47,13 @@
     <div class="toolbar">
       <nav class="UnderlineNav toolbar-tabs">
         <div class="UnderlineNav-body">
-          <button class="UnderlineNav-item" aria-current="page" data-tab="queue">
+          <button class="UnderlineNav-item" aria-current="page" data-tab="queue"
+            data-tip="PRs from the latest scan that are waiting for a decision">
             Queue
             <span class="Counter" id="tab-queue-count">0</span>
           </button>
-          <button class="UnderlineNav-item" data-tab="history">
+          <button class="UnderlineNav-item" data-tab="history"
+            data-tip="Every decision so far: issues you created and items you skipped">
             History
             <span class="Counter" id="tab-history-count">0</span>
           </button>
@@ -74,19 +76,13 @@
             <div class="scan-scope__top">
               <dl class="scan-scope__facts" id="scan-scope-facts"></dl>
               <div class="scan-scope__actions">
-                <span class="btn-tip">
-                  <button type="button" class="btn btn-sm" id="btn-run-scan" aria-describedby="tip-run-scan">Run scan</button>
-                  <span class="btn-tip__bubble" role="tooltip" id="tip-run-scan">
-                    Checks GitHub for new PRs that match your categories and release note labels.
-                    Your edits and enrichment are kept. Can take a few minutes.
-                  </span>
-                </span>
-                <span class="btn-tip">
-                  <button type="button" class="btn btn-sm btn-primary" id="btn-enrich" aria-describedby="tip-enrich">Enrich</button>
-                  <span class="btn-tip__bubble" role="tooltip" id="tip-enrich">
-                    Opens a prompt to paste into Claude Code, which analyzes items that haven't been enriched yet.
-                    Nothing runs from this page.
-                  </span>
+                <button type="button" class="btn btn-sm" id="btn-run-scan"
+                  data-tip="Checks GitHub for new PRs that match your categories and release note labels. Your edits and enrichment are kept. Can take a few minutes.">
+                  Run scan
+                </button>
+                <span class="tip-wrap" id="enrich-tip-wrap"
+                  data-tip="Opens a prompt to paste into Claude Code, which analyzes items that haven't been enriched yet. Nothing runs from this page.">
+                  <button type="button" class="btn btn-sm btn-primary" id="btn-enrich">Enrich</button>
                 </span>
               </div>
             </div>
@@ -107,7 +103,8 @@
           <div class="queue-controls__body queue-controls__body--stack">
             <div class="queue-toolbar" id="queue-toolbar">
               <div class="queue-filter-field">
-                <label for="queue-filter">Assessment</label>
+                <label for="queue-filter" class="tip-label"
+                  data-tip="Whether a PR likely needs docs. Needs docs and No docs needed are confident calls. Check means a writer should decide.">Assessment</label>
                 <select id="queue-filter" class="form-select form-select-sm queue-filter-select">
                   <option value="all">All</option>
                   <option value="yes">Needs docs</option>
@@ -117,13 +114,15 @@
                 </select>
               </div>
               <div class="queue-filter-field">
-                <label for="queue-version-filter">Stack release</label>
+                <label for="queue-version-filter" class="tip-label"
+                  data-tip="The Stack minor from the PR's version label (v9.6.1 counts as 9.6). Focus shows the releases you're working on, marked with ★.">Stack release</label>
                 <select id="queue-version-filter" class="form-select form-select-sm queue-filter-select">
                   <option value="all">All versions</option>
                 </select>
               </div>
               <div class="queue-filter-field">
-                <label for="queue-merge-filter">Merged</label>
+                <label for="queue-merge-filter" class="tip-label"
+                  data-tip="When the PR merged. Since last scan shows PRs merged after the most recent scan run. Filters only what's loaded; it doesn't change what a scan fetches.">Merged</label>
                 <select id="queue-merge-filter" class="form-select form-select-sm queue-filter-select">
                   <option value="all">All dates</option>
                   <option value="7d">Last 7 days</option>
@@ -134,7 +133,8 @@
                 </select>
               </div>
               <div class="queue-filter-field">
-                <label for="queue-doc-work-filter">Doc work</label>
+                <label for="queue-doc-work-filter" class="tip-label"
+                  data-tip="The kind of writing a PR needs: new content, updates to existing pages, or API reference only (generated from OpenAPI).">Doc work</label>
                 <select id="queue-doc-work-filter" class="form-select form-select-sm queue-filter-select">
                   <option value="all">All</option>
                   <option value="new">New content</option>
@@ -144,13 +144,15 @@
                 </select>
               </div>
               <div class="queue-filter-field">
-                <label for="queue-category-filter">Category</label>
+                <label for="queue-category-filter" class="tip-label"
+                  data-tip="The team grouping from your config. Focus shows your focus categories, marked with ★. Also matches PRs that apply to more than one category.">Category</label>
                 <select id="queue-category-filter" class="form-select form-select-sm queue-filter-select">
                   <option value="all">All categories</option>
                 </select>
               </div>
               <div class="queue-filter-field">
-                <label for="queue-priority-filter">Priority</label>
+                <label for="queue-priority-filter" class="tip-label"
+                  data-tip="P0 is most urgent. Priorities marked (estimate) come from release note labels until enrichment sets one.">Priority</label>
                 <select id="queue-priority-filter" class="form-select form-select-sm queue-filter-select">
                   <option value="all">All</option>
                   <option value="p0,p1">P0 + P1</option>
@@ -161,14 +163,16 @@
                   <option value="unrated">Unrated</option>
                 </select>
               </div>
-              <button type="button" class="btn btn-sm queue-filters-reset" id="btn-queue-filters-reset">Reset</button>
+              <button type="button" class="btn btn-sm queue-filters-reset" id="btn-queue-filters-reset"
+                data-tip="Set every filter back to All">Reset</button>
             </div>
             <div id="queue-merge-custom" class="queue-merge-custom" hidden>
               <label class="queue-merge-custom-label" for="queue-merge-from">From</label>
               <input type="date" id="queue-merge-from" class="form-control form-control-sm queue-merge-date" />
               <label class="queue-merge-custom-label" for="queue-merge-to">To</label>
               <input type="date" id="queue-merge-to" class="form-control form-control-sm queue-merge-date" />
-              <button type="button" class="btn btn-sm btn-invisible" id="btn-merge-custom-clear">Clear range</button>
+              <button type="button" class="btn btn-sm btn-invisible" id="btn-merge-custom-clear"
+                data-tip="Remove both dates">Clear range</button>
             </div>
           </div>
         </div>
@@ -181,14 +185,17 @@
           <div class="queue-controls__body queue-controls__body--stack">
             <div class="queue-bulk-bar" id="queue-bulk-bar">
               <div class="queue-bulk-bar__group queue-bulk-bar__selection">
-                <button type="button" class="btn btn-sm" id="btn-bulk-select-visible">Select all</button>
-                <button type="button" class="btn btn-sm btn-outline" id="btn-bulk-clear">Clear selection</button>
+                <button type="button" class="btn btn-sm" id="btn-bulk-select-visible"
+                  data-tip="Select every item that matches the current filters, in all categories">Select all</button>
+                <button type="button" class="btn btn-sm btn-outline" id="btn-bulk-clear"
+                  data-tip="Deselect every item">Clear selection</button>
                 <span class="queue-bulk-count text-small" id="queue-bulk-count">0 selected</span>
               </div>
               <div class="queue-bulk-bar__spacer" aria-hidden="true"></div>
               <div class="queue-bulk-bar__group queue-bulk-bar__actions">
                 <div class="queue-filter-field">
-                  <label for="bulk-action-select">Action</label>
+                  <label for="bulk-action-select" class="tip-label"
+                    data-tip="What to do with the selected items. Accept quest creates a GitHub issue for each one. Skip options remove them from the queue and record the reason in History.">Action</label>
                   <select id="bulk-action-select" class="form-select form-select-sm queue-filter-select">
                     <option value="accept">Accept quest</option>
                     <option value="skip-no-docs">Skip – no docs</option>
@@ -198,9 +205,11 @@
                     <option value="skip-not-my-area">Skip – not my area</option>
                   </select>
                 </div>
-                <button type="button" class="btn btn-sm btn-primary queue-bulk-apply" id="btn-bulk-apply" disabled>
-                  Apply
-                </button>
+                <span class="tip-wrap" id="bulk-apply-tip-wrap" data-tip="Select at least one item first">
+                  <button type="button" class="btn btn-sm btn-primary queue-bulk-apply" id="btn-bulk-apply" disabled>
+                    Apply
+                  </button>
+                </span>
               </div>
             </div>
             <div id="queue-bulk-progress" class="queue-bulk-progress" hidden>
@@ -215,8 +224,14 @@
 
       <section class="queue-list" id="queue-section-cards">
         <header class="queue-list__header">
-          <h2 class="queue-list__title">Triage queue</h2>
-          <span class="queue-list__meta" id="queue-filter-hint"></span>
+          <div class="queue-list__heading">
+            <h2 class="queue-list__title">Triage queue</h2>
+            <span class="queue-list__meta" id="queue-filter-hint"></span>
+          </div>
+          <p class="queue-list__desc">
+            PRs from the latest scan that might need docs, grouped by category with the highest priority first.
+            Open a card to review it, then accept it to create a docs issue or skip it with a reason.
+          </p>
         </header>
         <div id="queue-container"></div>
         <div id="queue-empty" class="blankslate" style="display:none">
@@ -225,7 +240,9 @@
           <p class="text-small color-fg-muted" id="queue-empty-hint">Click <strong>Run scan</strong> in Scan scope above, or use the <code>/docs-quest-scanner</code> skill in Claude Code.</p>
           <!-- Complete scan CTA — only shown when a scan is active and queue is clear -->
           <div id="complete-scan-footer" class="scan-complete-footer" style="display:none">
-            <button class="btn btn-large" id="btn-complete" style="background-color: #1a7f37; color: #fff; border-color: rgba(27,31,36,0.15); padding: 10px 32px; font-size: 16px; font-weight: 600;">
+            <button class="btn btn-large" id="btn-complete"
+              data-tip="Records this scan as complete. The next scan only fetches PRs merged after it."
+              style="background-color: #1a7f37; color: #fff; border-color: rgba(27,31,36,0.15); padding: 10px 32px; font-size: 16px; font-weight: 600;">
               <svg class="octicon mr-2" viewBox="0 0 16 16" width="16" height="16" style="vertical-align: text-bottom;">
                 <path fill="currentColor" d="M13.78 4.22a.75.75 0 0 1 0 1.06l-7.25 7.25a.75.75 0 0 1-1.06 0L2.22 9.28a.751.751 0 0 1 .018-1.042.751.751 0 0 1 1.042-.018L6 10.94l6.72-6.72a.75.75 0 0 1 1.06 0Z"/>
               </svg>
@@ -241,8 +258,19 @@
 
     <!-- History tab -->
     <div id="tab-history" class="tab-content" style="display:none">
-      <div class="d-flex flex-items-center mb-3">
-        <select id="history-filter" class="form-select form-select-sm mr-2">
+      <header class="queue-list__header">
+        <div class="queue-list__heading">
+          <h2 class="queue-list__title">Decision history</h2>
+          <span class="queue-list__meta" id="history-meta"></span>
+        </div>
+        <p class="queue-list__desc">
+          Issues you created and items you skipped, grouped by scan with the newest first.
+          To undo a skip from the current scan, use <strong>Restore</strong> in the Skipped list at the bottom of the queue. The PR returns on the next scan.
+        </p>
+      </header>
+      <div class="d-flex flex-items-center queue-list__filters">
+        <select id="history-filter" class="form-select form-select-sm mr-2" aria-label="Filter history"
+          data-tip="Show all decisions, only created issues, or only skipped items">
           <option value="all">All decisions</option>
           <option value="created">Created</option>
           <option value="dismissed">Dismissed</option>

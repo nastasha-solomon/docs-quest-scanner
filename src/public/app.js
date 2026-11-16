@@ -84,6 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const mergeTo = sessionStorage.getItem('queue-merge-to');
   if (mergeFrom) state.queueMergeFrom = mergeFrom;
   if (mergeTo) state.queueMergeTo = mergeTo;
+  bindTooltips();
   bindScanContextCollapse();
   bindScanScopeActions();
   bindBulkActions();
@@ -546,12 +547,16 @@ function renderScanContext() {
   const since = state.lastRun?.lastRunDate;
   const scannedAt = state.queue.scannedAt;
 
-  /** @param {string} term @param {string} valueHtml @param {string} [title] */
-  const fact = (term, valueHtml, title = '') =>
-    `<div class="scan-scope__fact"${title ? ` title="${esc(title)}"` : ''}><dt>${esc(term)}</dt><dd>${valueHtml}</dd></div>`;
+  /** @param {string} term @param {string} valueHtml @param {string} [tip] */
+  const fact = (term, valueHtml, tip = '') =>
+    `<div class="scan-scope__fact"><dt${tip ? ` class="tip-label"${tipAttr(tip)}` : ''}>${esc(term)}</dt><dd>${valueHtml}</dd></div>`;
 
   factsEl.innerHTML = [
-    fact(sources.length > 1 ? 'Repos' : 'Repo', esc(sources.join(', ') || '—')),
+    fact(
+      sources.length > 1 ? 'Repos' : 'Repo',
+      esc(sources.join(', ') || '—'),
+      'Where the scan looks for merged PRs'
+    ),
     fact(
       'Merged since',
       since ? esc(formatDate(since)) : 'Last 14 days',
@@ -564,14 +569,15 @@ function renderScanContext() {
     ),
     fact(
       'Categories',
-      `${categories.length} <span class="scan-scope__muted">· ${teamLabelCount} team labels</span>`
+      `${categories.length} <span class="scan-scope__muted">· ${teamLabelCount} team labels</span>`,
+      'Team groupings from your config. A PR joins a category when it has one of its team labels. Open "Show categories and labels" for the full list.'
     ),
   ].join('');
 
-  const runTip = document.getElementById('tip-run-scan');
-  if (runTip) {
+  const runBtn = document.getElementById('btn-run-scan');
+  if (runBtn) {
     const mergeWindow = since ? `merged since ${formatDate(since)}` : 'merged in the last 14 days';
-    runTip.textContent =
+    runBtn.dataset.tip =
       `Checks GitHub for PRs ${mergeWindow} that match your categories and release note labels. ` +
       'Your edits and enrichment are kept, and new items will need enrichment. Can take a few minutes.';
   }
@@ -584,9 +590,9 @@ function renderScanContext() {
     enrichBtn.disabled = pending === 0;
     enrichBtn.classList.toggle('btn-primary', pending > 0);
   }
-  const enrichTip = document.getElementById('tip-enrich');
+  const enrichTip = document.getElementById('enrich-tip-wrap');
   if (enrichTip) {
-    enrichTip.textContent = pending
+    enrichTip.dataset.tip = pending
       ? `Opens a prompt to paste into Claude Code. The AI reads each PR and the published docs, then fills in doc gaps, effort, and priority for the ${pendingLabel} not analyzed yet. Nothing runs from this page.`
       : 'Nothing to enrich. Every item has been analyzed or was pre-filtered as not needing docs.';
   }
@@ -720,25 +726,6 @@ function bindScanScopeActions() {
   const close = () => document.getElementById('enrich-dialog')?.close();
   document.getElementById('btn-close-enrich')?.addEventListener('click', close);
   document.getElementById('btn-enrich-cancel')?.addEventListener('click', close);
-
-  const tips = document.querySelectorAll('.btn-tip');
-  for (const tip of tips) {
-    const bubble = tip.querySelector('.btn-tip__bubble');
-    const place = () => {
-      if (!bubble) return;
-      const fitsRightAligned = tip.getBoundingClientRect().right - bubble.offsetWidth >= 8;
-      tip.classList.toggle('btn-tip--start', !fitsRightAligned);
-    };
-    tip.addEventListener('mouseenter', place);
-    tip.addEventListener('focusin', place);
-    const restore = () => tip.classList.remove('btn-tip--dismissed');
-    tip.addEventListener('click', () => tip.classList.add('btn-tip--dismissed'));
-    tip.addEventListener('mouseleave', restore);
-    tip.addEventListener('focusout', restore);
-  }
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') tips.forEach((tip) => tip.classList.add('btn-tip--dismissed'));
-  });
 }
 
 /** @param {QueueItem[]} items */
@@ -913,7 +900,20 @@ function updateBulkBar() {
     applyBtn.disabled = n === 0 || state.bulkBusy;
     applyBtn.textContent = bulkApplyButtonLabel();
   }
+  const applyTip = document.getElementById('bulk-apply-tip-wrap');
+  if (applyTip) applyTip.dataset.tip = bulkApplyTooltip(n);
   setBulkBarControlsDisabled(state.bulkBusy);
+}
+
+function bulkApplyTooltip(n) {
+  if (n === 0) return 'Select at least one item first';
+  const items = `${n} item${n === 1 ? '' : 's'}`;
+  const action = document.getElementById('bulk-action-select')?.value ?? 'accept';
+  if (action === 'accept') {
+    return `Creates a GitHub issue for each of the ${items}, using each card's title, body, and target repo. You'll confirm first.`;
+  }
+  const reason = BULK_ACTIONS[action]?.reason ?? action;
+  return `Removes the ${items} from the queue and records "${reason}" in History. You'll confirm first.`;
 }
 
 /** @param {boolean} disabled */
@@ -1285,20 +1285,25 @@ function populateQueueVersionFilterOptions() {
 
 function docWorkBadge(item) {
   const parts = [];
+  const estimateNote = ' This is an estimate from the PR until enrichment confirms it.';
   if (item.docSurface === 'api-only') {
-    const est = item.docSurfaceSource === 'heuristic' ? ' (estimate)' : '';
-    const cls = item.docSurfaceSource === 'heuristic' ? ' doc-work-badge--heuristic' : '';
+    const heuristic = item.docSurfaceSource === 'heuristic';
+    const tip = `The doc work is in the API reference (generated from OpenAPI), not in guides.${heuristic ? estimateNote : ''}`;
     parts.push(
-      `<span class="doc-work-badge doc-work-badge--api${cls}" title="Doc gaps target API reference (OpenAPI), not guides">API ref${esc(est)}</span>`
+      `<span class="doc-work-badge doc-work-badge--api${heuristic ? ' doc-work-badge--heuristic' : ''}"${tipAttr(tip)}>API ref${heuristic ? ' (estimate)' : ''}</span>`
     );
   }
   const kind = item.docWorkKind;
   if (kind && kind !== 'unknown') {
     const labels = { new: 'New content', update: 'Update existing' };
-    const hint = item.docWorkKindSource === 'heuristic' ? ' (estimate)' : '';
-    const cls = item.docWorkKindSource === 'heuristic' ? ' doc-work-badge--heuristic' : '';
+    const meanings = {
+      new: 'Needs a new page or section.',
+      update: 'Needs changes to pages that already exist.',
+    };
+    const heuristic = item.docWorkKindSource === 'heuristic';
+    const tip = `${meanings[kind] ?? ''}${heuristic ? estimateNote : ''}`.trim();
     parts.push(
-      `<span class="doc-work-badge${cls}" title="${item.docWorkKindSource === 'heuristic' ? 'From release-note heuristic until enrichment' : 'From enrichment (docsGap / effortTag)'}">${esc(labels[kind] ?? kind)}${esc(hint)}</span>`
+      `<span class="doc-work-badge${heuristic ? ' doc-work-badge--heuristic' : ''}"${tipAttr(tip)}>${esc(labels[kind] ?? kind)}${heuristic ? ' (estimate)' : ''}</span>`
     );
   }
   return parts.join('');
@@ -1307,13 +1312,13 @@ function docWorkBadge(item) {
 function priorityBadge(item) {
   const level = item.triagePriorityLevel;
   if (!level) return '';
-  const est = item.triagePrioritySource === 'heuristic' ? ' (estimate)' : '';
-  const cls = item.triagePrioritySource === 'heuristic' ? ' priority-badge--heuristic' : '';
-  const title =
-    item.triagePrioritySource === 'heuristic'
-      ? 'From release-note heuristic until enrichment sets triagePriority'
-      : item.triagePriorityLabel ?? level;
-  return `<span class="priority-badge${cls}" title="${esc(title)}">${esc(level)}${esc(est)}</span>`;
+  const heuristic = item.triagePrioritySource === 'heuristic';
+  const est = heuristic ? ' (estimate)' : '';
+  const cls = heuristic ? ' priority-badge--heuristic' : '';
+  const tip = heuristic
+    ? `Priority ${level}, estimated from the release note label and assessment until enrichment sets one. P0 is most urgent.`
+    : `Priority ${item.triagePriorityLabel ?? level}, set by enrichment. This becomes the issue's project Priority.`;
+  return `<span class="priority-badge${cls}"${tipAttr(tip)}>${esc(level)}${esc(est)}</span>`;
 }
 
 function renderTabCounts() {
@@ -1384,6 +1389,11 @@ function renderQueue() {
 
   // Group by category
   const grouped = groupByCategory(visibleItems);
+  const labelsByCategory = new Map(
+    (state.config ? scanScopeGroups(state.config) : [])
+      .flatMap((g) => g.categories ?? [])
+      .map((c) => [c.name, c.labels ?? []])
+  );
   let html = '';
 
   for (const [category, items] of grouped) {
@@ -1397,14 +1407,14 @@ function renderQueue() {
     html += `
       <div class="category-group" data-category-group="${esc(category)}">
         <div class="category-header">
-          <label class="category-select-all" title="Select all items in this section">
-            <input type="checkbox" class="category-select-all-input" data-item-ids="${esc(itemIds.join(','))}"${allSel ? ' checked' : ''}${someSel ? ' data-indeterminate="1"' : ''} />
+          <label class="category-select-all"${tipAttr('Select every item shown in this category for a bulk action')}>
+            <input type="checkbox" class="category-select-all-input" aria-label="Select all in ${esc(category)}" data-item-ids="${esc(itemIds.join(','))}"${allSel ? ' checked' : ''}${someSel ? ' data-indeterminate="1"' : ''} />
           </label>
-          <h3>${esc(category)}</h3>
+          <h3${labelsByCategory.get(category)?.length ? ` class="tip-help"${tipAttr(`PRs with any of these labels: ${labelsByCategory.get(category).join(', ')}`)}` : ''}>${esc(category)}</h3>
           <div class="category-pills">
-            ${yes > 0 ? `<span class="pill pill-yes">${yes} needs docs</span>` : ''}
-            ${check > 0 ? `<span class="pill pill-check">${check} to check</span>` : ''}
-            ${no > 0 ? `<span class="pill pill-no">${no} no docs</span>` : ''}
+            ${yes > 0 ? `<span class="pill pill-yes"${tipAttr('The assessment found a documentation gap in these PRs')}>${yes} needs docs</span>` : ''}
+            ${check > 0 ? `<span class="pill pill-check"${tipAttr("The assessment isn't sure these need docs. Review them to decide.")}>${check} to check</span>` : ''}
+            ${no > 0 ? `<span class="pill pill-no"${tipAttr('The assessment says no docs are needed. Skim them and skip.')}>${no} no docs</span>` : ''}
           </div>
         </div>
         ${sortedItems.map((item) => renderCard(item)).join('')}
@@ -1422,7 +1432,7 @@ function renderQueue() {
       <div class="skipped-section">
         <details>
           <summary class="skipped-summary">
-            <span>Skipped</span>
+            <span class="tip-label"${tipAttr('Items you skipped since the latest scan. Restore undoes a skip so the PR returns on the next scan.')}>Skipped</span>
             <span class="Counter ml-2">${skipped.length}</span>
           </summary>
           <div class="skipped-list">
@@ -1430,7 +1440,7 @@ function renderQueue() {
               <div class="skipped-item">
                 <span class="skipped-title">${esc(entry.title || entry.prNumbers.map((n) => '#' + n).join(', '))}</span>
                 ${entry.reason ? `<span class="Label Label--secondary ml-2" style="font-size:11px">${esc(entry.reason)}</span>` : ''}
-                <button class="btn btn-sm btn-outline" data-action="unskip" data-prs="${entry.prNumbers.join(',')}">Restore</button>
+                <button class="btn btn-sm btn-outline" data-action="unskip" data-prs="${entry.prNumbers.join(',')}"${tipAttr('Removes this skip from History. The PR returns to the queue on the next scan.')}>Restore</button>
               </div>
             `).join('')}
           </div>
@@ -1467,7 +1477,12 @@ function effortBadge(tag) {
     'new-content': { icon: `<svg class="octicon" viewBox="0 0 16 16" width="12" height="12"><path fill="currentColor" d="M7.75 2a.75.75 0 0 1 .75.75V7h4.25a.75.75 0 0 1 0 1.5H8.5v4.25a.75.75 0 0 1-1.5 0V8.5H2.75a.75.75 0 0 1 0-1.5H7V2.75A.75.75 0 0 1 7.75 2Z"/></svg>`, label: 'New content', cls: 'effort-badge--new' },
   };
   const c = config[tag] ?? { icon: '', label: tag, cls: '' };
-  return `<span class="effort-badge ${c.cls}">${c.icon} ${c.label}</span>`;
+  const tips = {
+    'quick-fix': 'Estimated effort: a small correction to an existing page. Sets the issue Size.',
+    update: 'Estimated effort: a moderate update to existing pages. Sets the issue Size.',
+    'new-content': 'Estimated effort: new pages or sections. Sets the issue Size.',
+  };
+  return `<span class="effort-badge ${c.cls}"${tipAttr(tips[tag] ?? 'Estimated effort from enrichment')}>${c.icon} ${c.label}</span>`;
 }
 
 /** Unique release_note:* label values across an item's PRs, e.g. ["fix", "skip"]. */
@@ -1485,7 +1500,7 @@ function releaseNoteKinds(item) {
 
 function releaseNoteBadges(item) {
   return releaseNoteKinds(item)
-    .map((k) => `<span class="rn-badge rn-badge--${esc(k)}" title="release_note:${esc(k)}">${esc(k)}</span>`)
+    .map((k) => `<span class="rn-badge rn-badge--${esc(k)}"${tipAttr(`The PR's release_note:${k} label, set by the product team`)}>${esc(k)}</span>`)
     .join('');
 }
 
@@ -1502,23 +1517,32 @@ function renderCard(item) {
   const confidence = item.assessment.confidence != null ? Math.round(item.assessment.confidence * 100) : null;
   const confStr = confidence != null ? ` · ${confidence}%` : '';
 
+  const confTip = confidence != null ? ` ${confidence}% is how confident the assessment is.` : '';
+  const assessmentTip = item.assessment.prefiltered
+    ? `No docs needed: filtered out automatically before AI analysis (rule: ${item.assessment.prefiltered}).`
+    : {
+        yes: `Needs docs: the assessment found a documentation gap.${confTip}`,
+        check: `Check: unclear whether docs are needed, so a writer should decide.${confTip}`,
+        no: `No docs needed: the assessment found nothing to document.${confTip}`,
+      }[item.assessment.needsDocs] ?? '';
+
   const selected = state.selectedQueueIds.has(item.id);
   return `
     <div class="triage-card" data-id="${item.id}">
       <div class="triage-card-header" data-action="toggle">
-        <input type="checkbox" class="triage-select" data-item="${item.id}" aria-label="Select for bulk action"${selected ? ' checked' : ''} />
+        <input type="checkbox" class="triage-select" data-item="${item.id}" aria-label="Select for bulk action"${tipAttr('Select for a bulk action')}${selected ? ' checked' : ''} />
         <svg class="triage-card-chevron octicon" viewBox="0 0 16 16" width="16" height="16">
           <path fill="currentColor" d="m6.427 4.427 3.396 3.396a.25.25 0 0 1 0 .354l-3.396 3.396A.25.25 0 0 1 6 11.396V4.604a.25.25 0 0 1 .427-.177Z"/>
         </svg>
         <span class="triage-card-title">${esc(title)}</span>
         <div class="triage-card-meta">
-          <span class="docs-badge ${badge}">${badgeLabel}<span class="docs-badge-conf">${confStr}</span></span>
+          <span class="docs-badge ${badge}"${tipAttr(assessmentTip)}>${badgeLabel}<span class="docs-badge-conf">${confStr}</span></span>
           ${releaseNoteBadges(item)}
-          ${avail ? `<span class="avail-badge">${esc(avail)}</span>` : ''}
+          ${avail ? `<span class="avail-badge"${tipAttr('Where this ships: Stack version from the PR label, and the estimated serverless week')}>${esc(avail)}</span>` : ''}
           ${docWorkBadge(item)}
           ${priorityBadge(item)}
           ${effortBadge(item.assessment.effortTag)}
-          ${item.assessment.trackedIn?.length ? `<span class="tracked-badge">Already tracked</span>` : ''}
+          ${item.assessment.trackedIn?.length ? `<span class="tracked-badge"${tipAttr('A docs issue already references this PR. Open the card to see it under Tracked in.')}>Already tracked</span>` : ''}
         </div>
       </div>
       <div class="triage-card-body">
@@ -1575,7 +1599,7 @@ function renderCardBody(item) {
       </tr>
       ${item.assessment.trackedIn?.length ? `
       <tr>
-        <td class="card-info-label">Tracked in</td>
+        <td class="card-info-label"><span class="tip-label"${tipAttr('Existing docs issues that reference this PR. If one covers the work, use Skip – already tracked.')}>Tracked in</span></td>
         <td>
           <div class="tracked-issues-list">
             ${item.assessment.trackedIn.map(t => `
@@ -1588,7 +1612,7 @@ function renderCardBody(item) {
         </td>
       </tr>` : ''}
       <tr>
-        <td class="card-info-label">Availability</td>
+        <td class="card-info-label"><span class="tip-label"${tipAttr('Stack versions from the PR labels, the estimated serverless week (merge date plus 7 days, or N/A for Stack-only features), feature status, and any feature flag')}>Availability</span></td>
         <td>
           <div class="avail-items">
             ${versions.map(v => `<span class="avail-tag">${esc(v)}</span>`).join('')}
@@ -1602,10 +1626,10 @@ function renderCardBody(item) {
 
     <!-- Issue suggestion -->
     <div class="card-section">
-      <div class="card-section-label">Issue suggestion</div>
+      <div class="card-section-label">Issue suggestion <span class="card-section-hint">· becomes the GitHub issue when you accept. Edit it first if needed.</span></div>
       <div class="issue-block">
         <div class="issue-block-header">
-          <button class="btn-edit-inline" data-action="toggle-title-edit" data-item="${item.id}" title="Edit title">${pencil}</button>
+          <button class="btn-edit-inline" data-action="toggle-title-edit" data-item="${item.id}" aria-label="Edit title"${tipAttr('Edit the issue title')}>${pencil}</button>
           <span class="issue-block-title-text" data-title-display="${item.id}">${esc(title)}</span>
           <input class="issue-block-title" data-field="title" data-item="${item.id}"
             value="${esc(title)}" placeholder="Issue title" style="display:none" />
@@ -1626,40 +1650,45 @@ function renderCardBody(item) {
     <!-- 5. Actions -->
     <div class="card-actions">
       <div class="create-group">
-        <label class="good-first-issue-label">
+        <label class="good-first-issue-label"${tipAttr('Adds the good first issue label to the created issue')}>
           <input type="checkbox" data-field="goodFirstIssue" data-item="${item.id}" />
           good first issue
         </label>
-        <button class="btn btn-sm btn-primary" data-action="create" data-item="${item.id}">
+        <button class="btn btn-sm btn-primary" data-action="create" data-item="${item.id}"${tipAttr('Creates the GitHub issue in the target repo, links it in the meta issue if one is configured, sets project fields, and removes the card from the queue')}>
           <svg class="octicon mr-1" viewBox="0 0 16 16" width="16" height="16">
             <path fill="currentColor" d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z"/>
           </svg>
           Accept quest and create issue
         </button>
       </div>
-      <button class="btn btn-sm btn-danger" data-action="dismiss" data-item="${item.id}" data-reason="no docs needed">
+      <button class="btn btn-sm btn-danger" data-action="dismiss" data-item="${item.id}" data-reason="no docs needed"${tipAttr(skipTip('The change doesn\'t need documentation.'))}>
         Skip – no docs
       </button>
-      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="already tracked">
+      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="already tracked"${tipAttr(skipTip('An existing docs issue already covers this.'))}>
         Skip – already tracked
       </button>
-      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="owned by dev">
+      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="owned by dev"${tipAttr(skipTip('The product PR already includes the user docs.'))}>
         Skip – owned by dev
       </button>
-      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="release notes only">
+      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="release notes only"${tipAttr(skipTip('A release note is enough. No other docs are needed.'))}>
         Skip – release notes only
       </button>
-      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="not my area">
+      <button class="btn btn-sm btn-outline" data-action="dismiss" data-item="${item.id}" data-reason="not my area"${tipAttr(skipTip('It belongs to another writer or team.'))}>
         Skip – not my area
       </button>
       <div class="target-repo-select">
-        <label>Target:</label>
+        <label class="tip-label"${tipAttr('The repo where Accept creates the issue')}>Target:</label>
         <select data-field="targetRepo" data-item="${item.id}">
           ${targetRepoOptions(targetRepo)}
         </select>
       </div>
     </div>
   `;
+}
+
+/** @param {string} why */
+function skipTip(why) {
+  return `${why} Removes the card from the queue and records the reason in History.`;
 }
 
 function renderHistory() {
@@ -1670,6 +1699,16 @@ function renderHistory() {
   let entries = [...state.history.entries];
   if (filter !== 'all') {
     entries = entries.filter((e) => e.decision === filter);
+  }
+
+  const meta = document.getElementById('history-meta');
+  if (meta) {
+    const all = state.history.entries;
+    const createdCount = all.filter((e) => e.decision === 'created').length;
+    const skippedCount = all.filter((e) => e.decision === 'dismissed').length;
+    meta.textContent = all.length
+      ? `${createdCount} issue${createdCount === 1 ? '' : 's'} created · ${skippedCount} skipped`
+      : '';
   }
 
   if (entries.length === 0) {
@@ -1706,8 +1745,8 @@ function renderHistory() {
     html += `
       <details class="history-session">
         <summary class="history-session-header">
-          <span class="history-session-date">${esc(session)}</span>
-          ${versions.map((v) => `<span class="Label Label--secondary">${esc(v)}</span>`).join(' ')}
+          <span class="history-session-date"${tipAttr('Scan date. Decisions are grouped by the scan they were made in.')}>${esc(session)}</span>
+          ${versions.map((v) => `<span class="Label Label--secondary"${tipAttr('Stack version of PRs decided in this scan')}>${esc(v)}</span>`).join(' ')}
           <span class="history-session-stats">${stats}</span>
         </summary>
         <div class="history-session-body">
@@ -1740,7 +1779,7 @@ function renderHistoryEntry(entry) {
 
   return `
     <div class="history-item">
-      ${icon}
+      <span class="tip-help"${tipAttr(isCreated ? 'Issue created' : 'Skipped')}>${icon}</span>
       <span class="history-title">${link}</span>
       <span class="history-meta">${isCreated ? '' : esc(entry.reason || '')}</span>
     </div>
@@ -2613,6 +2652,11 @@ function esc(str) {
   return div.innerHTML;
 }
 
+/** ` data-tip="…"` attribute for the shared tooltip, or '' when there's no text. */
+function tipAttr(text) {
+  return text ? ` data-tip="${esc(text).replaceAll('"', '&quot;')}"` : '';
+}
+
 function formatDate(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr);
@@ -2703,6 +2747,95 @@ function showLoading(show, message = '') {
     msg.textContent = message;
     msg.hidden = !show || !message;
   }
+}
+
+// ── Tooltips ────────────────────────────────────────────
+
+/** @type {HTMLElement | null} */
+let tooltipEl = null;
+/** @type {Element | null} */
+let tooltipTarget = null;
+/** @type {Element | null} */
+let tooltipDescribed = null;
+let tooltipTimer = 0;
+
+function ensureTooltipEl() {
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.id = 'ui-tooltip';
+    tooltipEl.className = 'ui-tooltip';
+    tooltipEl.setAttribute('role', 'tooltip');
+    tooltipEl.hidden = true;
+    document.body.appendChild(tooltipEl);
+  }
+  return tooltipEl;
+}
+
+/**
+ * @param {Element} target element with data-tip
+ * @param {Element} [described] element that gets aria-describedby (the focused control)
+ */
+function showTooltip(target, described = target) {
+  const text = target.getAttribute('data-tip');
+  if (!text) return;
+  hideTooltip();
+  const el = ensureTooltipEl();
+  el.textContent = text;
+  el.classList.remove('ui-tooltip--above');
+  el.hidden = false;
+
+  const margin = 8;
+  const gap = 8;
+  const rect = target.getBoundingClientRect();
+  const width = el.offsetWidth;
+  const height = el.offsetHeight;
+  let top = rect.bottom + gap;
+  if (top + height > window.innerHeight - margin && rect.top - gap - height > margin) {
+    top = rect.top - gap - height;
+    el.classList.add('ui-tooltip--above');
+  }
+  const centerX = rect.left + rect.width / 2;
+  const left = Math.max(margin, Math.min(centerX - width / 2, window.innerWidth - width - margin));
+  el.style.top = `${Math.round(top)}px`;
+  el.style.left = `${Math.round(left)}px`;
+  el.style.setProperty('--tip-arrow-x', `${Math.round(Math.max(10, Math.min(centerX - left, width - 10)))}px`);
+
+  tooltipTarget = target;
+  tooltipDescribed = described;
+  described.setAttribute('aria-describedby', 'ui-tooltip');
+}
+
+function hideTooltip() {
+  clearTimeout(tooltipTimer);
+  if (tooltipEl) tooltipEl.hidden = true;
+  if (tooltipDescribed?.getAttribute('aria-describedby') === 'ui-tooltip') {
+    tooltipDescribed.removeAttribute('aria-describedby');
+  }
+  tooltipTarget = null;
+  tooltipDescribed = null;
+}
+
+function bindTooltips() {
+  document.addEventListener('mouseover', (e) => {
+    const target = e.target instanceof Element ? e.target.closest('[data-tip]') : null;
+    if (target === tooltipTarget) return;
+    hideTooltip();
+    if (target) tooltipTimer = setTimeout(() => showTooltip(target), 250);
+  });
+  document.addEventListener('mouseout', (e) => {
+    if (!e.relatedTarget) hideTooltip();
+  });
+  document.addEventListener('focusin', (e) => {
+    const focused = e.target instanceof Element ? e.target : null;
+    const target = focused?.closest('[data-tip]');
+    if (focused && target && focused.matches(':focus-visible')) showTooltip(target, focused);
+  });
+  document.addEventListener('focusout', hideTooltip);
+  document.addEventListener('mousedown', hideTooltip);
+  document.addEventListener('scroll', hideTooltip, true);
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hideTooltip();
+  });
 }
 
 // ── Toasts ──────────────────────────────────────────────
