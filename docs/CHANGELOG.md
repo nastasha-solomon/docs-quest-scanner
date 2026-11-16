@@ -2,6 +2,8 @@
 
 Notable changes to this fork of Docs Quest Scanner, newest first. For changes made before the fork, see the [upstream repository](https://github.com/florent-leborgne/docs-quest-scanner).
 
+After you pull, check here to see what changed in the review UI and the skill, and whether you need to do anything, such as reinstall the skill. It's quicker to read than the commit log. Because each entry also says whether it stays in the fork or is offered upstream, it's easier to keep the upstream request current and to sync with upstream later.
+
 Each entry says where the change lives:
 
 - **Fork only:** Stays in this fork.
