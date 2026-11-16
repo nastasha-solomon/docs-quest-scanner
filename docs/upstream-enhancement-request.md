@@ -6,7 +6,7 @@
 
 ## Summary
 
-After a scan, the Security, Alerting, and Observability queue is too large to work through card by card. Writers need to narrow it to one release, team, or time window, and then act on many items at once. The **API reference only** view also needs to leave out internal server routes that aren't in the public API yet.
+After a scan, a queue that covers several teams is too large to work through card by card. Writers need to narrow it to one release, team, or time window, and then act on many items at once. The **API reference only** view also needs to leave out internal server routes that aren't in the public API yet.
 
 | Change | What it does | Details |
 |--------|--------------|---------|
@@ -142,7 +142,7 @@ Changes to `templates/skill.md.template` (version 3.15.0) so enriched data keeps
 - **API reference gaps:** For public routes, `docsGap` entries include the OpenAPI operation URL and say "API reference". For internal routes, they use `actionType: review-only` and say the route is internal or not in the public OpenAPI spec, so `docSurface` stays `unknown`.
 - **Public routes still get API analysis:** Step 2a skips API analysis only for purely internal server refactors. Public `/api/...` changes are analyzed even when `needsDocs` is `"no"` (for example, OpenAPI code generation).
 - **`triagePriority`:** Optional. Set it when severity is clear, such as P0 or P1 for breaking changes or major features with `needsDocs: "yes"`. Leave it out when `needsDocs` is `"no"`. Use the same values as the target GitHub Project.
-- **Split enrichment batches:** Batches such as `data/enrichments-batch-a.json` can be merged with `scripts/merge-enrichments.mjs`, which accepts `triagePriority`.
+- **Merge script:** `scripts/merge-enrichments.mjs` accepts `triagePriority`, so the value is kept when split enrichment batches are merged into the queue.
 - **UI reference:** The skill describes the new filters, skip reasons, and bulk actions so agents can explain them.
 
 ### 5. Card badges
@@ -246,8 +246,6 @@ Explains the UI in place, so writers don't need the README open while they triag
 
 These came from the same triage work and are in the fork. They're listed for context and aren't described in detail here.
 
-- Alerting v1/v2 queue repair (`fixAlertingQueue`)
-- Security - Cases vs One Workflow category repair (`resolveSecurityCasesCategoryFromLabels`, `fixSecurityCasesQueueItem`)
 - `excludeLabels` and `excludeTitlePatterns` config
 - Retry on GitHub Search API rate limits
 
@@ -269,6 +267,10 @@ These came from the same triage work and are in the fork. They're listed for con
 ## Merge notes
 
 - **Docs:** The fork's `README.md` and `templates/skill.md.template` already describe these changes. Take them with the code, minus the README's **Fork enhancements** section. Then run `./scripts/setup.sh` to reinstall the skill.
+- **Fork-only changes:** The fork's `main` also has changes that only apply to the fork's own categories, data, or account. Leave these out:
+  - The Alerting v1/v2 and Security Cases category repairs (`fixAlertingQueue`, `fixSecurityCasesQueueItem`, and their use in `pickPreferredCategoryItem`). They're part of `42070fe` and all of `e847654`. Also drop the README's **Re-scan behavior** bullet that mentions them, but keep its point about excludes.
+  - `45fb090`, which adds enrichment batch files from the fork's own triage.
+  - `c069918` and `7829b79`, which add a personal greeting and mascots for the fork owner's account.
 - **Backward compatibility:** Default `autoFocusStackReleases` to `false` and leave `defaultQueueFilters` unset.
 - **Decisions for upstream:**
   - When both `focusStackReleases` and `autoFocusStackReleases` are set, which wins? The fork lets auto win.
@@ -291,19 +293,17 @@ These came from the same triage work and are in the fork. They're listed for con
 12. **Run scan:** The page shows a scanning message, then a toast with new and total counts. Edits and enrichment survive. A second `POST /scan` during a scan returns `409`.
 13. **Enrich:** With unenriched items, the button and the dialog's prompt show the same count. With none, the button reads **All items enriched** and is disabled.
 14. **Help text:** Hover over or tab to a filter label, badge, or button. The tooltip appears below it (above it near the bottom of the window), stays inside the window, and hides on Escape or scroll. With nothing selected, the disabled apply button's tooltip says to select an item first.
-15. **Regression:** `fixAlertingQueue`, excludes, other `GET /queue` consumers, the enrichment merge script, and single-card `POST /create-issue` behave as before.
+15. **Regression:** Excludes still remove matching PRs, and other `GET /queue` consumers, the enrichment merge script, and single-card `POST /create-issue` behave as before.
 
 ## Fork commits
 
 | Commit | Changes |
 |--------|---------|
-| `42070fe` | Alerting v1/v2 queue repair, `excludeLabels` / `excludeTitlePatterns`, GitHub search retry |
+| `42070fe` | `excludeLabels` / `excludeTitlePatterns`, GitHub search retry |
 | `76cfb38` | Assessment, stack release, and doc work filters; `docWorkKind` and `docSurface`; skill 3.15.0 |
 | `3c34d45` | `autoFocusStackReleases`; first version of this document |
 | `0d460da` | Category and priority filters, internal-route `docSurface`, collapsible scan scope, toolbar layout, `triagePriority` |
-| `45fb090` | Sample `data/enrichments-batch-*.json` files for split enrichment |
 | `770d604` | Bulk issue creation, category and priority filter fixes, `create-from-queue` refactor |
-| `e847654` | Security - Cases vs One Workflow category repair |
 | `c5c62a0` | Merged filter, compact toolbar, two new skip reasons |
 | `a1b0b7b` | Bulk action dropdown (accept and skip), README update |
 | `873325e` | Bulk progress bar; UI creates issues one request at a time |
